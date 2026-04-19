@@ -1,0 +1,7 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/.git/
+abhyanvaya-ui/
+**/*.user
+**/*.rsuser
