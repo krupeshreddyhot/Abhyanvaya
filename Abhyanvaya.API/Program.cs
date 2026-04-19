@@ -227,6 +227,8 @@ if (!string.IsNullOrEmpty(portEnv))
 
 var app = builder.Build();
 
+app.UseCors("AllowReact");
+
 var enableSwagger = app.Environment.IsDevelopment()
     || app.Configuration.GetValue<bool>("EnableSwagger");
 if (enableSwagger)
@@ -234,8 +236,6 @@ if (enableSwagger)
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
-app.UseCors("AllowReact");
 if (app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 app.UseStaticFiles();
