@@ -43,6 +43,21 @@ function resolveLoginError(err: unknown, loginMode: LoginMode): string {
     : "Invalid university, college code, username or password.";
 }
 
+/** Institution tab calls GET /auth/universities on load — same connectivity needs as login. */
+function resolveUniversitiesLoadError(err: unknown): string {
+  const apiBase = import.meta.env.VITE_API_BASE_URL ?? "https://localhost:7063/api";
+  if (axios.isAxiosError(err) && (!err.response || err.code === "ERR_NETWORK")) {
+    return `Cannot reach ${apiBase}. Set VITE_API_BASE_URL in your UI build (e.g. Cloudflare Pages) to your live API ending in /api, redeploy, and add this site's origin to Cors__ReactOrigin on the API.`;
+  }
+  if (axios.isAxiosError(err) && err.response) {
+    const st = err.response.status;
+    if (st === 403)
+      return "Request blocked — add this page's URL to Cors__ReactOrigin on the API host.";
+    return `Could not load universities (HTTP ${st}). Check API logs and database connection.`;
+  }
+  return `Unable to load universities. Using API base: ${apiBase}`;
+}
+
 const Login = () => {
   const [loginMode, setLoginMode] = useState<LoginMode>("institution");
   const [username, setUsername] = useState("");
@@ -70,8 +85,8 @@ const Login = () => {
         } else {
           setUniversityCode("");
         }
-      } catch {
-        setError("Unable to reach the server or load universities.");
+      } catch (err) {
+        setError(resolveUniversitiesLoadError(err));
       }
     };
 
