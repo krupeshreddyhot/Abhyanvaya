@@ -10,7 +10,11 @@ import {
   MenuItem,
   ToggleButton,
   ToggleButtonGroup,
+  InputAdornment,
+  IconButton,
 } from "@mui/material";
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { getUniversities, login as loginApi, superAdminLogin, type UniversityOption } from "../services/authService";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -27,6 +31,7 @@ const Login = () => {
   const [universities, setUniversities] = useState<UniversityOption[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -181,13 +186,31 @@ const Login = () => {
 
             <TextField
               label="Password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               variant="outlined"
               size="medium"
               margin="normal"
               fullWidth
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        onClick={() => setShowPassword((v) => !v)}
+                        onMouseDown={(e) => e.preventDefault()}
+                        edge="end"
+                        size="small"
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
             />
 
             {error && (
