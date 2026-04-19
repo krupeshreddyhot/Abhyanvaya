@@ -2,6 +2,8 @@
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "https://localhost:7063/api",
+  /** Render free-tier cold starts can exceed 30s; avoid failing before Kestrel responds */
+  timeout: 120_000,
 });
 
 api.interceptors.request.use((config) => {
