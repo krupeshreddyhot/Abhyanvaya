@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Abhyanvaya.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Abhyanvaya.Application.DTOs.Login;
+using Abhyanvaya.Domain.Enums;
 
 namespace Abhyanvaya.API.Controllers
 {
@@ -12,13 +13,40 @@ namespace Abhyanvaya.API.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly IApplicationDbContext _context;
+        private readonly ApplicationDbContext _context;
         private readonly IJwtService _jwtService;
 
         public AuthController(ApplicationDbContext context, IJwtService jwtService)
         {
             _context = context;
             _jwtService = jwtService;
+        }
+
+        /// <summary>Super Admin: username + password only (no university/college). TenantId claim is 0.</summary>
+        [HttpPost("super-admin-login")]
+        public async Task<IActionResult> SuperAdminLogin([FromBody] SuperAdminLoginRequest request)
+        {
+            var username = request.Username.Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(request.Password))
+                return BadRequest("Username and password are required");
+
+            var user = await _context.Users
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(x =>
+                    !x.IsDeleted &&
+                    x.Username.ToLower() == username &&
+                    x.Role == UserRole.SuperAdmin);
+
+            if (user == null)
+                return Unauthorized("Invalid username or password");
+
+            var hasher = new PasswordHasher<User>();
+            var result = hasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
+            if (result == PasswordVerificationResult.Failed)
+                return Unauthorized("Invalid username or password");
+
+            var token = _jwtService.GenerateToken(user);
+            return Ok(new { token });
         }
 
         [HttpPost("login")]

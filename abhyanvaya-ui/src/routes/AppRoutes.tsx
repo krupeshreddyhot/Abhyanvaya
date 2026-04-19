@@ -3,7 +3,7 @@ import Login from "../pages/Login";
 import Dashboard from "../pages/Dashboard";
 import ProtectedRoute from "./ProtectedRoute";
 import MainLayout from "../layouts/MainLayout";
-import AdminSetup from "../pages/AdminSetup";
+import OrganizationPage from "../pages/OrganizationPage";
 import AttendanceMarking from "../pages/AttendanceMarking";
 import StudentsPage from "../pages/StudentsPage";
 import SetupHub from "../pages/setup/SetupHub";
@@ -16,6 +16,7 @@ import GendersPage from "../pages/setup/GendersPage";
 import MediumsPage from "../pages/setup/MediumsPage";
 import ElectiveGroupsPage from "../pages/setup/ElectiveGroupsPage";
 import ReportsPage from "../pages/ReportsPage";
+import CollegeProfilePage from "../pages/setup/CollegeProfilePage";
 
 const AppRoutes = () => {
   return (
@@ -106,10 +107,18 @@ const AppRoutes = () => {
             }
           />
           <Route
-            path="admin-setup"
+            path="setup/college"
             element={
               <ProtectedRoute allowedRoles={["Admin"]}>
-                <AdminSetup />
+                <CollegeProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="admin-setup"
+            element={
+              <ProtectedRoute allowedRoles={["SuperAdmin"]}>
+                <OrganizationPage />
               </ProtectedRoute>
             }
           />
