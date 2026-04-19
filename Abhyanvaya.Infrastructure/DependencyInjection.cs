@@ -20,7 +20,6 @@ namespace Abhyanvaya.Infrastructure
             services.AddScoped<IJwtService, JwtService>();
             services.AddHttpContextAccessor();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
-            services.AddScoped<ICurrentUserService, CurrentUserService>();
 
             return services;
         }
