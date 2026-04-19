@@ -9,7 +9,7 @@ namespace Abhyanvaya.API.Controllers
 {
     [ApiController]
     [Route("api/dashboard")]
-    [Authorize(Policy = AuthorizationPolicies.TenantScopedUser)]
+    [Authorize]
     public class DashboardController : ControllerBase
     {
         private readonly IApplicationDbContext _context;
@@ -30,8 +30,23 @@ namespace Abhyanvaya.API.Controllers
         }
 
         [HttpGet("overview")]
+        [Authorize(Policy = AuthorizationPolicies.DashboardOverviewAccess)]
         public async Task<IActionResult> GetOverview()
         {
+            if (string.Equals(_currentUser.Role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+            {
+                return Ok(new
+                {
+                    TotalStudents = 0,
+                    TotalSubjects = 0,
+                    TotalAttendance = 0,
+                    TotalPresent = 0,
+                    OverallPercentage = 0d,
+                    TodayPresent = 0,
+                    TodayAbsent = 0
+                });
+            }
+
             var studentsQuery = _context.Students
                 .Where(x => x.TenantId == _currentUser.TenantId);
 
@@ -89,6 +104,7 @@ namespace Abhyanvaya.API.Controllers
         }
 
         [HttpGet("student")]
+        [Authorize(Policy = AuthorizationPolicies.TenantScopedUser)]
         public async Task<IActionResult> GetStudentDashboard()
         {
             var student = await _context.Students
@@ -123,6 +139,7 @@ namespace Abhyanvaya.API.Controllers
             });
         }
         [HttpGet("low-attendance")]
+        [Authorize(Policy = AuthorizationPolicies.TenantScopedUser)]
         public async Task<IActionResult> GetLowAttendance(double threshold = 75)
         {
             var result = await _context.Attendances
@@ -139,6 +156,7 @@ namespace Abhyanvaya.API.Controllers
             return Ok(result);
         }
         [HttpGet("monthly-trend")]
+        [Authorize(Policy = AuthorizationPolicies.TenantScopedUser)]
         public async Task<IActionResult> GetMonthlyTrend(int month, int year)
         {
             var data = await _context.Attendances
@@ -159,6 +177,7 @@ namespace Abhyanvaya.API.Controllers
             return Ok(data);
         }
         [HttpGet("class")]
+        [Authorize(Policy = AuthorizationPolicies.TenantScopedUser)]
         public async Task<IActionResult> GetClassDashboard(int subjectId, DateTime date)
         {
             var utcDate = date.ToUniversalTime();
@@ -192,6 +211,7 @@ namespace Abhyanvaya.API.Controllers
         }
 
         [HttpGet("subject-performance")]
+        [Authorize(Policy = AuthorizationPolicies.TenantScopedUser)]
         public async Task<IActionResult> GetSubjectPerformance(int subjectId)
         {
             var data = await _context.Attendances

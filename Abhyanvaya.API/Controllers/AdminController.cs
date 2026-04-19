@@ -11,7 +11,7 @@ namespace Abhyanvaya.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Policy = AuthorizationPolicies.TenantScopedUser)]
+    [Authorize]
     public class AdminController : ControllerBase
     {
         private readonly IApplicationDbContext _context;
@@ -32,7 +32,7 @@ namespace Abhyanvaya.API.Controllers
         /// List universities for dropdowns (admin UI). Same data as public login list but requires auth.
         /// </summary>
         [HttpGet("universities")]
-        [Authorize(Policy = AuthorizationPolicies.CanManageStudents)]
+        [Authorize(Policy = AuthorizationPolicies.UniversityListAccess)]
         public async Task<IActionResult> GetUniversities()
         {
             var list = await _context.Universities
@@ -50,7 +50,7 @@ namespace Abhyanvaya.API.Controllers
         }
 
         [HttpPost("universities")]
-        [Authorize(Policy = AuthorizationPolicies.CanManageStudents)]
+        [Authorize(Policy = AuthorizationPolicies.SuperAdminOnly)]
         public async Task<IActionResult> CreateUniversity([FromBody] CreateUniversityRequest request)
         {
             var code = request.Code.Trim().ToUpperInvariant();

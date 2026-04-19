@@ -2,6 +2,10 @@
 
 This walks through a **free-tier friendly** layout: **Neon** (PostgreSQL), **Render** (API Docker), **Cloudflare Pages** (static Vite UI). Substitute Netlify/Vercel/Fly.io if you prefer—the env vars stay the same idea.
 
+### First-time database: Super Admin (after `dotnet ef database update`)
+
+A seed user is added by migration `AddSuperAdminUser`: **username** `superadmin`, **password** `SuperAdmin@1` (change in production). Use the login page **Super Admin** mode, then open **Organization** to add universities and provision new college tenants. Institution users use **Institution** login (university + college code + their admin/faculty user).
+
 ---
 
 ## 1. Database (Neon)
@@ -60,10 +64,18 @@ After deploy, note the API URL, e.g. `https://abhyanvaya-api.onrender.com`.
 
 ## 3. Frontend (Cloudflare Pages)
 
-1. **New project** → connect Git → set **framework**: None (or Vite).
-2. **Root directory**: `abhyanvaya-ui`
-3. **Build command**: `npm ci && npm run build`
-4. **Output directory**: `dist`
+Cloudflare merged **Pages** into **Workers & Pages** — there is no separate “Pages” item in the sidebar anymore.
+
+1. In the dashboard go to **Build → Compute → Workers & Pages**.
+2. Click **Create application**.
+3. Choose **Pages** / **Deploy a web app** / **Connect to Git** (static or framework)—**not** a bare Worker template that only runs **`npx wrangler deploy`**.
+4. Connect your Git repo and pick the **Pages** flow. For **Framework preset**, choose **None** if **Vite** is not listed (**VitePress** is only for VitePress docs sites—not this React app). You will set build/output manually in the next steps.
+5. **Project name**: must be **only** `a-z`, `0-9`, and `-` (e.g. `abhyanvaya-ui`). Names like `Abhyanvaya` are rejected and can block the form until fixed.
+6. **Root directory**: `abhyanvaya-ui`
+7. **Build command**: `npm ci && npm run build` (or `npm run build`)
+8. **Build output directory**: `dist`
+
+If fields feel “stuck”, fix the **project name** error first (red validation text). Wrong product type (Worker vs Pages) also shows **`npx wrangler deploy`** only—switch to a **Pages** setup with framework **None** and manual build/output (`npm run build`, `dist`).
 
 ### Build environment variable
 

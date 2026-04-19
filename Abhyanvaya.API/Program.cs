@@ -10,7 +10,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Security.Claims;
 using System.Text;
+using Abhyanvaya.Domain.Enums;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -123,6 +125,45 @@ builder.Services.AddAuthorization(options =>
         policy.RequireAuthenticatedUser();
         policy.RequireRole("Admin", "Faculty");
         policy.AddRequirements(new HasTenantRequirement());
+    });
+
+    options.AddPolicy(AuthorizationPolicies.SuperAdminOnly, policy =>
+        policy.RequireAuthenticatedUser().RequireRole(nameof(UserRole.SuperAdmin)));
+
+    options.AddPolicy(AuthorizationPolicies.TenantScopedAdmin, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole(nameof(UserRole.Admin));
+        policy.AddRequirements(new HasTenantRequirement());
+    });
+
+    options.AddPolicy(AuthorizationPolicies.UniversityListAccess, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                return true;
+            return string.Equals(role, nameof(UserRole.Admin), StringComparison.OrdinalIgnoreCase)
+                   && int.TryParse(ctx.User.FindFirst("TenantId")?.Value, out var tid)
+                   && tid > 0;
+        });
+    });
+
+    options.AddPolicy(AuthorizationPolicies.DashboardOverviewAccess, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                return true;
+            return int.TryParse(ctx.User.FindFirst("TenantId")?.Value, out var tid)
+                   && tid > 0
+                   && (string.Equals(role, nameof(UserRole.Admin), StringComparison.OrdinalIgnoreCase)
+                       || string.Equals(role, nameof(UserRole.Faculty), StringComparison.OrdinalIgnoreCase));
+        });
     });
 });
 builder.Services.AddSingleton<IAuthorizationHandler, HasTenantHandler>();

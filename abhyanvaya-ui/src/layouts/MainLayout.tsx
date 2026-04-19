@@ -48,12 +48,12 @@ const MainLayout = () => {
   const userRole = (user?.role ?? "").toLowerCase();
 
   const menuItems: MenuItem[] = [
-    { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard", allowedRoles: ["admin", "faculty", "student"] },
+    { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard", allowedRoles: ["admin", "faculty", "student", "superadmin"] },
     { text: "Students", icon: <PeopleIcon />, path: "/students", allowedRoles: ["admin"] },
     { text: "Attendance", icon: <EventNoteIcon />, path: "/attendance", allowedRoles: ["admin", "faculty"] },
     { text: "Reports", icon: <BarChartIcon />, path: "/reports", allowedRoles: ["admin", "faculty"] },
     { text: "Catalog", icon: <CategoryIcon />, path: "/setup", allowedRoles: ["admin"] },
-    { text: "Organization", icon: <BusinessIcon />, path: "/admin-setup", allowedRoles: ["admin"] },
+    { text: "Organization", icon: <BusinessIcon />, path: "/admin-setup", allowedRoles: ["superadmin"] },
   ];
 
   const visibleMenuItems = menuItems.filter((item) => item.allowedRoles.includes(userRole));

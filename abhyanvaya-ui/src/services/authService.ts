@@ -22,3 +22,10 @@ export const login = async (
     password,
   });
 };
+
+export const superAdminLogin = async (username: string, password: string) => {
+  return await api.post<{ token: string }>("/auth/super-admin-login", {
+    username,
+    password,
+  });
+};

@@ -8,13 +8,18 @@ import {
   Paper,
   CircularProgress,
   MenuItem,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
-import { getUniversities, login as loginApi, type UniversityOption } from "../services/authService";
+import { getUniversities, login as loginApi, superAdminLogin, type UniversityOption } from "../services/authService";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 
+type LoginMode = "institution" | "superadmin";
+
 const Login = () => {
+  const [loginMode, setLoginMode] = useState<LoginMode>("institution");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [universityCode, setUniversityCode] = useState("");
@@ -27,20 +32,25 @@ const Login = () => {
   const { login } = useAuth();
 
   useEffect(() => {
+    setError("");
+    if (loginMode !== "institution") return;
+
     const loadUniversities = async () => {
       try {
         const res = await getUniversities();
         setUniversities(res.data);
         if (res.data.length > 0) {
           setUniversityCode(res.data[0].code);
+        } else {
+          setUniversityCode("");
         }
       } catch {
-        setError("Failed to load universities");
+        setError("Unable to reach the server or load universities.");
       }
     };
 
     void loadUniversities();
-  }, []);
+  }, [loginMode]);
 
   const handleLogin = async () => {
     if (loading) return;
@@ -49,11 +59,27 @@ const Login = () => {
     setError("");
 
     try {
+      if (loginMode === "superadmin") {
+        const res = await superAdminLogin(username, password);
+        login(res.data.token);
+        navigate("/dashboard");
+        return;
+      }
+
+      if (universities.length === 0) {
+        setError("No universities are registered yet. A Super Admin must sign in and create universities under Organization.");
+        return;
+      }
+
       const res = await loginApi(universityCode, collegeCode, username, password);
       login(res.data.token);
       navigate("/dashboard");
     } catch {
-      setError("Invalid university, college code, username or password");
+      setError(
+        loginMode === "superadmin"
+          ? "Invalid Super Admin username or password."
+          : "Invalid university, college code, username or password.",
+      );
     } finally {
       setLoading(false);
     }
@@ -82,9 +108,22 @@ const Login = () => {
             Abhyanvaya
           </Typography>
 
-          <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 3 }}>
+          <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 2 }}>
             Attendance Management System
           </Typography>
+
+          <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={loginMode}
+              onChange={(_, v) => v && setLoginMode(v)}
+              color="primary"
+            >
+              <ToggleButton value="institution">Institution</ToggleButton>
+              <ToggleButton value="superadmin">Super Admin</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
 
           <Box
             sx={{
@@ -93,32 +132,42 @@ const Login = () => {
               gap: 2,
             }}
           >
-            <TextField
-              select
-              label="University"
-              variant="outlined"
-              size="medium"
-              margin="normal"
-              fullWidth
-              value={universityCode}
-              onChange={(e) => setUniversityCode(e.target.value)}
-            >
-              {universities.map((u) => (
-                <MenuItem key={u.code} value={u.code}>
-                  {u.name}
-                </MenuItem>
-              ))}
-            </TextField>
+            {loginMode === "institution" && (
+              <>
+                <TextField
+                  select
+                  label="University"
+                  variant="outlined"
+                  size="medium"
+                  margin="normal"
+                  fullWidth
+                  value={universityCode}
+                  onChange={(e) => setUniversityCode(e.target.value)}
+                  disabled={universities.length === 0}
+                  helperText={
+                    universities.length === 0
+                      ? "No universities yet — use Super Admin to add organizations."
+                      : undefined
+                  }
+                >
+                  {universities.map((u) => (
+                    <MenuItem key={u.code} value={u.code}>
+                      {u.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
 
-            <TextField
-              label="College Code"
-              variant="outlined"
-              size="medium"
-              margin="normal"
-              fullWidth
-              value={collegeCode}
-              onChange={(e) => setCollegeCode(e.target.value.toUpperCase())}
-            />
+                <TextField
+                  label="College Code"
+                  variant="outlined"
+                  size="medium"
+                  margin="normal"
+                  fullWidth
+                  value={collegeCode}
+                  onChange={(e) => setCollegeCode(e.target.value.toUpperCase())}
+                />
+              </>
+            )}
 
             <TextField
               label="Username"
@@ -147,7 +196,7 @@ const Login = () => {
               </Typography>
             )}
 
-            <Button type="button" variant="contained" size="large" fullWidth onClick={handleLogin}>
+            <Button type="button" variant="contained" size="large" fullWidth onClick={() => void handleLogin()}>
               {loading ? <CircularProgress size={24} color="inherit" /> : "Login"}
             </Button>
           </Box>
@@ -158,4 +207,3 @@ const Login = () => {
 };
 
 export default Login;
-

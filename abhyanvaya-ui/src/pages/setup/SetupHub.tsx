@@ -1,6 +1,7 @@
 import { Link as RouterLink } from "react-router-dom";
 import { Box, Button, Card, CardActionArea, CardContent, Typography, Stack } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { useAuth } from "../../context/AuthContext";
 
 const links: { to: string; title: string; description: string }[] = [
   { to: "/setup/courses", title: "Courses", description: "Programmes or streams" },
@@ -14,6 +15,9 @@ const links: { to: string; title: string; description: string }[] = [
 ];
 
 const SetupHub = () => {
+  const role = (useAuth().user?.role ?? "").toLowerCase();
+  const isAdmin = role === "admin";
+
   return (
     <Stack spacing={3}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
@@ -26,20 +30,28 @@ const SetupHub = () => {
       </Box>
 
       <Typography variant="body1" color="text.secondary">
-        Maintain reference data used across students, attendance, and reports. For college profile, branding, and bulk
-        import, use Organization.
+        Maintain reference data used across students, attendance, and reports.
+        {isAdmin && (
+          <>
+            {" "}
+            Edit your college profile or import students under <strong>College profile</strong>.
+          </>
+        )}
       </Typography>
 
-      <Card variant="outlined">
-        <CardActionArea component={RouterLink} to="/admin-setup">
-          <CardContent>
-            <Typography variant="h6">Organization</Typography>
-            <Typography variant="body2" color="text.secondary">
-              College details, university, parent college, logo, student Excel import
-            </Typography>
-          </CardContent>
-        </CardActionArea>
-      </Card>
+      {isAdmin && (
+        <Card variant="outlined">
+          <CardActionArea component={RouterLink} to="/setup/college">
+            <CardContent>
+              <Typography variant="h6">College profile</Typography>
+              <Typography variant="body2" color="text.secondary">
+                College name, code, university linkage, branding, Excel student import (edit only — no new college
+                tenant here)
+              </Typography>
+            </CardContent>
+          </CardActionArea>
+        </Card>
+      )}
 
       <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
         Reference lists

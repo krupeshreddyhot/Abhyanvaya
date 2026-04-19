@@ -61,3 +61,33 @@ export const uploadTenantCollegeLogo = async (file: File) => {
   form.append("file", file);
   return await api.post<{ message: string }>("/admin/tenant-college/logo", form);
 };
+
+export type ProvisionedCollegeDto = {
+  tenantId: number;
+  collegeId: number;
+  collegeCode: string;
+  collegeName: string;
+  universityCode: string;
+};
+
+export type ProvisionCollegePayload = {
+  universityId: number;
+  collegeName: string;
+  collegeCode: string;
+  parentCollegeId?: number;
+  adminUsername: string;
+  adminPassword: string;
+};
+
+/** Super Admin — create tenant + college + first admin. */
+export const provisionCollege = async (payload: ProvisionCollegePayload) => {
+  return await api.post<ProvisionedCollegeDto>("/organization/colleges", payload);
+};
+
+/** Super Admin — parent college list for provisioning (no tenant college required). */
+export const getOrganizationParentCollegeOptions = async (universityId: number) => {
+  return await api.get<Array<{ id: number; name: string; code: string; shortName?: string | null }>>(
+    "/organization/parent-college-options",
+    { params: { universityId } },
+  );
+};
