@@ -13,6 +13,7 @@ using Microsoft.OpenApi.Models;
 using System.Security.Claims;
 using System.Text;
 using Abhyanvaya.Domain.Enums;
+using System.Linq;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -193,14 +194,30 @@ builder.Services.AddScoped<RedisCacheService>();
 builder.Services.AddScoped<ICacheService, SmartCacheService>();
 
 var corsOriginsRaw = builder.Configuration["Cors:ReactOrigin"] ?? "http://localhost:5173";
-var corsOrigins = corsOriginsRaw.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+var corsAllowed = corsOriginsRaw
+    .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+var allowCloudflarePages = builder.Configuration.GetValue<bool>("Cors:AllowCloudflarePages");
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReact", policy =>
     {
-        policy.WithOrigins(corsOrigins)
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+        policy.SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrEmpty(origin))
+                    return false;
+                if (corsAllowed.Contains(origin))
+                    return true;
+                if (allowCloudflarePages
+                    && Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+                    && uri.Scheme == Uri.UriSchemeHttps
+                    && uri.Host.EndsWith(".pages.dev", StringComparison.OrdinalIgnoreCase))
+                    return true;
+                return false;
+            })
+            .AllowAnyHeader()
+            .AllowAnyMethod();
     });
 });
 
