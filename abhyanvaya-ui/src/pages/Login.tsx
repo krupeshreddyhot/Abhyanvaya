@@ -146,7 +146,7 @@ const Login = () => {
           </Typography>
 
           <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 2 }}>
-            Attendance Management System
+              Institute Management System
           </Typography>
 
           <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
