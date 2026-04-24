@@ -52,7 +52,16 @@ const AttendanceMarking = () => {
   const [groupId, setGroupId] = useState(0);
   const [semesterId, setSemesterId] = useState(0);
   const [subjectId, setSubjectId] = useState(0);
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  /** YYYY-MM-DD in the user's local calendar (date input); never use toISOString().slice(0,10) here — that is UTC date. */
+  const [date, setDate] = useState(() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  });
+
+  const attendanceDateIsoUtc = () => new Date(`${date}T00:00:00`).toISOString();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
 
@@ -149,7 +158,7 @@ const AttendanceMarking = () => {
         groupId,
         semesterId,
         subjectId,
-        date,
+        date: attendanceDateIsoUtc(),
         search: search || undefined,
         pageNumber: targetPage,
         pageSize,
@@ -225,7 +234,7 @@ const AttendanceMarking = () => {
         groupId,
         semesterId,
         subjectId,
-        date,
+        date: attendanceDateIsoUtc(),
         pageNumber: page,
         pageSize: rosterPageSize,
       });
@@ -281,7 +290,7 @@ const AttendanceMarking = () => {
       const map = statusMap;
       const payload = {
         subjectId,
-        date: new Date(`${date}T00:00:00`).toISOString(),
+        date: attendanceDateIsoUtc(),
         students: allStudents.map((s) => ({
           studentNumber: s.studentNumber,
           status: resolveStatus(s, map),
