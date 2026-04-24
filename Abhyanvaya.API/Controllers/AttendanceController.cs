@@ -17,15 +17,28 @@ namespace Abhyanvaya.API.Controllers
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUser;
         private readonly ILogger<AttendanceController> _logger;
+        private readonly IConfiguration _configuration;
 
         public AttendanceController(
             IApplicationDbContext context,
             ICurrentUserService currentUser,
-            ILogger<AttendanceController> logger)
+            ILogger<AttendanceController> logger,
+            IConfiguration configuration)
         {
             _context = context;
             _currentUser = currentUser;
             _logger = logger;
+            _configuration = configuration;
+        }
+
+        private TimeZoneInfo ReportingTz =>
+            ReportingCalendar.ResolveReportingTimeZone(_configuration["Dashboard:ReportingTimeZoneId"]);
+
+        /// <summary>UTC half-open range [start, end) for the reporting calendar day implied by the client date.</summary>
+        private (DateTime StartUtcInclusive, DateTime EndUtcExclusive) ReportingDayRange(DateTime clientDateTime)
+        {
+            var utc = ReportingCalendar.NormalizeToUtc(clientDateTime);
+            return ReportingCalendar.GetUtcRangeForReportingDayContainingUtc(utc, ReportingTz);
         }
 
         [HttpPost("mark")]
@@ -34,9 +47,10 @@ namespace Abhyanvaya.API.Controllers
             if (request?.Students == null || !request.Students.Any())
                 return BadRequest("Students list is required");
 
-            var utcDate = request.Date.ToUniversalTime();
-
-            if (utcDate.Date > DateTime.UtcNow.Date)
+            var (dayStartUtc, dayEndUtc) = ReportingDayRange(request.Date);
+            var localToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, ReportingTz).Date;
+            var localSelected = TimeZoneInfo.ConvertTimeFromUtc(dayStartUtc, ReportingTz).Date;
+            if (localSelected > localToday)
                 return BadRequest("Cannot mark future attendance");
 
             var subject = await _context.Subjects
@@ -79,7 +93,8 @@ namespace Abhyanvaya.API.Controllers
             var alreadyExists = await _context.Attendances
                 .AnyAsync(x =>
                     x.SubjectId == request.SubjectId &&
-                    x.Date.Date == utcDate.Date &&
+                    x.Date >= dayStartUtc &&
+                    x.Date < dayEndUtc &&
                     x.TenantId == _currentUser.TenantId);
 
             if (alreadyExists)
@@ -92,7 +107,8 @@ namespace Abhyanvaya.API.Controllers
             var locked = await _context.Attendances
                 .AnyAsync(x =>
                     x.SubjectId == request.SubjectId &&
-                    x.Date.Date == utcDate.Date &&
+                    x.Date >= dayStartUtc &&
+                    x.Date < dayEndUtc &&
                     x.IsLocked &&
                     x.TenantId == _currentUser.TenantId);
 
@@ -123,7 +139,8 @@ namespace Abhyanvaya.API.Controllers
             var existingRecords = await _context.Attendances
                 .Where(x =>
                     x.SubjectId == request.SubjectId &&
-                    x.Date.Date == utcDate.Date &&
+                    x.Date >= dayStartUtc &&
+                    x.Date < dayEndUtc &&
                     x.TenantId == _currentUser.TenantId)
                 .Select(x => x.StudentId)
                 .ToListAsync();
@@ -144,7 +161,7 @@ namespace Abhyanvaya.API.Controllers
                 {
                     StudentId = stu.Id,
                     SubjectId = request.SubjectId,
-                    Date = utcDate,
+                    Date = dayStartUtc,
                     Status = dto.Status,
                     TenantId = _currentUser.TenantId
                 });
@@ -163,7 +180,7 @@ namespace Abhyanvaya.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAttendance(int subjectId, DateTime date)
         {
-            var utcDate = date.ToUniversalTime();
+            var (dayStartUtc, dayEndUtc) = ReportingDayRange(date);
 
             var subject = await _context.Subjects
                 .AsNoTracking()
@@ -175,7 +192,8 @@ namespace Abhyanvaya.API.Controllers
             var query = _context.Attendances
                 .Where(x => x.TenantId == _currentUser.TenantId &&
                             x.SubjectId == subjectId &&
-                            x.Date.Date == utcDate);
+                            x.Date >= dayStartUtc &&
+                            x.Date < dayEndUtc);
 
             query = ApplyLanguageSubjectFilterForAttendance(query, subject);
 
@@ -258,7 +276,7 @@ namespace Abhyanvaya.API.Controllers
                     (x.AlternateMobileNumber != null && x.AlternateMobileNumber.ToLower().Contains(s)));
             }
 
-            var utcDate = date.ToUniversalTime().Date;
+            var (dayStartUtc, dayEndUtc) = ReportingDayRange(date);
             var tenantId = _currentUser.TenantId;
 
             // Present first (for the selected subject + date), then name A–Z
@@ -267,7 +285,8 @@ namespace Abhyanvaya.API.Controllers
                     a.TenantId == tenantId &&
                     a.SubjectId == subjectId &&
                     a.StudentId == s.Id &&
-                    a.Date.Date == utcDate &&
+                    a.Date >= dayStartUtc &&
+                    a.Date < dayEndUtc &&
                     a.Status == AttendanceStatus.Present))
                 .ThenBy(s => s.Name);
 
@@ -292,7 +311,8 @@ namespace Abhyanvaya.API.Controllers
                 .Where(x =>
                     x.TenantId == _currentUser.TenantId &&
                     x.SubjectId == subjectId &&
-                    x.Date.Date == utcDate)
+                    x.Date >= dayStartUtc &&
+                    x.Date < dayEndUtc)
                 .Select(x => new
                 {
                     x.StudentId,
@@ -334,7 +354,7 @@ namespace Abhyanvaya.API.Controllers
         [HttpPost("lock")]
         public async Task<IActionResult> LockAttendance(int subjectId, DateTime date)
         {
-            var utcDate = date.ToUniversalTime();
+            var (dayStartUtc, dayEndUtc) = ReportingDayRange(date);
 
             var subject = await _context.Subjects
                 .AsNoTracking()
@@ -348,7 +368,8 @@ namespace Abhyanvaya.API.Controllers
             var recordsQuery = _context.Attendances
                 .Where(x =>
                     x.SubjectId == subjectId &&
-                    x.Date.Date == utcDate.Date &&
+                    x.Date >= dayStartUtc &&
+                    x.Date < dayEndUtc &&
                     x.TenantId == _currentUser.TenantId);
 
             recordsQuery = ApplyLanguageSubjectFilterForAttendance(recordsQuery, subject);
@@ -371,7 +392,7 @@ namespace Abhyanvaya.API.Controllers
         [HttpPut("edit")]
         public async Task<IActionResult> EditAttendance(EditAttendanceRequest request)
         {
-            var utcDate = request.Date.ToUniversalTime();
+            var (dayStartUtc, dayEndUtc) = ReportingDayRange(request.Date);
 
             var subject = await _context.Subjects
                 .AsNoTracking()
@@ -385,7 +406,8 @@ namespace Abhyanvaya.API.Controllers
             var recordsQuery = _context.Attendances
                 .Where(x =>
                     x.SubjectId == request.SubjectId &&
-                    x.Date.Date == utcDate.Date &&
+                    x.Date >= dayStartUtc &&
+                    x.Date < dayEndUtc &&
                     x.TenantId == _currentUser.TenantId);
 
             recordsQuery = ApplyLanguageSubjectFilterForAttendance(recordsQuery, subject);
