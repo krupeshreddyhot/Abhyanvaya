@@ -1,11 +1,12 @@
 using Abhyanvaya.API.Common;
 using Abhyanvaya.Application.Common.Interfaces;
 using Amazon;
-using Amazon.Runtime;
 using Amazon.S3;
+using Amazon.Runtime;
 using Amazon.S3.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using System.Net.Http;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 
@@ -132,6 +133,10 @@ public class CollegeBrandingService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to process college logo for tenant {TenantId}", tenantId);
+            if (ex is AmazonS3Exception || ex is HttpRequestException)
+            {
+                return (false, "Storage upload failed. Verify Branding S3 endpoint/region/bucket credentials on server.");
+            }
             return (false, "Could not read or resize the image. Try another file.");
         }
     }
@@ -170,7 +175,7 @@ public class CollegeBrandingService
             ForcePathStyle = forcePathStyle,
         };
         if (!string.IsNullOrWhiteSpace(endpoint))
-            cfg.ServiceURL = endpoint;
+            cfg.ServiceURL = NormalizeServiceUrl(endpoint);
         if (!string.IsNullOrWhiteSpace(regionName))
             cfg.RegionEndpoint = RegionEndpoint.GetBySystemName(regionName);
 
@@ -180,16 +185,40 @@ public class CollegeBrandingService
 
         await using var ms = new MemoryStream(content);
         var keyPath = $"{key:D}/{variant}.webp";
-        await s3.PutObjectAsync(new PutObjectRequest
+        try
         {
-            BucketName = bucket,
-            Key = keyPath,
-            InputStream = ms,
-            ContentType = "image/webp",
-            Headers =
+            await s3.PutObjectAsync(new PutObjectRequest
             {
-                CacheControl = "public,max-age=86400",
-            },
-        }, cancellationToken);
+                BucketName = bucket,
+                Key = keyPath,
+                InputStream = ms,
+                ContentType = "image/webp",
+                Headers =
+                {
+                    CacheControl = "public,max-age=86400",
+                },
+            }, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "S3 upload failed for branding key {KeyPath}. Bucket={Bucket}, Endpoint={Endpoint}, Region={Region}, ForcePathStyle={ForcePathStyle}",
+                keyPath,
+                bucket,
+                string.IsNullOrWhiteSpace(endpoint) ? "<aws-default>" : NormalizeServiceUrl(endpoint),
+                string.IsNullOrWhiteSpace(regionName) ? "<none>" : regionName,
+                forcePathStyle);
+            throw;
+        }
+    }
+
+    private static string NormalizeServiceUrl(string endpoint)
+    {
+        var trimmed = endpoint.Trim();
+        if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return trimmed;
+        return $"https://{trimmed}";
     }
 }
