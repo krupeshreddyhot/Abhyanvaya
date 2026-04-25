@@ -1,3 +1,4 @@
+using Abhyanvaya.API.Common;
 using Abhyanvaya.Application.Common.Interfaces;
 using Amazon;
 using Amazon.Runtime;
@@ -90,7 +91,9 @@ public class CollegeBrandingService
             var mdBytes = await BuildVariantBytesAsync(image, 128, cancellationToken);
             var lgBytes = await BuildVariantBytesAsync(image, 256, cancellationToken);
 
-            var provider = (_configuration["Branding:Provider"] ?? ProviderLocal).Trim().ToLowerInvariant();
+            var provider = (BrandingSettingsResolver.Get(_configuration, "Branding:Provider") ?? ProviderLocal)
+                .Trim()
+                .ToLowerInvariant();
             if (provider == ProviderS3)
             {
                 await UploadS3Async(key, "sm", smBytes, cancellationToken);
@@ -138,15 +141,16 @@ public class CollegeBrandingService
 
     private async Task UploadS3Async(Guid key, string variant, byte[] content, CancellationToken cancellationToken)
     {
-        var bucket = _configuration["Branding:S3:Bucket"]?.Trim();
+        var bucket = BrandingSettingsResolver.Get(_configuration, "Branding:S3:Bucket");
         if (string.IsNullOrWhiteSpace(bucket))
             throw new InvalidOperationException("Branding:S3:Bucket is required when Branding:Provider=s3.");
 
-        var endpoint = _configuration["Branding:S3:Endpoint"]?.Trim();
-        var regionName = _configuration["Branding:S3:Region"]?.Trim();
-        var accessKey = _configuration["Branding:S3:AccessKeyId"]?.Trim();
-        var secretKey = _configuration["Branding:S3:SecretAccessKey"]?.Trim();
-        var forcePathStyle = bool.TryParse(_configuration["Branding:S3:ForcePathStyle"], out var fps) && fps;
+        var endpoint = BrandingSettingsResolver.Get(_configuration, "Branding:S3:Endpoint");
+        var regionName = BrandingSettingsResolver.Get(_configuration, "Branding:S3:Region");
+        var accessKey = BrandingSettingsResolver.Get(_configuration, "Branding:S3:AccessKeyId");
+        var secretKey = BrandingSettingsResolver.Get(_configuration, "Branding:S3:SecretAccessKey");
+        var forcePathStyleValue = BrandingSettingsResolver.Get(_configuration, "Branding:S3:ForcePathStyle");
+        var forcePathStyle = bool.TryParse(forcePathStyleValue, out var fps) && fps;
 
         var cfg = new AmazonS3Config
         {

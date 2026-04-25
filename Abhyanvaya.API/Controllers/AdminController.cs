@@ -133,7 +133,7 @@ namespace Abhyanvaya.API.Controllers
             if (college == null)
                 return NotFound("No college profile for this tenant. Create one via onboarding or support.");
 
-            return Ok(MapTenantCollege(college, _configuration["Branding:PublicBaseUrl"]));
+            return Ok(MapTenantCollege(college, BrandingSettingsResolver.Get(_configuration, "Branding:PublicBaseUrl")));
         }
 
         /// <summary>
