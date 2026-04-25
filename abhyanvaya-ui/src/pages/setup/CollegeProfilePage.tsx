@@ -176,10 +176,16 @@ const CollegeProfilePage = () => {
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         const d = err.response?.data;
-        setLogoError(
+        const msg =
           typeof d === "string"
             ? d
-            : "Unable to upload logo. Use JPEG, PNG, GIF, or WebP under 5 MB."
+            : typeof d?.message === "string"
+              ? d.message
+              : typeof d?.title === "string"
+                ? d.title
+                : null;
+        setLogoError(
+          msg ?? "Unable to upload logo. Use JPEG, PNG, GIF, or WebP under 5 MB."
         );
       } else {
         setLogoError("Unable to upload logo. Use JPEG, PNG, GIF, or WebP under 5 MB.");
