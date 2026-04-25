@@ -8,6 +8,9 @@ using Abhyanvaya.Infrastructure;
 using Abhyanvaya.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Security.Claims;
@@ -238,7 +241,33 @@ if (enableSwagger)
 }
 if (app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
-app.UseStaticFiles();
+
+void AddPublicBrandingHeaders(StaticFileResponseContext ctx)
+{
+    ctx.Context.Response.Headers.Append("Cache-Control", "public,max-age=86400");
+    ctx.Context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
+}
+
+var brandingPhysical = app.Configuration["Branding:PhysicalRoot"]?.Trim();
+if (!string.IsNullOrEmpty(brandingPhysical))
+{
+    Directory.CreateDirectory(brandingPhysical);
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(brandingPhysical),
+        RequestPath = "/branding",
+        OnPrepareResponse = AddPublicBrandingHeaders,
+    });
+}
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        if (ctx.Context.Request.Path.StartsWithSegments("/branding", StringComparison.OrdinalIgnoreCase))
+            AddPublicBrandingHeaders(ctx);
+    },
+});
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

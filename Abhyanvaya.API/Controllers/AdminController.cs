@@ -17,15 +17,18 @@ namespace Abhyanvaya.API.Controllers
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUser;
         private readonly CollegeBrandingService _branding;
+        private readonly IConfiguration _configuration;
 
         public AdminController(
             IApplicationDbContext context,
             ICurrentUserService currentUser,
-            CollegeBrandingService branding)
+            CollegeBrandingService branding,
+            IConfiguration configuration)
         {
             _context = context;
             _currentUser = currentUser;
             _branding = branding;
+            _configuration = configuration;
         }
 
         /// <summary>
@@ -130,7 +133,7 @@ namespace Abhyanvaya.API.Controllers
             if (college == null)
                 return NotFound("No college profile for this tenant. Create one via onboarding or support.");
 
-            return Ok(MapTenantCollege(college));
+            return Ok(MapTenantCollege(college, _configuration["Branding:PublicBaseUrl"]));
         }
 
         /// <summary>
@@ -214,7 +217,7 @@ namespace Abhyanvaya.API.Controllers
             return Ok();
         }
 
-        private static TenantCollegeDto MapTenantCollege(College college)
+        private static TenantCollegeDto MapTenantCollege(College college, string? brandingPublicBaseUrl)
         {
             return new TenantCollegeDto
             {
@@ -227,9 +230,9 @@ namespace Abhyanvaya.API.Controllers
                 UniversityName = college.University.Name,
                 ParentCollegeId = college.ParentCollegeId,
                 ParentCollegeName = college.ParentCollege?.Name,
-                LogoSmPath = CollegeBrandingService.BuildLogoPath(college.LogoAccessKey, college.LogoUpdatedUtc, "sm"),
-                LogoMdPath = CollegeBrandingService.BuildLogoPath(college.LogoAccessKey, college.LogoUpdatedUtc, "md"),
-                LogoLgPath = CollegeBrandingService.BuildLogoPath(college.LogoAccessKey, college.LogoUpdatedUtc, "lg"),
+                LogoSmPath = CollegeBrandingService.BuildLogoPath(college.LogoAccessKey, college.LogoUpdatedUtc, "sm", brandingPublicBaseUrl),
+                LogoMdPath = CollegeBrandingService.BuildLogoPath(college.LogoAccessKey, college.LogoUpdatedUtc, "md", brandingPublicBaseUrl),
+                LogoLgPath = CollegeBrandingService.BuildLogoPath(college.LogoAccessKey, college.LogoUpdatedUtc, "lg", brandingPublicBaseUrl),
             };
         }
     }

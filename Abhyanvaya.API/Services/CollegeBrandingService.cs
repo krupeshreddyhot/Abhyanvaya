@@ -1,5 +1,10 @@
 using Abhyanvaya.Application.Common.Interfaces;
+using Amazon;
+using Amazon.Runtime;
+using Amazon.S3;
+using Amazon.S3.Model;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 
@@ -10,6 +15,8 @@ namespace Abhyanvaya.API.Services;
 /// </summary>
 public class CollegeBrandingService
 {
+    private const string ProviderLocal = "local";
+    private const string ProviderS3 = "s3";
     private const long MaxBytes = 5 * 1024 * 1024;
     private static readonly HashSet<string> AllowedTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -21,24 +28,40 @@ public class CollegeBrandingService
 
     private readonly IApplicationDbContext _context;
     private readonly IWebHostEnvironment _env;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<CollegeBrandingService> _logger;
 
     public CollegeBrandingService(
         IApplicationDbContext context,
         IWebHostEnvironment env,
+        IConfiguration configuration,
         ILogger<CollegeBrandingService> logger)
     {
         _context = context;
         _env = env;
+        _configuration = configuration;
         _logger = logger;
     }
 
-    public static string? BuildLogoPath(Guid? accessKey, DateTime? updatedUtc, string variant)
+    /// <summary>Filesystem directory for local branding provider.</summary>
+    public string ResolveBrandingDirectory()
+    {
+        var configured = _configuration["Branding:PhysicalRoot"]?.Trim();
+        if (!string.IsNullOrEmpty(configured))
+            return configured;
+        var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
+        return Path.Combine(webRoot, "branding");
+    }
+
+    public static string? BuildLogoPath(Guid? accessKey, DateTime? updatedUtc, string variant, string? publicBaseUrl = null)
     {
         if (accessKey is null || updatedUtc is null)
             return null;
         var v = new DateTimeOffset(DateTime.SpecifyKind(updatedUtc.Value, DateTimeKind.Utc)).ToUnixTimeSeconds();
-        return $"/branding/{accessKey:D}/{variant}.webp?v={v}";
+        if (string.IsNullOrWhiteSpace(publicBaseUrl))
+            return $"/branding/{accessKey:D}/{variant}.webp?v={v}";
+        var trimmed = publicBaseUrl.Trim().TrimEnd('/');
+        return $"{trimmed}/{accessKey:D}/{variant}.webp?v={v}";
     }
 
     public async Task<(bool Ok, string? Error)> SaveLogoForTenantAsync(int tenantId, IFormFile file, CancellationToken cancellationToken)
@@ -56,21 +79,34 @@ public class CollegeBrandingService
         if (college is null)
             return (false, "College profile not found for this tenant.");
 
-        var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
-        Directory.CreateDirectory(webRoot);
-
         var key = college.LogoAccessKey ?? Guid.NewGuid();
-        var dir = Path.Combine(webRoot, "branding", key.ToString("D"));
-        Directory.CreateDirectory(dir);
 
         try
         {
             await using var input = file.OpenReadStream();
             using var image = await Image.LoadAsync(input, cancellationToken);
 
-            await SaveVariantAsync(image, Path.Combine(dir, "sm.webp"), 64, cancellationToken);
-            await SaveVariantAsync(image, Path.Combine(dir, "md.webp"), 128, cancellationToken);
-            await SaveVariantAsync(image, Path.Combine(dir, "lg.webp"), 256, cancellationToken);
+            var smBytes = await BuildVariantBytesAsync(image, 64, cancellationToken);
+            var mdBytes = await BuildVariantBytesAsync(image, 128, cancellationToken);
+            var lgBytes = await BuildVariantBytesAsync(image, 256, cancellationToken);
+
+            var provider = (_configuration["Branding:Provider"] ?? ProviderLocal).Trim().ToLowerInvariant();
+            if (provider == ProviderS3)
+            {
+                await UploadS3Async(key, "sm", smBytes, cancellationToken);
+                await UploadS3Async(key, "md", mdBytes, cancellationToken);
+                await UploadS3Async(key, "lg", lgBytes, cancellationToken);
+            }
+            else
+            {
+                var brandingRoot = ResolveBrandingDirectory();
+                Directory.CreateDirectory(brandingRoot);
+                var dir = Path.Combine(brandingRoot, key.ToString("D"));
+                Directory.CreateDirectory(dir);
+                await File.WriteAllBytesAsync(Path.Combine(dir, "sm.webp"), smBytes, cancellationToken);
+                await File.WriteAllBytesAsync(Path.Combine(dir, "md.webp"), mdBytes, cancellationToken);
+                await File.WriteAllBytesAsync(Path.Combine(dir, "lg.webp"), lgBytes, cancellationToken);
+            }
 
             college.LogoAccessKey = key;
             college.LogoUpdatedUtc = DateTime.UtcNow;
@@ -84,7 +120,7 @@ public class CollegeBrandingService
         }
     }
 
-    private static async Task SaveVariantAsync(Image source, string path, int maxEdge, CancellationToken cancellationToken)
+    private static async Task<byte[]> BuildVariantBytesAsync(Image source, int maxEdge, CancellationToken cancellationToken)
     {
         using var clone = source.Clone(ctx =>
         {
@@ -95,6 +131,48 @@ public class CollegeBrandingService
             });
         });
 
-        await clone.SaveAsWebpAsync(path, cancellationToken);
+        await using var ms = new MemoryStream();
+        await clone.SaveAsWebpAsync(ms, cancellationToken);
+        return ms.ToArray();
+    }
+
+    private async Task UploadS3Async(Guid key, string variant, byte[] content, CancellationToken cancellationToken)
+    {
+        var bucket = _configuration["Branding:S3:Bucket"]?.Trim();
+        if (string.IsNullOrWhiteSpace(bucket))
+            throw new InvalidOperationException("Branding:S3:Bucket is required when Branding:Provider=s3.");
+
+        var endpoint = _configuration["Branding:S3:Endpoint"]?.Trim();
+        var regionName = _configuration["Branding:S3:Region"]?.Trim();
+        var accessKey = _configuration["Branding:S3:AccessKeyId"]?.Trim();
+        var secretKey = _configuration["Branding:S3:SecretAccessKey"]?.Trim();
+        var forcePathStyle = bool.TryParse(_configuration["Branding:S3:ForcePathStyle"], out var fps) && fps;
+
+        var cfg = new AmazonS3Config
+        {
+            ForcePathStyle = forcePathStyle,
+        };
+        if (!string.IsNullOrWhiteSpace(endpoint))
+            cfg.ServiceURL = endpoint;
+        if (!string.IsNullOrWhiteSpace(regionName))
+            cfg.RegionEndpoint = RegionEndpoint.GetBySystemName(regionName);
+
+        using var s3 = string.IsNullOrWhiteSpace(accessKey) || string.IsNullOrWhiteSpace(secretKey)
+            ? new AmazonS3Client(cfg)
+            : new AmazonS3Client(new BasicAWSCredentials(accessKey, secretKey), cfg);
+
+        await using var ms = new MemoryStream(content);
+        var keyPath = $"{key:D}/{variant}.webp";
+        await s3.PutObjectAsync(new PutObjectRequest
+        {
+            BucketName = bucket,
+            Key = keyPath,
+            InputStream = ms,
+            ContentType = "image/webp",
+            Headers =
+            {
+                CacheControl = "public,max-age=86400",
+            },
+        }, cancellationToken);
     }
 }
