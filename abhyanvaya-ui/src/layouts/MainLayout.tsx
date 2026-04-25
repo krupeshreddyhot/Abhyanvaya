@@ -60,6 +60,7 @@ const MainLayout = () => {
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [header, setHeader] = useState<HeaderInfo | null>(null);
+  const [logoFailed, setLogoFailed] = useState(false);
 
   useEffect(() => {
     const loadHeader = async () => {
@@ -97,6 +98,10 @@ const MainLayout = () => {
     return `${sm} 64w, ${md} 128w, ${lg} 256w`;
   }, [header?.logoSmPath, header?.logoMdPath, header?.logoLgPath]);
 
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [logoMd]);
+
   return (
     <Box sx={{ display: "flex", width: "100%", minWidth: 0, minHeight: "100vh", boxSizing: "border-box" }}>
       <CssBaseline />
@@ -121,7 +126,7 @@ const MainLayout = () => {
               <MenuIcon />
             </IconButton>
 
-            {logoMd && (
+            {logoMd && !logoFailed && (
               <Box
                 component="img"
                 src={logoMd}
@@ -129,6 +134,7 @@ const MainLayout = () => {
                 sizes="(max-width: 600px) 36px, 44px"
                 alt=""
                 loading="lazy"
+                onError={() => setLogoFailed(true)}
                 sx={{
                   height: { xs: 34, sm: 40 },
                   width: "auto",
