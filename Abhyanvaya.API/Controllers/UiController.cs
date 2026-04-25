@@ -14,13 +14,16 @@ namespace Abhyanvaya.API.Controllers
     {
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUser;
+        private readonly IConfiguration _configuration;
 
         public UiController(
             IApplicationDbContext context,
-            ICurrentUserService currentUser)
+            ICurrentUserService currentUser,
+            IConfiguration configuration)
         {
             _context = context;
             _currentUser = currentUser;
+            _configuration = configuration;
         }
 
         [HttpGet("me")]
@@ -46,14 +49,15 @@ namespace Abhyanvaya.API.Controllers
             var fullName = string.IsNullOrWhiteSpace(college?.Name) ? "College" : college!.Name;
             var shortName = string.IsNullOrWhiteSpace(college?.ShortName) ? fullName : college!.ShortName!;
 
+            var brandingPublicBaseUrl = _configuration["Branding:PublicBaseUrl"];
             return Ok(new
             {
                 fullName,
                 shortName,
                 role = _currentUser.Role,
-                logoSmPath = CollegeBrandingService.BuildLogoPath(college?.LogoAccessKey, college?.LogoUpdatedUtc, "sm"),
-                logoMdPath = CollegeBrandingService.BuildLogoPath(college?.LogoAccessKey, college?.LogoUpdatedUtc, "md"),
-                logoLgPath = CollegeBrandingService.BuildLogoPath(college?.LogoAccessKey, college?.LogoUpdatedUtc, "lg"),
+                logoSmPath = CollegeBrandingService.BuildLogoPath(college?.LogoAccessKey, college?.LogoUpdatedUtc, "sm", brandingPublicBaseUrl),
+                logoMdPath = CollegeBrandingService.BuildLogoPath(college?.LogoAccessKey, college?.LogoUpdatedUtc, "md", brandingPublicBaseUrl),
+                logoLgPath = CollegeBrandingService.BuildLogoPath(college?.LogoAccessKey, college?.LogoUpdatedUtc, "lg", brandingPublicBaseUrl),
             });
         }
     }

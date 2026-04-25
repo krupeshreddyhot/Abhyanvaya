@@ -109,6 +109,31 @@ Then `npm run dev` — ensure `Cors__ReactOrigin` includes `http://localhost:517
 
 ---
 
+## 6. Branding storage (AWS/R2 compatible)
+
+College logos can use either local disk or any S3-compatible object storage (AWS S3, Cloudflare R2, MinIO).
+
+### Local/persistent disk mode (default)
+
+- `Branding__Provider=local`
+- `Branding__PhysicalRoot=/data/branding` (set this to your host persistent disk mount path)
+- `Branding__PublicBaseUrl=` (leave empty; API serves `/branding/...`)
+
+### S3-compatible mode (recommended for cloud portability)
+
+- `Branding__Provider=s3`
+- `Branding__PublicBaseUrl=https://<public-branding-base-url>` (e.g. `https://cdn.example.com/branding` or your public bucket URL root for branding files)
+- `Branding__S3__Bucket=<bucket-name>`
+- `Branding__S3__Region=<aws-region>` (e.g. `us-east-1`)
+- `Branding__S3__Endpoint=<optional>` (set for R2/MinIO/custom S3 endpoint; keep empty for AWS S3)
+- `Branding__S3__AccessKeyId=<access-key>`
+- `Branding__S3__SecretAccessKey=<secret-key>`
+- `Branding__S3__ForcePathStyle=true` (usually true for R2/MinIO; optional for AWS S3)
+
+When `Provider=s3`, uploaded logo variants (`sm`, `md`, `lg`) are stored in object storage and URL generation uses `Branding__PublicBaseUrl`.
+
+---
+
 ## Docker build (optional local check)
 
 From the repo root (folder that contains `Dockerfile`):
