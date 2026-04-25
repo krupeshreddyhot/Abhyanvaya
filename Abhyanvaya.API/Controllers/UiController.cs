@@ -49,7 +49,7 @@ namespace Abhyanvaya.API.Controllers
             var fullName = string.IsNullOrWhiteSpace(college?.Name) ? "College" : college!.Name;
             var shortName = string.IsNullOrWhiteSpace(college?.ShortName) ? fullName : college!.ShortName!;
 
-            var brandingPublicBaseUrl = _configuration["Branding:PublicBaseUrl"];
+            var brandingPublicBaseUrl = BrandingSettingsResolver.Get(_configuration, "Branding:PublicBaseUrl");
             return Ok(new
             {
                 fullName,
