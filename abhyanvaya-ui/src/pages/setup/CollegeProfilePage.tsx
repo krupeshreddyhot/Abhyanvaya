@@ -176,14 +176,20 @@ const CollegeProfilePage = () => {
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         const d = err.response?.data;
+        const detail =
+          d && typeof d === "object" && "detail" in d && typeof (d as { detail?: unknown }).detail === "string"
+            ? (d as { detail: string }).detail
+            : null;
         const msg =
           typeof d === "string"
             ? d
-            : typeof d?.message === "string"
-              ? d.message
-              : typeof d?.title === "string"
-                ? d.title
-                : null;
+            : detail
+              ? detail
+              : typeof d === "object" && d !== null && "message" in d && typeof (d as { message?: unknown }).message === "string"
+                ? (d as { message: string }).message
+                : typeof d === "object" && d !== null && "title" in d && typeof (d as { title?: unknown }).title === "string"
+                  ? (d as { title: string }).title
+                  : null;
         setLogoError(
           msg ?? "Unable to upload logo. Use JPEG, PNG, GIF, or WebP under 5 MB."
         );

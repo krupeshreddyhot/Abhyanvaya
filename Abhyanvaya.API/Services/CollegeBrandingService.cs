@@ -170,14 +170,21 @@ public class CollegeBrandingService
         var forcePathStyleValue = BrandingSettingsResolver.Get(_configuration, "Branding:S3:ForcePathStyle");
         var forcePathStyle = bool.TryParse(forcePathStyleValue, out var fps) && fps;
 
+        // R2 / MinIO / custom endpoints: only ServiceURL (see Cloudflare R2 .NET example). Do not bind
+        // RegionEndpoint to "auto" — it is not a real AWS region and can confuse the SDK.
         var cfg = new AmazonS3Config
         {
             ForcePathStyle = forcePathStyle,
         };
         if (!string.IsNullOrWhiteSpace(endpoint))
-            cfg.ServiceURL = NormalizeServiceUrl(endpoint);
-        if (!string.IsNullOrWhiteSpace(regionName))
-            cfg.RegionEndpoint = RegionEndpoint.GetBySystemName(regionName);
+        {
+            cfg.ServiceURL = NormalizeServiceUrl(StripOptionalBucketPath(endpoint, bucket));
+        }
+        else if (!string.IsNullOrWhiteSpace(regionName)
+                 && !string.Equals(regionName.Trim(), "auto", StringComparison.OrdinalIgnoreCase))
+        {
+            cfg.RegionEndpoint = RegionEndpoint.GetBySystemName(regionName.Trim());
+        }
 
         using var s3 = string.IsNullOrWhiteSpace(accessKey) || string.IsNullOrWhiteSpace(secretKey)
             ? new AmazonS3Client(cfg)
@@ -187,12 +194,16 @@ public class CollegeBrandingService
         var keyPath = $"{key:D}/{variant}.webp";
         try
         {
+            // R2 does not support the streaming SigV4 payload signing / default checksum path used by AWSSDK.S3.
+            // https://developers.cloudflare.com/r2/examples/aws/aws-sdk-net/
             await s3.PutObjectAsync(new PutObjectRequest
             {
                 BucketName = bucket,
                 Key = keyPath,
                 InputStream = ms,
                 ContentType = "image/webp",
+                DisablePayloadSigning = true,
+                DisableDefaultChecksumValidation = true,
                 Headers =
                 {
                     CacheControl = "public,max-age=86400",
@@ -220,5 +231,29 @@ public class CollegeBrandingService
             || trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             return trimmed;
         return $"https://{trimmed}";
+    }
+
+    /// <summary>If endpoint was pasted as .../bucket-name, strip the trailing bucket segment for S3 API base URL.</summary>
+    private static string StripOptionalBucketPath(string endpoint, string bucket)
+    {
+        var trimmed = endpoint.Trim().TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(bucket))
+            return trimmed;
+        var suffix = "/" + bucket.Trim().Trim('/');
+        if (trimmed.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            return trimmed[..^suffix.Length];
+        return trimmed;
+    }
+
+    private static bool IsStorageOrNetworkFailure(Exception ex)
+    {
+        for (var e = ex; e != null; e = e.InnerException)
+        {
+            if (e is AmazonS3Exception || e is HttpRequestException)
+                return true;
+            if (e is System.Net.Sockets.SocketException)
+                return true;
+        }
+        return false;
     }
 }
