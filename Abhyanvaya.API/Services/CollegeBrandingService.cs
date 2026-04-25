@@ -22,9 +22,19 @@ public class CollegeBrandingService
     private static readonly HashSet<string> AllowedTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "image/jpeg",
+        "image/jpg",
+        "image/pjpeg",
         "image/png",
         "image/gif",
         "image/webp",
+    };
+    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".webp",
     };
 
     private readonly IApplicationDbContext _context;
@@ -71,7 +81,10 @@ public class CollegeBrandingService
             return (false, "Upload a non-empty image under 5 MB.");
 
         var contentType = file.ContentType ?? "";
-        if (!AllowedTypes.Contains(contentType))
+        var extension = Path.GetExtension(file.FileName ?? string.Empty);
+        var contentTypeAllowed = AllowedTypes.Contains(contentType);
+        var extensionAllowed = !string.IsNullOrWhiteSpace(extension) && AllowedExtensions.Contains(extension);
+        if (!contentTypeAllowed && !extensionAllowed)
             return (false, "Allowed types: JPEG, PNG, GIF, or WebP.");
 
         var college = await _context.Colleges
