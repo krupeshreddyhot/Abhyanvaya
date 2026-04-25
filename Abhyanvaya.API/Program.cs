@@ -232,6 +232,13 @@ var app = builder.Build();
 
 app.UseCors("AllowReact");
 
+var brandingProvider = BrandingSettingsResolver.Get(app.Configuration, "Branding:Provider") ?? "local";
+var brandingPublicBaseUrl = BrandingSettingsResolver.Get(app.Configuration, "Branding:PublicBaseUrl");
+app.Logger.LogInformation(
+    "Branding configured with Provider={Provider}, PublicBaseUrl={PublicBaseUrl}",
+    brandingProvider,
+    string.IsNullOrWhiteSpace(brandingPublicBaseUrl) ? "<empty>" : brandingPublicBaseUrl);
+
 var enableSwagger = app.Environment.IsDevelopment()
     || app.Configuration.GetValue<bool>("EnableSwagger");
 if (enableSwagger)
