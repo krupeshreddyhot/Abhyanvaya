@@ -173,8 +173,17 @@ const CollegeProfilePage = () => {
       window.dispatchEvent(new CustomEvent("abhyanvaya:header-refresh"));
       setMessage("College logo saved (small, medium, large).");
       await loadData();
-    } catch {
-      setLogoError("Unable to upload logo. Use JPEG, PNG, GIF, or WebP under 5 MB.");
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        const d = err.response?.data;
+        setLogoError(
+          typeof d === "string"
+            ? d
+            : "Unable to upload logo. Use JPEG, PNG, GIF, or WebP under 5 MB."
+        );
+      } else {
+        setLogoError("Unable to upload logo. Use JPEG, PNG, GIF, or WebP under 5 MB.");
+      }
     } finally {
       setUploadingLogo(false);
     }
