@@ -9,8 +9,6 @@ import {
   Paper,
   CircularProgress,
   MenuItem,
-  ToggleButton,
-  ToggleButtonGroup,
   InputAdornment,
   IconButton,
 } from "@mui/material";
@@ -18,7 +16,7 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { getUniversities, login as loginApi, superAdminLogin, type UniversityOption } from "../services/authService";
 import { useAuth } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 
 type LoginMode = "institution" | "superadmin";
@@ -70,11 +68,15 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
 
   useEffect(() => {
     setError("");
-    if (loginMode !== "institution") return;
+    const isSuperAdminMode = searchParams.get("superAdmin") === "1";
+    const targetMode: LoginMode = isSuperAdminMode ? "superadmin" : "institution";
+    setLoginMode(targetMode);
+    if (targetMode !== "institution") return;
 
     const loadUniversities = async () => {
       try {
@@ -91,7 +93,7 @@ const Login = () => {
     };
 
     void loadUniversities();
-  }, [loginMode]);
+  }, [searchParams]);
 
   const handleLogin = async () => {
     if (loading) return;
@@ -141,26 +143,30 @@ const Login = () => {
             textAlign: "center",
           }}
         >
-          <Typography variant="h4" gutterBottom sx={{ fontWeight: "bold" }}>
-            Abhyanvaya
-          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, mb: 1 }}>
+            <Typography variant="h4" sx={{ fontWeight: "bold", lineHeight: 1.1 }}>
+              Abhyanvaya
+            </Typography>
+            <Box
+              component="img"
+              src="/abhyanvaya-login-mark.png"
+              alt="Abhyanvaya mark"
+              sx={{
+                width: 36,
+                height: 36,
+                objectFit: "contain",
+                flexShrink: 0,
+                ml: -0.35,
+              }}
+            />
+          </Box>
 
           <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 2 }}>
-              Institute Management System
+            Institute Management System
           </Typography>
 
-          <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={loginMode}
-              onChange={(_, v) => v && setLoginMode(v)}
-              color="primary"
-            >
-              <ToggleButton value="institution">Institution</ToggleButton>
-              <ToggleButton value="superadmin">Super Admin</ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
+          {/* Login mode is controlled by query param: ?superAdmin=1 */}
+          {/* superAdmin=1 -> Super Admin login, otherwise Institution login. */}
 
           <Box
             sx={{

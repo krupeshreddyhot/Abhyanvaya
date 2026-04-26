@@ -208,11 +208,34 @@ const MainLayout = () => {
           [`& .MuiDrawer-paper`]: {
             width: drawerWidth,
             boxSizing: "border-box",
-            top: 64, // below app bar on mobile & desktop (default Toolbar height)
+            top: 0,
           },
         }}
       >
-        <Toolbar />
+        <Box
+          sx={{
+            px: 1,
+            pb: 0.5,
+            pt: 0.25,
+            display: "flex",
+            justifyContent: "center",
+            borderBottom: "1px solid",
+            borderColor: "divider",
+            mb: 1,
+          }}
+        >
+          <Box
+            component="img"
+            src="/abhyanvaya-logo.png"
+            alt="Abhyanvaya logo"
+            sx={{
+              width: "100%",
+              maxWidth: 160,
+              height: "auto",
+              objectFit: "contain",
+            }}
+          />
+        </Box>
         <List>
           {visibleMenuItems.map((item) => (
             <ListItemButton
