@@ -50,6 +50,7 @@ namespace Abhyanvaya.API.Controllers
                 .Select(x => new CourseDto
                 {
                     Id = x.Id,
+                    Code = x.Code,
                     Name = x.Name
                 })
                 .ToListAsync();
@@ -123,6 +124,7 @@ namespace Abhyanvaya.API.Controllers
                 {
                     x.Id,
                     x.Name,
+                    x.Code,
                     x.IsElective
                 })
                 .ToListAsync();
@@ -146,6 +148,7 @@ namespace Abhyanvaya.API.Controllers
                 {
                     x.Id,
                     x.Name,
+                    x.Code,
                     x.CourseId
                 })
                 .ToListAsync();

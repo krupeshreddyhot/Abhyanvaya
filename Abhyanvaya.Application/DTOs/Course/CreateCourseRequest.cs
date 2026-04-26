@@ -8,6 +8,7 @@ namespace Abhyanvaya.Application.DTOs.Course
 {
     public class CreateCourseRequest
     {
+        public string Code { get; set; } = null!;
         public string Name { get; set; } = null!;
     }
 }

@@ -9,6 +9,7 @@ namespace Abhyanvaya.Application.DTOs.Course
     public class CourseDto
     {
         public int Id { get; set; }
-        public string Name { get; set; }
+        public string Code { get; set; } = null!;
+        public string Name { get; set; } = null!;
     }
 }
