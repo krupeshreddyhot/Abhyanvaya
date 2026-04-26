@@ -208,16 +208,15 @@ const MainLayout = () => {
           [`& .MuiDrawer-paper`]: {
             width: drawerWidth,
             boxSizing: "border-box",
-            top: 64, // below app bar on mobile & desktop (default Toolbar height)
+            top: 0,
           },
         }}
       >
-        <Toolbar />
         <Box
           sx={{
-            px: 2,
-            pb: 1.5,
-            pt: 0.5,
+            px: 1,
+            pb: 0.5,
+            pt: 0.25,
             display: "flex",
             justifyContent: "center",
             borderBottom: "1px solid",
@@ -231,7 +230,7 @@ const MainLayout = () => {
             alt="Abhyanvaya logo"
             sx={{
               width: "100%",
-              maxWidth: 190,
+              maxWidth: 160,
               height: "auto",
               objectFit: "contain",
             }}
