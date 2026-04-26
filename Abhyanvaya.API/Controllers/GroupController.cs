@@ -34,6 +34,7 @@ namespace Abhyanvaya.API.Controllers
                 .Select(x => new
                 {
                     x.Id,
+                    x.Code,
                     x.Name,
                     x.CourseId,
                     CourseName = x.Course != null ? x.Course.Name : ""
@@ -47,21 +48,27 @@ namespace Abhyanvaya.API.Controllers
         [HttpPost]
         public async Task<IActionResult> Create(CreateGroupRequest request)
         {
+            var code = (request.Code ?? "").Trim().ToUpperInvariant();
+            var name = (request.Name ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name))
+                return BadRequest("Group code, name and course are required.");
+
             var exists = await _context.Groups
                 .AnyAsync(x =>
                     x.TenantId == _currentUser.TenantId &&
                     x.CourseId == request.CourseId &&
-                    x.Name.ToLower() == request.Name.ToLower());
+                    (x.Name.ToLower() == name.ToLower() || x.Code.ToLower() == code.ToLower()));
 
             if (exists)
-                return BadRequest("A group with this name already exists for this course.");
+                return BadRequest("A group with this code or name already exists for this course.");
 
             if (!await _context.Courses.AnyAsync(x => x.Id == request.CourseId))
                 return BadRequest("Invalid course");
 
             var group = new Group
             {
-                Name = request.Name,
+                Code = code,
+                Name = name,
                 CourseId = request.CourseId,
                 CreatedDate = DateTime.UtcNow
             };
@@ -79,6 +86,11 @@ namespace Abhyanvaya.API.Controllers
         [HttpPut]
         public async Task<IActionResult> Update(UpdateGroupRequest request)
         {
+            var code = (request.Code ?? "").Trim().ToUpperInvariant();
+            var name = (request.Name ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name))
+                return BadRequest("Group code, name and course are required.");
+
             var group = await _context.Groups.FirstOrDefaultAsync(x => x.Id == request.Id);
 
             if (group == null)
@@ -90,12 +102,13 @@ namespace Abhyanvaya.API.Controllers
                 x.Id != request.Id &&
                 x.TenantId == _currentUser.TenantId &&
                 x.CourseId == request.CourseId &&
-                x.Name.ToLower() == request.Name.ToLower());
+                (x.Name.ToLower() == name.ToLower() || x.Code.ToLower() == code.ToLower()));
 
             if (dup)
-                return BadRequest("A group with this name already exists for this course.");
+                return BadRequest("A group with this code or name already exists for this course.");
 
-            group.Name = request.Name;
+            group.Code = code;
+            group.Name = name;
             group.CourseId = request.CourseId;
             group.UpdatedDate = DateTime.UtcNow;
 

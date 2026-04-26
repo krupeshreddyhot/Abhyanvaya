@@ -73,6 +73,7 @@ namespace Abhyanvaya.Infrastructure.Persistence
                     new Course
                     {
                         Id = 1,
+                        Code = "BCOM",
                         Name = "B.Com"
                     }
                 );
@@ -81,6 +82,7 @@ namespace Abhyanvaya.Infrastructure.Persistence
                 new Group
                 {
                     Id = 1,
+                    Code = "FIN",
                     Name = "Finance",
                     CourseId = 1
                 }
@@ -176,8 +178,14 @@ namespace Abhyanvaya.Infrastructure.Persistence
                 .HasIndex(s => new { s.TenantId, s.StudentNumber })
                 .IsUnique();
 
+            builder.Entity<Course>()
+                .HasIndex(x => new { x.TenantId, x.Code });
+
+            builder.Entity<Group>()
+                .HasIndex(x => new { x.TenantId, x.CourseId, x.Code });
+
             builder.Entity<Subject>()
-                .HasIndex(s => new { s.TenantId, s.CourseId, s.GroupId, s.SemesterId, s.Name });
+                .HasIndex(s => new { s.TenantId, s.CourseId, s.GroupId, s.SemesterId, s.Code });
 
             builder.Entity<Attendance>()
                 .HasIndex(x => new { x.TenantId, x.StudentId, x.SubjectId, x.Date })

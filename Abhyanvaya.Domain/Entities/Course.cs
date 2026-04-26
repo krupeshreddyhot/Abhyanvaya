@@ -9,6 +9,7 @@ namespace Abhyanvaya.Domain.Entities
 {
     public class Course : BaseEntity
     {
+        public string Code { get; set; }   // BCOM, BSC, BBA
         public string Name { get; set; }   // B.Com, B.Sc, BBA
     }
 }

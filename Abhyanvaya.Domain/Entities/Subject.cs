@@ -5,6 +5,7 @@ namespace Abhyanvaya.Domain.Entities
 {
     public class Subject : BaseEntity
     {
+        public string Code { get; set; } = null!;
         public string Name { get; set; }
 
         public int CourseId { get; set; }

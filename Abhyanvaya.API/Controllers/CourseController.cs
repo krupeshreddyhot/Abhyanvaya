@@ -31,7 +31,7 @@ namespace Abhyanvaya.API.Controllers
             var data = await _context.Courses
                 .AsNoTracking()
                 .OrderBy(x => x.Name)
-                .Select(x => new { x.Id, x.Name })
+                .Select(x => new { x.Id, x.Code, x.Name })
                 .ToListAsync();
 
             return Ok(data);
@@ -41,17 +41,23 @@ namespace Abhyanvaya.API.Controllers
         [HttpPost]
         public async Task<IActionResult> Create(CreateCourseRequest request)
         {
+            var code = (request.Code ?? "").Trim().ToUpperInvariant();
+            var name = (request.Name ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name))
+                return BadRequest("Course code and name are required.");
+
             var exists = await _context.Courses
                 .AnyAsync(x =>
                     x.TenantId == _currentUser.TenantId &&
-                    x.Name.ToLower() == request.Name.ToLower());
+                    (x.Name.ToLower() == name.ToLower() || x.Code.ToLower() == code.ToLower()));
 
             if (exists)
-                return BadRequest("Course already exists");
+                return BadRequest("Course code or name already exists.");
 
             var course = new Course
             {
-                Name = request.Name,
+                Code = code,
+                Name = name,
                 CreatedDate = DateTime.UtcNow
             };
 
@@ -68,6 +74,11 @@ namespace Abhyanvaya.API.Controllers
         [HttpPut]
         public async Task<IActionResult> Update(UpdateCourseRequest request)
         {
+            var code = (request.Code ?? "").Trim().ToUpperInvariant();
+            var name = (request.Name ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name))
+                return BadRequest("Course code and name are required.");
+
             var course = await _context.Courses.FirstOrDefaultAsync(x => x.Id == request.Id);
 
             if (course == null)
@@ -76,12 +87,13 @@ namespace Abhyanvaya.API.Controllers
             var dup = await _context.Courses.AnyAsync(x =>
                 x.Id != request.Id &&
                 x.TenantId == _currentUser.TenantId &&
-                x.Name.ToLower() == request.Name.ToLower());
+                (x.Name.ToLower() == name.ToLower() || x.Code.ToLower() == code.ToLower()));
 
             if (dup)
-                return BadRequest("Another course already uses this name.");
+                return BadRequest("Another course already uses this code or name.");
 
-            course.Name = request.Name;
+            course.Code = code;
+            course.Name = name;
             course.UpdatedDate = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();

@@ -37,6 +37,7 @@ const GroupsPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(0);
+  const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [courseId, setCourseId] = useState(0);
 
@@ -60,6 +61,7 @@ const GroupsPage = () => {
 
   const openAdd = () => {
     setEditingId(0);
+    setCode("");
     setName("");
     setCourseId(courses[0]?.id ?? 0);
     setDialogOpen(true);
@@ -67,23 +69,25 @@ const GroupsPage = () => {
 
   const openEdit = (r: GroupRow) => {
     setEditingId(r.id);
+    setCode(r.code);
     setName(r.name);
     setCourseId(r.courseId);
     setDialogOpen(true);
   };
 
   const save = async () => {
+    const c = code.trim().toUpperCase();
     const n = name.trim();
-    if (!n || !courseId) {
-      setError("Name and course are required.");
+    if (!c || !n || !courseId) {
+      setError("Code, name and course are required.");
       return;
     }
     setSaving(true);
     setError(null);
     setMessage(null);
     try {
-      if (editingId) await updateGroup({ id: editingId, name: n, courseId });
-      else await createGroup({ name: n, courseId });
+      if (editingId) await updateGroup({ id: editingId, code: c, name: n, courseId });
+      else await createGroup({ code: c, name: n, courseId });
       setMessage(editingId ? "Group updated." : "Group created.");
       setDialogOpen(false);
       await load();
@@ -117,6 +121,7 @@ const GroupsPage = () => {
         <Table size="small">
           <TableHead>
             <TableRow>
+              <TableCell>Code</TableCell>
               <TableCell>Name</TableCell>
               <TableCell>Course</TableCell>
               <TableCell align="right">Actions</TableCell>
@@ -125,6 +130,7 @@ const GroupsPage = () => {
           <TableBody>
             {rows.map((r) => (
               <TableRow key={r.id} hover>
+                <TableCell>{r.code}</TableCell>
                 <TableCell>{r.name}</TableCell>
                 <TableCell>{r.courseName}</TableCell>
                 <TableCell align="right">
@@ -141,6 +147,13 @@ const GroupsPage = () => {
         <DialogTitle>{editingId ? "Edit group" : "Add group"}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Group code"
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              fullWidth
+              required
+            />
             <TextField
               select
               label="Course"

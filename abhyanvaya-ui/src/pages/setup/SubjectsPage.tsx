@@ -66,6 +66,7 @@ const SubjectsPage = () => {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(0);
 
+  const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [courseId, setCourseId] = useState(0);
   const [groupId, setGroupId] = useState(0);
@@ -125,6 +126,7 @@ const SubjectsPage = () => {
 
   const openAdd = () => {
     setEditingId(0);
+    setCode("");
     setName("");
     const c0 = courses[0]?.id ?? 0;
     setCourseId(c0);
@@ -142,6 +144,7 @@ const SubjectsPage = () => {
 
   const openEdit = (r: SubjectCatalogRow) => {
     setEditingId(r.id);
+    setCode(r.code);
     setName(r.name);
     setCourseId(r.courseId);
     setGroupId(r.groupId);
@@ -154,9 +157,10 @@ const SubjectsPage = () => {
   };
 
   const save = async () => {
+    const c = code.trim().toUpperCase();
     const n = name.trim();
-    if (!n || !courseId || !groupId || !semesterId) {
-      setError("Name, course, group and semester are required.");
+    if (!c || !n || !courseId || !groupId || !semesterId) {
+      setError("Code, name, course, group and semester are required.");
       return;
     }
     if (isElective && !electiveGroupId) {
@@ -176,6 +180,7 @@ const SubjectsPage = () => {
     setMessage(null);
     try {
       const base = {
+        code: c,
         name: n,
         courseId,
         groupId,
@@ -221,6 +226,7 @@ const SubjectsPage = () => {
           <Table size="small">
             <TableHead>
               <TableRow>
+                <TableCell>Code</TableCell>
                 <TableCell>Name</TableCell>
                 <TableCell>Course</TableCell>
                 <TableCell>Group</TableCell>
@@ -234,6 +240,7 @@ const SubjectsPage = () => {
             <TableBody>
               {rows.map((r) => (
                 <TableRow key={r.id} hover>
+                  <TableCell>{r.code}</TableCell>
                   <TableCell>{r.name}</TableCell>
                   <TableCell>{r.courseName}</TableCell>
                   <TableCell>{r.groupName}</TableCell>
@@ -257,6 +264,13 @@ const SubjectsPage = () => {
         <DialogTitle>{editingId ? "Edit subject" : "Add subject"}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Subject code"
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              fullWidth
+              required
+            />
             <TextField label="Subject name" value={name} onChange={(e) => setName(e.target.value)} fullWidth required />
             <TextField
               select
