@@ -213,6 +213,30 @@ const MainLayout = () => {
         }}
       >
         <Toolbar />
+        <Box
+          sx={{
+            px: 2,
+            pb: 1.5,
+            pt: 0.5,
+            display: "flex",
+            justifyContent: "center",
+            borderBottom: "1px solid",
+            borderColor: "divider",
+            mb: 1,
+          }}
+        >
+          <Box
+            component="img"
+            src="/abhyanvaya-logo.png"
+            alt="Abhyanvaya logo"
+            sx={{
+              width: "100%",
+              maxWidth: 190,
+              height: "auto",
+              objectFit: "contain",
+            }}
+          />
+        </Box>
         <List>
           {visibleMenuItems.map((item) => (
             <ListItemButton
