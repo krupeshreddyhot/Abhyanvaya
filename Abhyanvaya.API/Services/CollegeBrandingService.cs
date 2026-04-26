@@ -133,11 +133,72 @@ public class CollegeBrandingService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to process college logo for tenant {TenantId}", tenantId);
-            if (ex is AmazonS3Exception || ex is HttpRequestException)
+            if (IsStorageOrNetworkFailure(ex))
             {
                 return (false, "Storage upload failed. Verify Branding S3 endpoint/region/bucket credentials on server.");
             }
             return (false, "Could not read or resize the image. Try another file.");
+        }
+    }
+
+    public async Task<(bool Ok, string Provider, string Message)> CheckStorageHealthAsync(CancellationToken cancellationToken)
+    {
+        var provider = (BrandingSettingsResolver.Get(_configuration, "Branding:Provider") ?? ProviderLocal)
+            .Trim()
+            .ToLowerInvariant();
+
+        if (provider != ProviderS3)
+        {
+            try
+            {
+                var root = ResolveBrandingDirectory();
+                Directory.CreateDirectory(root);
+                return (true, provider, $"Local branding directory is accessible: {root}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Local branding directory health check failed.");
+                return (false, provider, "Local branding directory is not accessible.");
+            }
+        }
+
+        var bucket = GetRequiredS3Bucket();
+        var (s3, endpoint, regionName, forcePathStyle) = BuildS3Client();
+        using var _ = s3;
+
+        var key = $"__healthcheck/{Guid.NewGuid():D}.txt";
+        using var payload = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("ok"));
+
+        try
+        {
+            await s3.PutObjectAsync(new PutObjectRequest
+            {
+                BucketName = bucket,
+                Key = key,
+                InputStream = payload,
+                ContentType = "text/plain",
+                DisablePayloadSigning = true,
+                DisableDefaultChecksumValidation = true,
+            }, cancellationToken);
+
+            await s3.DeleteObjectAsync(new DeleteObjectRequest
+            {
+                BucketName = bucket,
+                Key = key,
+            }, cancellationToken);
+
+            return (true, provider, "Storage upload and delete check succeeded.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Branding storage health check failed. Bucket={Bucket}, Endpoint={Endpoint}, Region={Region}, ForcePathStyle={ForcePathStyle}",
+                bucket,
+                endpoint,
+                regionName,
+                forcePathStyle);
+            return (false, provider, "Storage health check failed. Verify S3/R2 endpoint, region, bucket, and credentials.");
         }
     }
 
@@ -159,36 +220,9 @@ public class CollegeBrandingService
 
     private async Task UploadS3Async(Guid key, string variant, byte[] content, CancellationToken cancellationToken)
     {
-        var bucket = BrandingSettingsResolver.Get(_configuration, "Branding:S3:Bucket");
-        if (string.IsNullOrWhiteSpace(bucket))
-            throw new InvalidOperationException("Branding:S3:Bucket is required when Branding:Provider=s3.");
-
-        var endpoint = BrandingSettingsResolver.Get(_configuration, "Branding:S3:Endpoint");
-        var regionName = BrandingSettingsResolver.Get(_configuration, "Branding:S3:Region");
-        var accessKey = BrandingSettingsResolver.Get(_configuration, "Branding:S3:AccessKeyId");
-        var secretKey = BrandingSettingsResolver.Get(_configuration, "Branding:S3:SecretAccessKey");
-        var forcePathStyleValue = BrandingSettingsResolver.Get(_configuration, "Branding:S3:ForcePathStyle");
-        var forcePathStyle = bool.TryParse(forcePathStyleValue, out var fps) && fps;
-
-        // R2 / MinIO / custom endpoints: only ServiceURL (see Cloudflare R2 .NET example). Do not bind
-        // RegionEndpoint to "auto" — it is not a real AWS region and can confuse the SDK.
-        var cfg = new AmazonS3Config
-        {
-            ForcePathStyle = forcePathStyle,
-        };
-        if (!string.IsNullOrWhiteSpace(endpoint))
-        {
-            cfg.ServiceURL = NormalizeServiceUrl(StripOptionalBucketPath(endpoint, bucket));
-        }
-        else if (!string.IsNullOrWhiteSpace(regionName)
-                 && !string.Equals(regionName.Trim(), "auto", StringComparison.OrdinalIgnoreCase))
-        {
-            cfg.RegionEndpoint = RegionEndpoint.GetBySystemName(regionName.Trim());
-        }
-
-        using var s3 = string.IsNullOrWhiteSpace(accessKey) || string.IsNullOrWhiteSpace(secretKey)
-            ? new AmazonS3Client(cfg)
-            : new AmazonS3Client(new BasicAWSCredentials(accessKey, secretKey), cfg);
+        var bucket = GetRequiredS3Bucket();
+        var (s3, endpoint, regionName, forcePathStyle) = BuildS3Client();
+        using var _ = s3;
 
         await using var ms = new MemoryStream(content);
         var keyPath = $"{key:D}/{variant}.webp";
@@ -255,5 +289,48 @@ public class CollegeBrandingService
                 return true;
         }
         return false;
+    }
+
+    private string GetRequiredS3Bucket()
+    {
+        var bucket = BrandingSettingsResolver.Get(_configuration, "Branding:S3:Bucket");
+        if (string.IsNullOrWhiteSpace(bucket))
+            throw new InvalidOperationException("Branding:S3:Bucket is required when Branding:Provider=s3.");
+        return bucket;
+    }
+
+    private (IAmazonS3 Client, string Endpoint, string Region, bool ForcePathStyle) BuildS3Client()
+    {
+        var bucket = GetRequiredS3Bucket();
+        var endpointRaw = BrandingSettingsResolver.Get(_configuration, "Branding:S3:Endpoint");
+        var endpoint = string.IsNullOrWhiteSpace(endpointRaw)
+            ? "<aws-default>"
+            : NormalizeServiceUrl(StripOptionalBucketPath(endpointRaw, bucket));
+        var regionName = BrandingSettingsResolver.Get(_configuration, "Branding:S3:Region");
+        var accessKey = BrandingSettingsResolver.Get(_configuration, "Branding:S3:AccessKeyId");
+        var secretKey = BrandingSettingsResolver.Get(_configuration, "Branding:S3:SecretAccessKey");
+        var forcePathStyleValue = BrandingSettingsResolver.Get(_configuration, "Branding:S3:ForcePathStyle");
+        var forcePathStyle = bool.TryParse(forcePathStyleValue, out var fps) && fps;
+
+        var cfg = new AmazonS3Config
+        {
+            ForcePathStyle = forcePathStyle,
+        };
+
+        if (!string.IsNullOrWhiteSpace(endpointRaw))
+        {
+            cfg.ServiceURL = endpoint;
+        }
+        else if (!string.IsNullOrWhiteSpace(regionName)
+                 && !string.Equals(regionName.Trim(), "auto", StringComparison.OrdinalIgnoreCase))
+        {
+            cfg.RegionEndpoint = RegionEndpoint.GetBySystemName(regionName.Trim());
+        }
+
+        IAmazonS3 client = string.IsNullOrWhiteSpace(accessKey) || string.IsNullOrWhiteSpace(secretKey)
+            ? new AmazonS3Client(cfg)
+            : new AmazonS3Client(new BasicAWSCredentials(accessKey, secretKey), cfg);
+
+        return (client, endpoint, string.IsNullOrWhiteSpace(regionName) ? "<none>" : regionName, forcePathStyle);
     }
 }
