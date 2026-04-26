@@ -155,6 +155,19 @@ namespace Abhyanvaya.API.Controllers
             return Ok(new { message = "Logo saved (small, medium, large)." });
         }
 
+        [HttpGet("tenant-college/logo-health")]
+        [Authorize(Policy = AuthorizationPolicies.CanManageStudents)]
+        public async Task<IActionResult> CheckTenantCollegeLogoStorageHealth(CancellationToken cancellationToken)
+        {
+            var (ok, provider, message) = await _branding.CheckStorageHealthAsync(cancellationToken);
+            return Ok(new
+            {
+                ok,
+                provider,
+                message,
+            });
+        }
+
         [HttpPut("tenant-college")]
         [Authorize(Policy = AuthorizationPolicies.CanManageStudents)]
         public async Task<IActionResult> UpdateTenantCollege([FromBody] UpdateTenantCollegeRequest request)

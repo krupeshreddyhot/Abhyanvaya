@@ -165,6 +165,15 @@ const CollegeProfilePage = () => {
     void runLogoUpload(file);
   };
 
+  const toFriendlyLogoError = (message: string | null) => {
+    if (!message) return "Unable to upload logo right now. Please try again.";
+    const normalized = message.toLowerCase();
+    if (normalized.includes("storage upload failed") || normalized.includes("storage health check failed")) {
+      return "Logo storage is temporarily unreachable. Please contact support or try again shortly.";
+    }
+    return message;
+  };
+
   const runLogoUpload = async (file: File) => {
     setUploadingLogo(true);
     setLogoError(null);
@@ -191,10 +200,10 @@ const CollegeProfilePage = () => {
                   ? (d as { title: string }).title
                   : null;
         setLogoError(
-          msg ?? "Unable to upload logo. Use JPEG, PNG, GIF, or WebP under 5 MB."
+          toFriendlyLogoError(msg ?? "Unable to upload logo. Use JPEG, PNG, GIF, or WebP under 5 MB.")
         );
       } else {
-        setLogoError("Unable to upload logo. Use JPEG, PNG, GIF, or WebP under 5 MB.");
+        setLogoError("Unable to upload logo right now. Please try again.");
       }
     } finally {
       setUploadingLogo(false);
