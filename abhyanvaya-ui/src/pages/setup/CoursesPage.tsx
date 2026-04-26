@@ -35,6 +35,7 @@ const CoursesPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(0);
+  const [code, setCode] = useState("");
   const [name, setName] = useState("");
 
   const load = async () => {
@@ -56,28 +57,31 @@ const CoursesPage = () => {
 
   const openAdd = () => {
     setEditingId(0);
+    setCode("");
     setName("");
     setDialogOpen(true);
   };
 
   const openEdit = (r: CourseRow) => {
     setEditingId(r.id);
+    setCode(r.code);
     setName(r.name);
     setDialogOpen(true);
   };
 
   const save = async () => {
+    const c = code.trim().toUpperCase();
     const n = name.trim();
-    if (!n) {
-      setError("Name is required.");
+    if (!c || !n) {
+      setError("Code and name are required.");
       return;
     }
     setSaving(true);
     setError(null);
     setMessage(null);
     try {
-      if (editingId) await updateCourse({ id: editingId, name: n });
-      else await createCourse({ name: n });
+      if (editingId) await updateCourse({ id: editingId, code: c, name: n });
+      else await createCourse({ code: c, name: n });
       setMessage(editingId ? "Course updated." : "Course created.");
       setDialogOpen(false);
       await load();
@@ -111,6 +115,7 @@ const CoursesPage = () => {
         <Table size="small">
           <TableHead>
             <TableRow>
+              <TableCell>Code</TableCell>
               <TableCell>Name</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
@@ -118,6 +123,7 @@ const CoursesPage = () => {
           <TableBody>
             {rows.map((r) => (
               <TableRow key={r.id} hover>
+                <TableCell>{r.code}</TableCell>
                 <TableCell>{r.name}</TableCell>
                 <TableCell align="right">
                   <Button size="small" onClick={() => openEdit(r)}>
@@ -132,7 +138,16 @@ const CoursesPage = () => {
       <Dialog open={dialogOpen} onClose={() => !saving && setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editingId ? "Edit course" : "Add course"}</DialogTitle>
         <DialogContent>
-          <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} fullWidth sx={{ mt: 1 }} />
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Code"
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              fullWidth
+              required
+            />
+            <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} fullWidth required />
+          </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)} disabled={saving}>

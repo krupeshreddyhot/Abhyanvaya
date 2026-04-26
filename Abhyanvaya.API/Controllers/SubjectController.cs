@@ -37,6 +37,7 @@ public class SubjectController : ControllerBase
             .Select(x => new SubjectCatalogDto
             {
                 Id = x.Id,
+                Code = x.Code,
                 Name = x.Name,
                 CourseId = x.CourseId,
                 CourseName = x.Course != null ? x.Course.Name : "",
@@ -190,16 +191,21 @@ public class SubjectController : ControllerBase
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<IActionResult> Create(CreateSubjectRequest request)
     {
+        var code = (request.Code ?? "").Trim().ToUpperInvariant();
+        var name = (request.Name ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name))
+            return BadRequest("Subject code and name are required.");
+
         var exists = await _context.Subjects
             .AnyAsync(x =>
                 x.TenantId == _currentUser.TenantId &&
                 x.CourseId == request.CourseId &&
                 x.GroupId == request.GroupId &&
                 x.SemesterId == request.SemesterId &&
-                x.Name.ToLower() == request.Name.ToLower());
+                (x.Name.ToLower() == name.ToLower() || x.Code.ToLower() == code.ToLower()));
 
         if (exists)
-            return BadRequest("A subject with this name already exists for this course, group and semester.");
+            return BadRequest("A subject with this code or name already exists for this course, group and semester.");
 
         if (!await _context.Courses.AnyAsync(x => x.Id == request.CourseId))
             return BadRequest("Invalid Course");
@@ -234,7 +240,8 @@ public class SubjectController : ControllerBase
 
         var subject = new Subject
         {
-            Name = request.Name,
+            Code = code,
+            Name = name,
             CourseId = request.CourseId,
             GroupId = request.GroupId,
             SemesterId = request.SemesterId,
@@ -259,6 +266,11 @@ public class SubjectController : ControllerBase
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<IActionResult> Update(UpdateSubjectRequest request)
     {
+        var code = (request.Code ?? "").Trim().ToUpperInvariant();
+        var name = (request.Name ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name))
+            return BadRequest("Subject code and name are required.");
+
         var subject = await _context.Subjects.FirstOrDefaultAsync(x => x.Id == request.Id);
 
         if (subject == null)
@@ -271,10 +283,10 @@ public class SubjectController : ControllerBase
                 x.CourseId == request.CourseId &&
                 x.GroupId == request.GroupId &&
                 x.SemesterId == request.SemesterId &&
-                x.Name.ToLower() == request.Name.ToLower());
+                (x.Name.ToLower() == name.ToLower() || x.Code.ToLower() == code.ToLower()));
 
         if (duplicate)
-            return BadRequest("A subject with this name already exists for this course, group and semester.");
+            return BadRequest("A subject with this code or name already exists for this course, group and semester.");
         if (!await _context.Courses.AnyAsync(x => x.Id == request.CourseId))
             return BadRequest("Invalid course");
         if (!await _context.Groups.AnyAsync(x => x.Id == request.GroupId))
@@ -306,7 +318,8 @@ public class SubjectController : ControllerBase
         else if (request.TeachingLanguageId.HasValue && request.TeachingLanguageId.Value > 0)
             return BadRequest("Teaching language should only be set when the language slot is first or second language.");
 
-        subject.Name = request.Name;        
+        subject.Code = code;
+        subject.Name = name;
         subject.CourseId = request.CourseId;
         subject.GroupId = request.GroupId;
         subject.SemesterId = request.SemesterId;

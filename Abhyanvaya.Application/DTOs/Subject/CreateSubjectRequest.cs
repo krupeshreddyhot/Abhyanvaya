@@ -4,6 +4,7 @@ namespace Abhyanvaya.Application.DTOs.Subject
 {
     public class CreateSubjectRequest
     {
+        public string Code { get; set; } = null!;
         public string Name { get; set; }
 
         public int CourseId { get; set; }        

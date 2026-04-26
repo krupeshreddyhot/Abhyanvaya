@@ -9,6 +9,7 @@ namespace Abhyanvaya.Domain.Entities
 {
     public class Group : BaseEntity
     {
+        public string Code { get; set; }   // FIN, CA
         public string Name { get; set; }   // Finance, Computer Applications
         public int CourseId { get; set; }
 
