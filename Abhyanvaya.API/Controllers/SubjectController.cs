@@ -29,16 +29,18 @@ public class SubjectController : ControllerBase
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<IActionResult> GetCatalog()
     {
+        var isAdmin = _currentUser.Role.Equals(nameof(UserRole.Admin), StringComparison.OrdinalIgnoreCase);
         var list = await _context.Subjects
             .AsNoTracking()
             .OrderBy(x => x.Course!.Name)
             .ThenBy(x => x.Group!.Name)
-            .ThenBy(x => x.Name)
+            .ThenBy(x => x.TenantSubject!.Name)
             .Select(x => new SubjectCatalogDto
             {
                 Id = x.Id,
-                Code = x.Code,
-                Name = x.Name,
+                TenantSubjectId = x.TenantSubjectId,
+                Code = x.TenantSubject != null ? x.TenantSubject.Code : null,
+                Name = x.TenantSubject != null ? x.TenantSubject.Name : "",
                 CourseId = x.CourseId,
                 CourseName = x.Course != null ? x.Course.Name : "",
                 GroupId = x.GroupId,
@@ -50,11 +52,72 @@ public class SubjectController : ControllerBase
                 ElectiveGroupName = x.ElectiveGroup != null ? x.ElectiveGroup.Name : null,
                 LanguageSubjectSlot = x.LanguageSubjectSlot,
                 TeachingLanguageId = x.TeachingLanguageId,
-                TeachingLanguageName = x.TeachingLanguage != null ? x.TeachingLanguage.Name : null
+                TeachingLanguageName = x.TeachingLanguage != null ? x.TeachingLanguage.Name : null,
+                HPW = isAdmin ? x.HPW : null,
+                Credits = isAdmin ? x.Credits : null,
+                ExamHours = isAdmin ? x.ExamHours : null,
+                Marks = isAdmin ? x.Marks : null
             })
             .ToListAsync();
 
         return Ok(list);
+    }
+
+    [HttpGet("tenant-lookup")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    public async Task<IActionResult> GetTenantLookup([FromQuery] string? q = null)
+    {
+        var query = _context.TenantSubjects.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var raw = q.Trim();
+            // PostgreSQL ILIKE for reliable case-insensitive match on name and optional code.
+            var pattern = "%" + EscapeLikePattern(raw) + "%";
+            query = query.Where(x =>
+                EF.Functions.ILike(x.Name, pattern, "\\") ||
+                (x.Code != null && EF.Functions.ILike(x.Code, pattern, "\\")));
+        }
+
+        var list = await query
+            .OrderBy(x => x.Name)
+            .Take(50)
+            .Select(x => new TenantSubjectDto
+            {
+                Id = x.Id,
+                Name = x.Name,
+                Code = x.Code
+            })
+            .ToListAsync();
+
+        return Ok(list);
+    }
+
+    [HttpPost("tenant-lookup")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    public async Task<IActionResult> CreateTenantLookup(CreateTenantSubjectRequest request)
+    {
+        var name = (request.Name ?? string.Empty).Trim();
+        var code = string.IsNullOrWhiteSpace(request.Code) ? null : request.Code.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(name))
+            return BadRequest("Subject name is required.");
+
+        var duplicate = await _context.TenantSubjects.AnyAsync(x =>
+            x.TenantId == _currentUser.TenantId &&
+            (x.Name.ToLower() == name.ToLower() ||
+             (!string.IsNullOrWhiteSpace(code) && x.Code != null && x.Code.ToLower() == code.ToLower())));
+        if (duplicate)
+            return BadRequest("A tenant subject with this name or code already exists.");
+
+        var tenantSubject = new TenantSubject
+        {
+            Name = name,
+            Code = code
+        };
+
+        await _context.AddAsync(tenantSubject);
+        await _context.SaveChangesAsync();
+        await _cache.RemoveAsync("master:subject");
+        return Ok(new TenantSubjectDto { Id = tenantSubject.Id, Name = tenantSubject.Name, Code = tenantSubject.Code });
     }
 
     [HttpGet("my-subjects")]
@@ -80,12 +143,12 @@ public class SubjectController : ControllerBase
                  x.TeachingLanguageId == student.FirstLanguageId) ||
                 (x.LanguageSubjectSlot == SubjectLanguageSlot.SecondLanguage &&
                  x.TeachingLanguageId == student.LanguageId))
-            .Select(x => new { x.Id, x.Name })
+            .Select(x => new { x.Id, Name = x.TenantSubject != null ? x.TenantSubject.Name : "" })
             .ToListAsync();
 
         var electiveSubjects = await _context.StudentSubjects
             .Where(x => x.StudentId == student.Id)
-            .Select(x => new { x.Subject.Id, x.Subject.Name })
+            .Select(x => new { x.Subject.Id, Name = x.Subject.TenantSubject != null ? x.Subject.TenantSubject.Name : "" })
             .ToListAsync();
 
         var result = coreSubjects.Concat(electiveSubjects);
@@ -111,7 +174,7 @@ public class SubjectController : ControllerBase
             .Select(g => new
             {
                 Group = g.Key,
-                Subjects = g.Select(x => new { x.Id, x.Name })
+                Subjects = g.Select(x => new { x.Id, Name = x.TenantSubject != null ? x.TenantSubject.Name : "" })
             })
             .ToListAsync();
 
@@ -191,10 +254,8 @@ public class SubjectController : ControllerBase
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<IActionResult> Create(CreateSubjectRequest request)
     {
-        var code = (request.Code ?? "").Trim().ToUpperInvariant();
-        var name = (request.Name ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name))
-            return BadRequest("Subject code and name are required.");
+        if (request.TenantSubjectId <= 0)
+            return BadRequest("Tenant subject is required.");
 
         var exists = await _context.Subjects
             .AnyAsync(x =>
@@ -202,10 +263,10 @@ public class SubjectController : ControllerBase
                 x.CourseId == request.CourseId &&
                 x.GroupId == request.GroupId &&
                 x.SemesterId == request.SemesterId &&
-                (x.Name.ToLower() == name.ToLower() || x.Code.ToLower() == code.ToLower()));
+                x.TenantSubjectId == request.TenantSubjectId);
 
         if (exists)
-            return BadRequest("A subject with this code or name already exists for this course, group and semester.");
+            return BadRequest("This subject is already assigned to the selected course, group and semester.");
 
         if (!await _context.Courses.AnyAsync(x => x.Id == request.CourseId))
             return BadRequest("Invalid Course");
@@ -213,6 +274,8 @@ public class SubjectController : ControllerBase
             return BadRequest("Invalid Group");
         if (!await _context.Semesters.AnyAsync(x => x.Id == request.SemesterId))
             return BadRequest("Invalid Semester");
+        if (!await _context.TenantSubjects.AnyAsync(x => x.Id == request.TenantSubjectId))
+            return BadRequest("Invalid tenant subject.");
 
         int? electiveGroupId = null;
         if (request.IsElective)
@@ -240,8 +303,7 @@ public class SubjectController : ControllerBase
 
         var subject = new Subject
         {
-            Code = code,
-            Name = name,
+            TenantSubjectId = request.TenantSubjectId,
             CourseId = request.CourseId,
             GroupId = request.GroupId,
             SemesterId = request.SemesterId,
@@ -249,6 +311,10 @@ public class SubjectController : ControllerBase
             ElectiveGroupId = electiveGroupId,
             LanguageSubjectSlot = request.LanguageSubjectSlot,
             TeachingLanguageId = teachingLanguageId,
+            HPW = request.HPW,
+            Credits = request.Credits,
+            ExamHours = request.ExamHours,
+            Marks = request.Marks,
             CreatedDate = DateTime.UtcNow
         };
 
@@ -266,10 +332,8 @@ public class SubjectController : ControllerBase
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<IActionResult> Update(UpdateSubjectRequest request)
     {
-        var code = (request.Code ?? "").Trim().ToUpperInvariant();
-        var name = (request.Name ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name))
-            return BadRequest("Subject code and name are required.");
+        if (request.TenantSubjectId <= 0)
+            return BadRequest("Tenant subject is required.");
 
         var subject = await _context.Subjects.FirstOrDefaultAsync(x => x.Id == request.Id);
 
@@ -283,16 +347,18 @@ public class SubjectController : ControllerBase
                 x.CourseId == request.CourseId &&
                 x.GroupId == request.GroupId &&
                 x.SemesterId == request.SemesterId &&
-                (x.Name.ToLower() == name.ToLower() || x.Code.ToLower() == code.ToLower()));
+                x.TenantSubjectId == request.TenantSubjectId);
 
         if (duplicate)
-            return BadRequest("A subject with this code or name already exists for this course, group and semester.");
+            return BadRequest("This subject is already assigned to the selected course, group and semester.");
         if (!await _context.Courses.AnyAsync(x => x.Id == request.CourseId))
             return BadRequest("Invalid course");
         if (!await _context.Groups.AnyAsync(x => x.Id == request.GroupId))
             return BadRequest("Invalid Group");
         if (!await _context.Semesters.AnyAsync(x => x.Id == request.SemesterId))
             return BadRequest("Invalid Semester");
+        if (!await _context.TenantSubjects.AnyAsync(x => x.Id == request.TenantSubjectId))
+            return BadRequest("Invalid tenant subject.");
 
         int? electiveGroupId = null;
         if (request.IsElective)
@@ -318,8 +384,7 @@ public class SubjectController : ControllerBase
         else if (request.TeachingLanguageId.HasValue && request.TeachingLanguageId.Value > 0)
             return BadRequest("Teaching language should only be set when the language slot is first or second language.");
 
-        subject.Code = code;
-        subject.Name = name;
+        subject.TenantSubjectId = request.TenantSubjectId;
         subject.CourseId = request.CourseId;
         subject.GroupId = request.GroupId;
         subject.SemesterId = request.SemesterId;
@@ -327,6 +392,10 @@ public class SubjectController : ControllerBase
         subject.ElectiveGroupId = electiveGroupId;
         subject.LanguageSubjectSlot = request.LanguageSubjectSlot;
         subject.TeachingLanguageId = teachingLanguageId;
+        subject.HPW = request.HPW;
+        subject.Credits = request.Credits;
+        subject.ExamHours = request.ExamHours;
+        subject.Marks = request.Marks;
         subject.UpdatedDate = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
@@ -334,5 +403,14 @@ public class SubjectController : ControllerBase
         await _cache.RemoveAsync("master:subject");
 
         return Ok(subject);
+    }
+
+    /// <summary>Escape % and _ for use inside ILIKE patterns.</summary>
+    private static string EscapeLikePattern(string value)
+    {
+        return value
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("%", "\\%", StringComparison.Ordinal)
+            .Replace("_", "\\_", StringComparison.Ordinal);
     }
 }

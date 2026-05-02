@@ -5,8 +5,8 @@ namespace Abhyanvaya.Domain.Entities
 {
     public class Subject : BaseEntity
     {
-        public string Code { get; set; } = null!;
-        public string Name { get; set; }
+        public int TenantSubjectId { get; set; }
+        public TenantSubject? TenantSubject { get; set; }
 
         public int CourseId { get; set; }
         public Course? Course { get; set; }
@@ -28,5 +28,10 @@ namespace Abhyanvaya.Domain.Entities
         /// <summary>Which language this subject teaches (e.g. Sanskrit FL or SL row).</summary>
         public int? TeachingLanguageId { get; set; }
         public Language? TeachingLanguage { get; set; }
+
+        public decimal? HPW { get; set; }
+        public decimal? Credits { get; set; }
+        public decimal? ExamHours { get; set; }
+        public decimal? Marks { get; set; }
     }
 }

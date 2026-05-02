@@ -39,7 +39,7 @@ namespace Abhyanvaya.API.Controllers
 
             var report = await _context.Attendances
                 .Where(x => x.StudentId == student.Id)
-                .GroupBy(x => x.Subject.Name)
+                .GroupBy(x => x.Subject.TenantSubject.Name)
                 .Select(g => new
                 {
                     Subject = g.Key,
@@ -84,7 +84,7 @@ namespace Abhyanvaya.API.Controllers
                     x.StudentId == student.Id &&
                     x.Date.Month == month &&
                     x.Date.Year == year)
-                .GroupBy(x => x.Subject.Name)
+                .GroupBy(x => x.Subject.TenantSubject.Name)
                 .Select(g => new
                 {
                     Subject = g.Key,

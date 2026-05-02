@@ -14,6 +14,7 @@ namespace Abhyanvaya.Application.Common.Interfaces
         IQueryable<Gender> Genders { get; }
         IQueryable<Medium> Mediums { get; }
         IQueryable<Language> Languages { get; }
+        IQueryable<TenantSubject> TenantSubjects { get; }
         IQueryable<Subject> Subjects { get; }
         IQueryable<StudentSubject> StudentSubjects { get; }
         IQueryable<ElectiveGroup> ElectiveGroups { get; }

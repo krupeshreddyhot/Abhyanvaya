@@ -3,7 +3,7 @@ import api from "../api/axios";
 export type CourseDto = { id: number; code: string; name: string };
 export type GroupDto = { id: number; code: string; name: string; courseId: number };
 export type SemesterDto = { id: number; name: string };
-export type SubjectDto = { id: number; code: string; name: string; isElective: boolean };
+export type SubjectDto = { id: number; code: string | null; name: string; isElective: boolean };
 
 export type AttendanceStudentDto = {
   slNo: number;

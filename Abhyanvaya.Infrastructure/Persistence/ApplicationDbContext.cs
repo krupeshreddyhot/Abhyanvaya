@@ -30,6 +30,7 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<Gender> Genders => Set<Gender>();
         public IQueryable<Medium> Mediums => Set<Medium>();
         public IQueryable<Language> Languages => Set<Language>();
+        public IQueryable<TenantSubject> TenantSubjects => Set<TenantSubject>();
 
         public IQueryable<Semester> Semesters => Set<Semester>();
         public IQueryable<Subject> Subjects => Set<Subject>();
@@ -41,6 +42,7 @@ namespace Abhyanvaya.Infrastructure.Persistence
 
             // FORCE EF TO INCLUDE  TABLES
             builder.Entity<Semester>();
+            builder.Entity<TenantSubject>();
             builder.Entity<Subject>();
             builder.Entity<ElectiveGroup>();
             builder.Entity<StudentSubject>();            
@@ -142,6 +144,11 @@ namespace Abhyanvaya.Infrastructure.Persistence
                     .WithMany()
                     .HasForeignKey(u => u.GroupId);
             builder.Entity<Subject>()
+                .HasOne(x => x.TenantSubject)
+                .WithMany()
+                .HasForeignKey(x => x.TenantSubjectId);
+
+            builder.Entity<Subject>()
                 .HasOne(x => x.Semester)
                 .WithMany()
                 .HasForeignKey(x => x.SemesterId);
@@ -184,8 +191,11 @@ namespace Abhyanvaya.Infrastructure.Persistence
             builder.Entity<Group>()
                 .HasIndex(x => new { x.TenantId, x.CourseId, x.Code });
 
+            builder.Entity<TenantSubject>()
+                .HasIndex(x => new { x.TenantId, x.Name });
+
             builder.Entity<Subject>()
-                .HasIndex(s => new { s.TenantId, s.CourseId, s.GroupId, s.SemesterId, s.Code });
+                .HasIndex(s => new { s.TenantId, s.CourseId, s.GroupId, s.SemesterId, s.TenantSubjectId });
 
             builder.Entity<Attendance>()
                 .HasIndex(x => new { x.TenantId, x.StudentId, x.SubjectId, x.Date })

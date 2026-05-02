@@ -123,8 +123,8 @@ namespace Abhyanvaya.API.Controllers
                 .Select(x => new
                 {
                     x.Id,
-                    x.Name,
-                    x.Code,
+                    Name = x.TenantSubject != null ? x.TenantSubject.Name : "",
+                    Code = x.TenantSubject != null ? x.TenantSubject.Code : null,
                     x.IsElective
                 })
                 .ToListAsync();
@@ -169,7 +169,7 @@ namespace Abhyanvaya.API.Controllers
                 .Select(x => new
                 {
                     x.Id,
-                    x.Name,
+                    Name = x.TenantSubject != null ? x.TenantSubject.Name : "",
                     x.SemesterId
                 })
                 .ToListAsync();
@@ -208,7 +208,7 @@ namespace Abhyanvaya.API.Controllers
                 .Select(x => new
                 {
                     x.Id,
-                    x.Name
+                    Name = x.TenantSubject != null ? x.TenantSubject.Name : ""
                 })
                 .ToListAsync();
 

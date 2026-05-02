@@ -31,6 +31,8 @@ import {
   listLanguages,
   listSemesters,
   listSubjectCatalog,
+  listTenantSubjects,
+  createTenantSubject,
   updateSubject,
   type CourseRow,
   type ElectiveGroupRow,
@@ -38,6 +40,7 @@ import {
   type IdName,
   type SemesterRow,
   type SubjectCatalogRow,
+  type TenantSubjectRow,
 } from "../../services/setupService";
 
 const errMsg = (e: unknown): string => {
@@ -50,6 +53,16 @@ const SLOT_LABELS: Record<number, string> = {
   0: "Not a language period",
   1: "First language",
   2: "Second language",
+};
+
+/** True if trimmed query is a substring of the subject's name or code (case-insensitive). */
+const queryMatchesSelectedSubject = (query: string, subject: TenantSubjectRow | null) => {
+  if (!subject) return false;
+  const q = query.trim().toLowerCase();
+  if (!q) return false;
+  if (subject.name.toLowerCase().includes(q)) return true;
+  if (subject.code && subject.code.toLowerCase().includes(q)) return true;
+  return false;
 };
 
 const SubjectsPage = () => {
@@ -66,8 +79,14 @@ const SubjectsPage = () => {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(0);
 
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
+  const [tenantSubjects, setTenantSubjects] = useState<TenantSubjectRow[]>([]);
+  const [selectedTenantSubject, setSelectedTenantSubject] = useState<TenantSubjectRow | null>(null);
+  const [tenantSubjectId, setTenantSubjectId] = useState(0);
+  const [subjectLookupQuery, setSubjectLookupQuery] = useState("");
+  const [lookupDialogOpen, setLookupDialogOpen] = useState(false);
+  const [newTenantSubjectCode, setNewTenantSubjectCode] = useState("");
+  const [newTenantSubjectName, setNewTenantSubjectName] = useState("");
+  const [creatingTenantSubject, setCreatingTenantSubject] = useState(false);
   const [courseId, setCourseId] = useState(0);
   const [groupId, setGroupId] = useState(0);
   const [semesterId, setSemesterId] = useState(0);
@@ -75,18 +94,23 @@ const SubjectsPage = () => {
   const [electiveGroupId, setElectiveGroupId] = useState(0);
   const [languageSubjectSlot, setLanguageSubjectSlot] = useState(0);
   const [teachingLanguageId, setTeachingLanguageId] = useState(0);
+  const [hpw, setHpw] = useState<string>("");
+  const [credits, setCredits] = useState<string>("");
+  const [examHours, setExamHours] = useState<string>("");
+  const [marks, setMarks] = useState<string>("");
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [cRes, gRes, sRes, lRes, eRes, subRes] = await Promise.all([
+      const [cRes, gRes, sRes, lRes, eRes, subRes, tsRes] = await Promise.all([
         listCourses(),
         listGroups(),
         listSemesters(),
         listLanguages(),
         listElectiveGroups(),
         listSubjectCatalog(),
+        listTenantSubjects(),
       ]);
       setCourses(cRes.data);
       setGroups(gRes.data);
@@ -94,6 +118,7 @@ const SubjectsPage = () => {
       setLanguages(lRes.data);
       setElectiveGroups(eRes.data);
       setRows(subRes.data);
+      setTenantSubjects(tsRes.data);
     } catch (e) {
       setError(errMsg(e));
     } finally {
@@ -126,8 +151,11 @@ const SubjectsPage = () => {
 
   const openAdd = () => {
     setEditingId(0);
-    setCode("");
-    setName("");
+    setTenantSubjectId(0);
+    setSelectedTenantSubject(null);
+    setSubjectLookupQuery("");
+    setNewTenantSubjectCode("");
+    setNewTenantSubjectName("");
     const c0 = courses[0]?.id ?? 0;
     setCourseId(c0);
     const g0 = groups.find((x) => x.courseId === c0)?.id ?? 0;
@@ -139,13 +167,20 @@ const SubjectsPage = () => {
     setElectiveGroupId(0);
     setLanguageSubjectSlot(0);
     setTeachingLanguageId(languages[0]?.id ?? 0);
+    setHpw("");
+    setCredits("");
+    setExamHours("");
+    setMarks("");
     setDialogOpen(true);
   };
 
   const openEdit = (r: SubjectCatalogRow) => {
     setEditingId(r.id);
-    setCode(r.code);
-    setName(r.name);
+    setTenantSubjectId(r.tenantSubjectId);
+    setSelectedTenantSubject({ id: r.tenantSubjectId, name: r.name, code: r.code });
+    setSubjectLookupQuery(r.name);
+    setNewTenantSubjectCode("");
+    setNewTenantSubjectName("");
     setCourseId(r.courseId);
     setGroupId(r.groupId);
     setSemesterId(r.semesterId);
@@ -153,14 +188,67 @@ const SubjectsPage = () => {
     setElectiveGroupId(r.electiveGroupId ?? 0);
     setLanguageSubjectSlot(r.languageSubjectSlot);
     setTeachingLanguageId(r.teachingLanguageId ?? languages[0]?.id ?? 0);
+    setHpw(r.hpw == null ? "" : String(r.hpw));
+    setCredits(r.credits == null ? "" : String(r.credits));
+    setExamHours(r.examHours == null ? "" : String(r.examHours));
+    setMarks(r.marks == null ? "" : String(r.marks));
     setDialogOpen(true);
   };
 
+  useEffect(() => {
+    if (!dialogOpen) return;
+    if (editingId) return;
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await listTenantSubjects(subjectLookupQuery.trim() || undefined);
+        setTenantSubjects(res.data);
+        if (tenantSubjectId > 0 && !selectedTenantSubject) {
+          const selected = res.data.find((x) => x.id === tenantSubjectId) ?? null;
+          setSelectedTenantSubject(selected);
+        }
+      } catch {
+        // no-op: keep previous list and show submit-time errors.
+      }
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [subjectLookupQuery, dialogOpen, tenantSubjectId, selectedTenantSubject, editingId]);
+
+  const selectTenantSubject = (subject: TenantSubjectRow) => {
+    setTenantSubjectId(subject.id);
+    setSelectedTenantSubject(subject);
+    setSubjectLookupQuery(subject.name);
+    setError(null);
+  };
+
+  const addTenantSubject = async () => {
+    const name = newTenantSubjectName.trim();
+    const code = newTenantSubjectCode.trim().toUpperCase();
+    if (!name) {
+      setError("Subject name is required to add a tenant subject.");
+      return;
+    }
+    setCreatingTenantSubject(true);
+    setError(null);
+    try {
+      const res = await createTenantSubject({ name, code: code || null });
+      setTenantSubjects((prev) => [res.data, ...prev.filter((x) => x.id !== res.data.id)]);
+      setTenantSubjectId(res.data.id);
+      setSelectedTenantSubject(res.data);
+      setSubjectLookupQuery(res.data.name);
+      setNewTenantSubjectCode("");
+      setNewTenantSubjectName("");
+      setLookupDialogOpen(false);
+      setMessage("Subject lookup created.");
+    } catch (e) {
+      setError(errMsg(e));
+    } finally {
+      setCreatingTenantSubject(false);
+    }
+  };
+
   const save = async () => {
-    const c = code.trim().toUpperCase();
-    const n = name.trim();
-    if (!c || !n || !courseId || !groupId || !semesterId) {
-      setError("Code, name, course, group and semester are required.");
+    if (!tenantSubjectId || !courseId || !groupId || !semesterId) {
+      setError("Subject, course, group and semester are required.");
       return;
     }
     if (isElective && !electiveGroupId) {
@@ -174,14 +262,17 @@ const SubjectsPage = () => {
 
     const teachingId =
       languageSubjectSlot === 1 || languageSubjectSlot === 2 ? teachingLanguageId : null;
+    const hpwValue = hpw.trim() === "" ? null : Number(hpw);
+    const creditsValue = credits.trim() === "" ? null : Number(credits);
+    const examHoursValue = examHours.trim() === "" ? null : Number(examHours);
+    const marksValue = marks.trim() === "" ? null : Number(marks);
 
     setSaving(true);
     setError(null);
     setMessage(null);
     try {
       const base = {
-        code: c,
-        name: n,
+        tenantSubjectId,
         courseId,
         groupId,
         semesterId,
@@ -189,6 +280,10 @@ const SubjectsPage = () => {
         electiveGroupId: isElective ? electiveGroupId : null,
         languageSubjectSlot,
         teachingLanguageId: teachingId,
+        hpw: Number.isNaN(hpwValue) ? null : hpwValue,
+        credits: Number.isNaN(creditsValue) ? null : creditsValue,
+        examHours: Number.isNaN(examHoursValue) ? null : examHoursValue,
+        marks: Number.isNaN(marksValue) ? null : marksValue,
       };
       if (editingId) await updateSubject({ id: editingId, ...base });
       else await createSubject(base);
@@ -240,7 +335,7 @@ const SubjectsPage = () => {
             <TableBody>
               {rows.map((r) => (
                 <TableRow key={r.id} hover>
-                  <TableCell>{r.code}</TableCell>
+                  <TableCell>{r.code ?? "—"}</TableCell>
                   <TableCell>{r.name}</TableCell>
                   <TableCell>{r.courseName}</TableCell>
                   <TableCell>{r.groupName}</TableCell>
@@ -260,18 +355,66 @@ const SubjectsPage = () => {
         </TableContainer>
       )}
 
-      <Dialog open={dialogOpen} onClose={() => !saving && setDialogOpen(false)} fullWidth maxWidth="md">
+      <Dialog open={dialogOpen} onClose={() => !saving && setDialogOpen(false)} fullScreen>
         <DialogTitle>{editingId ? "Edit subject" : "Add subject"}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Subject code"
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              fullWidth
-              required
-            />
-            <TextField label="Subject name" value={name} onChange={(e) => setName(e.target.value)} fullWidth required />
+            {!editingId && (
+              <>
+                <TextField
+                  label="Search subject by name or code"
+                  value={subjectLookupQuery}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSubjectLookupQuery(value);
+                    if (selectedTenantSubject && !queryMatchesSelectedSubject(value, selectedTenantSubject)) {
+                      setSelectedTenantSubject(null);
+                      setTenantSubjectId(0);
+                    }
+                  }}
+                  fullWidth
+                  helperText="Matches subject name or subject code (partial search)."
+                />
+                {subjectLookupQuery.trim() && tenantSubjects.length > 0 && (
+                  <Stack spacing={1}>
+                    {tenantSubjects.map((subject) => (
+                      <Button
+                        key={subject.id}
+                        variant={subject.id === tenantSubjectId ? "contained" : "outlined"}
+                        onClick={() => selectTenantSubject(subject)}
+                        sx={{
+                          justifyContent: "flex-start",
+                          alignItems: "flex-start",
+                          flexDirection: "column",
+                          textAlign: "left",
+                          py: 1.25,
+                        }}
+                      >
+                        <Typography variant="body1" component="span" sx={{ fontWeight: 600 }}>
+                          {subject.name}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" component="span">
+                          {subject.code ? `Code: ${subject.code}` : "No code"}
+                        </Typography>
+                      </Button>
+                    ))}
+                  </Stack>
+                )}
+                {subjectLookupQuery.trim() && tenantSubjects.length === 0 && (
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      setNewTenantSubjectName(subjectLookupQuery.trim());
+                      setLookupDialogOpen(true);
+                    }}
+                  >
+                    Add subject
+                  </Button>
+                )}
+              </>
+            )}
+            <TextField label="Subject name" value={selectedTenantSubject?.name ?? ""} fullWidth disabled required />
+            <TextField label="Subject code" value={selectedTenantSubject?.code ?? ""} fullWidth disabled />
             <TextField
               select
               label="Course"
@@ -380,6 +523,28 @@ const SubjectsPage = () => {
                 ))}
               </TextField>
             )}
+            <TextField label="HPW" type="number" value={hpw} onChange={(e) => setHpw(e.target.value)} fullWidth />
+            <TextField
+              label="Credits"
+              type="number"
+              value={credits}
+              onChange={(e) => setCredits(e.target.value)}
+              fullWidth
+            />
+            <TextField
+              label="Exam Hours"
+              type="number"
+              value={examHours}
+              onChange={(e) => setExamHours(e.target.value)}
+              fullWidth
+            />
+            <TextField
+              label="Marks"
+              type="number"
+              value={marks}
+              onChange={(e) => setMarks(e.target.value)}
+              fullWidth
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -388,6 +553,35 @@ const SubjectsPage = () => {
           </Button>
           <Button variant="contained" onClick={() => void save()} disabled={saving}>
             {saving ? "Saving…" : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={lookupDialogOpen} onClose={() => !creatingTenantSubject && setLookupDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Add subject lookup</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Subject name"
+              value={newTenantSubjectName}
+              onChange={(e) => setNewTenantSubjectName(e.target.value)}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Subject code (optional)"
+              value={newTenantSubjectCode}
+              onChange={(e) => setNewTenantSubjectCode(e.target.value.toUpperCase())}
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLookupDialogOpen(false)} disabled={creatingTenantSubject}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={() => void addTenantSubject()} disabled={creatingTenantSubject}>
+            {creatingTenantSubject ? "Saving..." : "Save"}
           </Button>
         </DialogActions>
       </Dialog>
