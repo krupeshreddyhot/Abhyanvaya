@@ -65,7 +65,8 @@ export const createGroup = (payload: { code: string; name: string; courseId: num
 export const updateGroup = (payload: { id: number; code: string; name: string; courseId: number }) =>
   api.put<GroupRow>("/group", payload);
 
-export const listSemesters = () => api.get<SemesterRow[]>("/semester");
+/** Uses tenant-scoped master endpoint so production JWT/role mapping matches courses/groups (AdminOnly /semester was brittle). */
+export const listSemesters = () => api.get<SemesterRow[]>("/master/semesters/full");
 export const createSemester = (payload: {
   number: number;
   name: string;

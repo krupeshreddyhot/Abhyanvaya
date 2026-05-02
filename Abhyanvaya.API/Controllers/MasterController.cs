@@ -79,6 +79,32 @@ namespace Abhyanvaya.API.Controllers
             return Ok(data);
         }
 
+        /// <summary>
+        /// Full semester rows (course/group scope fields) for setup UIs. Uses <see cref="AuthorizationPolicies.TenantScopedUser"/>
+        /// like courses/groups, so JWT role claim mapping cannot block reads in production the way <c>/api/semester</c> AdminOnly can.
+        /// </summary>
+        [HttpGet("semesters/full")]
+        public async Task<IActionResult> GetSemestersFull()
+        {
+            var data = await _context.Semesters
+                .AsNoTracking()
+                .OrderBy(x => x.CourseId)
+                .ThenBy(x => x.Number)
+                .Select(x => new
+                {
+                    x.Id,
+                    x.Number,
+                    x.Name,
+                    x.CourseId,
+                    CourseName = x.Course != null ? x.Course.Name : "",
+                    x.GroupId,
+                    GroupName = x.Group != null ? x.Group.Name : (string?)null
+                })
+                .ToListAsync();
+
+            return Ok(data);
+        }
+
         [HttpGet("genders")]
         public async Task<IActionResult> GetGenders()
         {
