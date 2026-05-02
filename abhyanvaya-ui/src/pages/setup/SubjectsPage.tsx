@@ -65,6 +65,15 @@ const queryMatchesSelectedSubject = (query: string, subject: TenantSubjectRow | 
   return false;
 };
 
+/** Normalize API rows so id/courseId/groupId compare reliably (JSON may deserialize as strings). */
+const normalizeSemesterRow = (s: SemesterRow): SemesterRow => ({
+  ...s,
+  id: Number(s.id),
+  number: Number(s.number),
+  courseId: Number(s.courseId),
+  groupId: s.groupId == null ? null : Number(s.groupId),
+});
+
 const SubjectsPage = () => {
   const [courses, setCourses] = useState<CourseRow[]>([]);
   const [groups, setGroups] = useState<GroupRow[]>([]);
@@ -98,6 +107,8 @@ const SubjectsPage = () => {
   const [credits, setCredits] = useState<string>("");
   const [examHours, setExamHours] = useState<string>("");
   const [marks, setMarks] = useState<string>("");
+  /** When editing, subject references a semester id not present in /semester (orphan or stale); still show it in the dropdown. */
+  const [editSemesterFallback, setEditSemesterFallback] = useState<{ id: number; name: string } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -114,7 +125,7 @@ const SubjectsPage = () => {
       ]);
       setCourses(cRes.data);
       setGroups(gRes.data);
-      setSemesters(sRes.data);
+      setSemesters(sRes.data.map(normalizeSemesterRow));
       setLanguages(lRes.data);
       setElectiveGroups(eRes.data);
       setRows(subRes.data);
@@ -131,37 +142,65 @@ const SubjectsPage = () => {
   }, []);
 
   const groupsForCourse = useMemo(
-    () => groups.filter((g) => g.courseId === courseId),
+    () => groups.filter((g) => Number(g.courseId) === Number(courseId)),
     [groups, courseId],
   );
 
   const semestersForSelection = useMemo(() => {
-    const filtered = semesters.filter((s) => {
-      if (s.courseId !== courseId) return false;
+    const cid = Number(courseId);
+    const gid = Number(groupId);
+    const sid = Number(semesterId);
+
+    const forCourse = semesters.filter((s) => Number(s.courseId) === cid);
+
+    const scoped = forCourse.filter((s) => {
       if (s.groupId == null) return true;
-      return s.groupId === groupId;
+      return Number(s.groupId) === gid;
     });
-    // If the subject's semester is tied to a different group in master data, the filter
-    // can drop it and MUI Select shows blank. Always include the currently selected semester.
-    if (semesterId > 0) {
-      const current = semesters.find((s) => s.id === semesterId);
-      if (current && !filtered.some((s) => s.id === current.id)) {
-        return [...filtered, current].sort(
-          (a, b) => a.number - b.number || a.id - b.id,
-        );
+
+    // Prefer semesters scoped to this group; if none exist in master data, show all semesters for the course.
+    let list = scoped.length > 0 ? scoped : forCourse;
+
+    if (sid > 0) {
+      const current = semesters.find((s) => Number(s.id) === sid);
+      if (current && !list.some((s) => Number(s.id) === current.id)) {
+        list = [...list, current];
+      }
+      if (
+        editSemesterFallback &&
+        Number(editSemesterFallback.id) === sid &&
+        !list.some((s) => Number(s.id) === sid)
+      ) {
+        list = [
+          ...list,
+          {
+            id: editSemesterFallback.id,
+            number: 0,
+            name: editSemesterFallback.name,
+            courseId: cid,
+            courseName: "",
+            groupId: null,
+            groupName: null,
+          },
+        ];
       }
     }
-    return filtered;
-  }, [semesters, courseId, groupId, semesterId]);
+
+    return [...list].sort((a, b) => a.number - b.number || a.id - b.id);
+  }, [semesters, courseId, groupId, semesterId, editSemesterFallback]);
 
   const electivesForContext = useMemo(() => {
     return electiveGroups.filter(
-      (e) => e.courseId === courseId && e.semesterId === semesterId && e.groupId === groupId,
+      (e) =>
+        Number(e.courseId) === Number(courseId) &&
+        Number(e.semesterId) === Number(semesterId) &&
+        Number(e.groupId) === Number(groupId),
     );
   }, [electiveGroups, courseId, semesterId, groupId]);
 
   const openAdd = () => {
     setEditingId(0);
+    setEditSemesterFallback(null);
     setTenantSubjectId(0);
     setSelectedTenantSubject(null);
     setSubjectLookupQuery("");
@@ -187,14 +226,19 @@ const SubjectsPage = () => {
 
   const openEdit = (r: SubjectCatalogRow) => {
     setEditingId(r.id);
-    setTenantSubjectId(r.tenantSubjectId);
-    setSelectedTenantSubject({ id: r.tenantSubjectId, name: r.name, code: r.code });
+    setEditSemesterFallback(null);
+    setTenantSubjectId(Number(r.tenantSubjectId));
+    setSelectedTenantSubject({
+      id: Number(r.tenantSubjectId),
+      name: r.name,
+      code: r.code,
+    });
     setSubjectLookupQuery(r.name);
     setNewTenantSubjectCode("");
     setNewTenantSubjectName("");
-    setCourseId(r.courseId);
-    setGroupId(r.groupId);
-    setSemesterId(r.semesterId);
+    setCourseId(Number(r.courseId));
+    setGroupId(Number(r.groupId));
+    setSemesterId(Number(r.semesterId));
     setIsElective(r.isElective);
     setElectiveGroupId(r.electiveGroupId ?? 0);
     setLanguageSubjectSlot(r.languageSubjectSlot);
@@ -203,6 +247,13 @@ const SubjectsPage = () => {
     setCredits(r.credits == null ? "" : String(r.credits));
     setExamHours(r.examHours == null ? "" : String(r.examHours));
     setMarks(r.marks == null ? "" : String(r.marks));
+    const semOk = semesters.some((s) => Number(s.id) === Number(r.semesterId));
+    if (!semOk && r.semesterId > 0) {
+      setEditSemesterFallback({
+        id: Number(r.semesterId),
+        name: r.semesterName?.trim() || `Semester #${r.semesterId}`,
+      });
+    }
     setDialogOpen(true);
   };
 
@@ -433,10 +484,13 @@ const SubjectsPage = () => {
               onChange={(e) => {
                 const cid = Number(e.target.value);
                 setCourseId(cid);
-                const g = groups.find((x) => x.courseId === cid);
+                setEditSemesterFallback(null);
+                const g = groups.find((x) => Number(x.courseId) === cid);
                 setGroupId(g?.id ?? 0);
                 const sem = semesters.find(
-                  (s) => s.courseId === cid && (s.groupId == null || s.groupId === g?.id),
+                  (s) =>
+                    Number(s.courseId) === cid &&
+                    (s.groupId == null || Number(s.groupId) === Number(g?.id)),
                 );
                 setSemesterId(sem?.id ?? 0);
               }}
@@ -456,8 +510,11 @@ const SubjectsPage = () => {
               onChange={(e) => {
                 const gid = Number(e.target.value);
                 setGroupId(gid);
+                setEditSemesterFallback(null);
                 const sem = semesters.find(
-                  (s) => s.courseId === courseId && (s.groupId == null || s.groupId === gid),
+                  (s) =>
+                    Number(s.courseId) === Number(courseId) &&
+                    (s.groupId == null || Number(s.groupId) === gid),
                 );
                 setSemesterId(sem?.id ?? 0);
               }}
@@ -477,10 +534,15 @@ const SubjectsPage = () => {
               onChange={(e) => setSemesterId(Number(e.target.value))}
               fullWidth
               required
+              helperText={
+                semestersForSelection.length === 0 && courseId
+                  ? "No semester rows for this course. Add semesters under Catalog, or check course and group in master data."
+                  : undefined
+              }
             >
               {semestersForSelection.map((s) => (
                 <MenuItem key={s.id} value={s.id}>
-                  {s.name} (#{s.number})
+                  {s.number > 0 ? `${s.name} (#${s.number})` : s.name}
                 </MenuItem>
               ))}
             </TextField>
