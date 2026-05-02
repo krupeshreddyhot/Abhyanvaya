@@ -31,7 +31,7 @@ namespace Abhyanvaya.API.Controllers
         {
             var data = await _context.Semesters
                 .AsNoTracking()
-                .OrderBy(x => x.Course!.Name)
+                .OrderBy(x => x.CourseId)
                 .ThenBy(x => x.Number)
                 .Select(x => new
                 {
