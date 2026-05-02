@@ -29,7 +29,8 @@ export type ElectiveGroupRow = {
 
 export type SubjectCatalogRow = {
   id: number;
-  code: string;
+  tenantSubjectId: number;
+  code: string | null;
   name: string;
   courseId: number;
   courseName: string;
@@ -43,6 +44,16 @@ export type SubjectCatalogRow = {
   languageSubjectSlot: number;
   teachingLanguageId: number | null;
   teachingLanguageName: string | null;
+  hpw: number | null;
+  credits: number | null;
+  examHours: number | null;
+  marks: number | null;
+};
+
+export type TenantSubjectRow = {
+  id: number;
+  code: string | null;
+  name: string;
 };
 
 export const listCourses = () => api.get<CourseRow[]>("/course");
@@ -71,8 +82,7 @@ export const updateSemester = (payload: {
 
 export const listSubjectCatalog = () => api.get<SubjectCatalogRow[]>("/subject/catalog");
 export const createSubject = (payload: {
-  code: string;
-  name: string;
+  tenantSubjectId: number;
   courseId: number;
   groupId: number;
   semesterId: number;
@@ -80,11 +90,14 @@ export const createSubject = (payload: {
   electiveGroupId: number | null;
   languageSubjectSlot: number;
   teachingLanguageId: number | null;
+  hpw: number | null;
+  credits: number | null;
+  examHours: number | null;
+  marks: number | null;
 }) => api.post("/subject", payload);
 export const updateSubject = (payload: {
   id: number;
-  code: string;
-  name: string;
+  tenantSubjectId: number;
   courseId: number;
   groupId: number;
   semesterId: number;
@@ -92,7 +105,15 @@ export const updateSubject = (payload: {
   electiveGroupId: number | null;
   languageSubjectSlot: number;
   teachingLanguageId: number | null;
+  hpw: number | null;
+  credits: number | null;
+  examHours: number | null;
+  marks: number | null;
 }) => api.put("/subject", payload);
+export const listTenantSubjects = (q?: string) =>
+  api.get<TenantSubjectRow[]>("/subject/tenant-lookup", { params: q ? { q } : undefined });
+export const createTenantSubject = (payload: { name: string; code: string | null }) =>
+  api.post<TenantSubjectRow>("/subject/tenant-lookup", payload);
 
 export const listLanguages = () => api.get<IdName[]>("/language");
 export const createLanguage = (payload: { name: string }) => api.post<IdName>("/language", payload);

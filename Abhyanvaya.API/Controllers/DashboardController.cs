@@ -115,7 +115,7 @@ namespace Abhyanvaya.API.Controllers
 
             var data = await _context.Attendances
                 .Where(x => x.StudentId == student.Id)
-                .GroupBy(x => x.Subject.Name)
+                .GroupBy(x => x.Subject.TenantSubject.Name)
                 .Select(g => new
                 {
                     Subject = g.Key,
@@ -144,7 +144,7 @@ namespace Abhyanvaya.API.Controllers
         {
             var result = await _context.Attendances
                 .Where(x => x.StudentId == _currentUser.UserId)
-                .GroupBy(x => x.Subject.Name)
+                .GroupBy(x => x.Subject.TenantSubject.Name)
                 .Select(g => new
                 {
                     Subject = g.Key,

@@ -4,8 +4,7 @@ namespace Abhyanvaya.Application.DTOs.Subject
 {
     public class CreateSubjectRequest
     {
-        public string Code { get; set; } = null!;
-        public string Name { get; set; }
+        public int TenantSubjectId { get; set; }
 
         public int CourseId { get; set; }        
 
@@ -20,5 +19,10 @@ namespace Abhyanvaya.Application.DTOs.Subject
         public SubjectLanguageSlot LanguageSubjectSlot { get; set; }
 
         public int? TeachingLanguageId { get; set; }
+
+        public decimal? HPW { get; set; }
+        public decimal? Credits { get; set; }
+        public decimal? ExamHours { get; set; }
+        public decimal? Marks { get; set; }
     }
 }
