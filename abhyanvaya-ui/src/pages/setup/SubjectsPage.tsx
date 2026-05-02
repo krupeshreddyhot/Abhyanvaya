@@ -136,12 +136,23 @@ const SubjectsPage = () => {
   );
 
   const semestersForSelection = useMemo(() => {
-    return semesters.filter((s) => {
+    const filtered = semesters.filter((s) => {
       if (s.courseId !== courseId) return false;
       if (s.groupId == null) return true;
       return s.groupId === groupId;
     });
-  }, [semesters, courseId, groupId]);
+    // If the subject's semester is tied to a different group in master data, the filter
+    // can drop it and MUI Select shows blank. Always include the currently selected semester.
+    if (semesterId > 0) {
+      const current = semesters.find((s) => s.id === semesterId);
+      if (current && !filtered.some((s) => s.id === current.id)) {
+        return [...filtered, current].sort(
+          (a, b) => a.number - b.number || a.id - b.id,
+        );
+      }
+    }
+    return filtered;
+  }, [semesters, courseId, groupId, semesterId]);
 
   const electivesForContext = useMemo(() => {
     return electiveGroups.filter(
