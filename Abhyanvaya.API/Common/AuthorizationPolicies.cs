@@ -22,5 +22,12 @@ namespace Abhyanvaya.API.Common
 
         /// <summary>Dashboard overview: tenant Admin/Faculty or Super Admin (zeros).</summary>
         public const string DashboardOverviewAccess = "DashboardOverviewAccess";
+
+        public const string CanManageCourses = "CanManageCourses";
+        public const string CanManageGroups = "CanManageGroups";
+        public const string CanManageSemesters = "CanManageSemesters";
+
+        /// <summary>Tenant college profile, branding, parent linkage (JWT <c>Organization.Manage</c>).</summary>
+        public const string CanManageOrganization = "CanManageOrganization";
     }
 }

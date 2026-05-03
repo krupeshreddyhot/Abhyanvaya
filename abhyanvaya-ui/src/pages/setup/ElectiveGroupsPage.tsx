@@ -22,9 +22,9 @@ import { Link as RouterLink } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import {
   createElectiveGroup,
-  listCourses,
   listElectiveGroups,
-  listGroups,
+  listMasterCourses,
+  listMasterGroups,
   listSemesters,
   updateElectiveGroup,
   type CourseRow,
@@ -60,8 +60,8 @@ const ElectiveGroupsPage = () => {
     setError(null);
     try {
       const [cRes, gRes, sRes, eRes] = await Promise.all([
-        listCourses(),
-        listGroups(),
+        listMasterCourses(),
+        listMasterGroups(),
         listSemesters(),
         listElectiveGroups(),
       ]);

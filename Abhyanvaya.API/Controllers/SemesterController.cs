@@ -12,7 +12,7 @@ namespace Abhyanvaya.API.Controllers
 {
     [ApiController]
     [Route("api/semester")]
-    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    [Authorize(Policy = AuthorizationPolicies.CanManageSemesters)]
     public class SemesterController : ControllerBase
     {
         private readonly IApplicationDbContext _context;

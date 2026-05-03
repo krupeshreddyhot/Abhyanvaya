@@ -10,6 +10,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Abhyanvaya.Application;
+using Abhyanvaya.Domain.Enums;
 
 namespace Abhyanvaya.API.Controllers
 {
@@ -43,8 +44,12 @@ namespace Abhyanvaya.API.Controllers
             if (pageSize <= 0) pageSize = 30;
             if (pageSize > 200) pageSize = 200;
 
-            var query = _context.Students
-                .Where(x => x.TenantId == _currentUser.TenantId);
+            // SuperAdmin JWT has TenantId 0; explicit tenant filter would return no rows. Global query filter already scopes non–Super Admin.
+            IQueryable<Student> query = _context.Students;
+            if (!string.Equals(_currentUser.Role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(x => x.TenantId == _currentUser.TenantId);
+            }
 
             if (_currentUser.Role.Equals("Faculty", StringComparison.OrdinalIgnoreCase))
             {

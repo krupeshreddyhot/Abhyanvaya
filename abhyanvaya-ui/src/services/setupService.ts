@@ -57,10 +57,14 @@ export type TenantSubjectRow = {
 };
 
 export const listCourses = () => api.get<CourseRow[]>("/course");
+/** Tenant-scoped read via Master API — use on setup pages where the user may lack `Setup.Courses.Manage`. */
+export const listMasterCourses = () => api.get<CourseRow[]>("/master/courses");
 export const createCourse = (payload: { code: string; name: string }) => api.post<CourseRow>("/course", payload);
 export const updateCourse = (payload: { id: number; code: string; name: string }) => api.put<CourseRow>("/course", payload);
 
 export const listGroups = () => api.get<GroupRow[]>("/group");
+/** Tenant-scoped read via Master API — includes `courseName`; use when the user may lack `Setup.Groups.Manage`. */
+export const listMasterGroups = () => api.get<GroupRow[]>("/master/groups");
 export const createGroup = (payload: { code: string; name: string; courseId: number }) => api.post<GroupRow>("/group", payload);
 export const updateGroup = (payload: { id: number; code: string; name: string; courseId: number }) =>
   api.put<GroupRow>("/group", payload);
@@ -142,3 +146,174 @@ export const updateElectiveGroup = (payload: {
   semesterId: number;
   groupId: number;
 }) => api.put("/elective-group", payload);
+
+// --- Departments & Staff (tenant admin) ---
+
+export type CollegeSummary = { id: number; name: string; code: string };
+
+export type LookupItem = {
+  id: number;
+  name: string;
+  code: string | null;
+  sortOrder: number;
+};
+
+export type StaffSetupMetadata = {
+  staffTypes: LookupItem[];
+  personTitles: LookupItem[];
+  designations: LookupItem[];
+  qualifications: LookupItem[];
+  employmentStatuses: LookupItem[];
+  departmentRoles: LookupItem[];
+  collegeRoles: LookupItem[];
+  colleges: CollegeSummary[];
+};
+
+export const getStaffSetupMetadata = () => api.get<StaffSetupMetadata>("/staff/setup-metadata");
+
+export type DepartmentRow = {
+  id: number;
+  collegeId: number;
+  name: string;
+  code: string | null;
+  sortOrder: number;
+};
+
+export const listDepartments = (collegeId?: number) =>
+  api.get<DepartmentRow[]>("/department", { params: collegeId != null && collegeId > 0 ? { collegeId } : undefined });
+
+export const createDepartment = (payload: {
+  collegeId: number;
+  name: string;
+  code: string | null;
+  sortOrder: number;
+}) => api.post<DepartmentRow>("/department", payload);
+
+export const updateDepartment = (
+  id: number,
+  payload: {
+    name: string;
+    code: string | null;
+    sortOrder: number;
+  },
+) => api.put(`/department/${id}`, payload);
+
+export const deleteDepartment = (id: number) => api.delete(`/department/${id}`);
+
+export type StaffDepartmentAssignment = {
+  departmentId: number;
+  departmentRoleLookupIds: number[];
+};
+
+export type CreateStaffPayload = {
+  collegeId: number;
+  staffCode: string | null;
+  staffTypeId: number;
+  personTitleId: number | null;
+  designationId: number;
+  qualificationId: number | null;
+  genderId: number | null;
+  employmentStatusId: number | null;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  altPhone: string | null;
+  email: string | null;
+  website: string | null;
+  dateOfJoining: string | null;
+  contractEndDate: string | null;
+  dateOfBirth: string | null;
+  departments: StaffDepartmentAssignment[] | null;
+  collegeRoleLookupIds: number[] | null;
+  subjectIds: number[] | null;
+};
+
+export type StaffListItem = {
+  id: number;
+  collegeId: number;
+  staffCode: string | null;
+  firstName: string;
+  lastName: string;
+  staffTypeName: string;
+  designationName: string;
+  email: string | null;
+  dateOfJoining: string | null;
+};
+
+export type StaffDetail = {
+  id: number;
+  collegeId: number;
+  staffCode: string | null;
+  staffTypeId: number;
+  personTitleId: number | null;
+  designationId: number;
+  qualificationId: number | null;
+  genderId: number | null;
+  employmentStatusId: number | null;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  altPhone: string | null;
+  email: string | null;
+  website: string | null;
+  dateOfJoining: string | null;
+  contractEndDate: string | null;
+  dateOfBirth: string | null;
+  departments: StaffDepartmentAssignment[];
+  collegeRoleLookupIds: number[];
+  subjectIds: number[];
+};
+
+export const listStaff = (params?: { collegeId?: number; search?: string; page?: number; pageSize?: number }) =>
+  api.get<{ total: number; page: number; pageSize: number; items: StaffListItem[] }>("/staff", { params });
+
+export const getStaff = (id: number) => api.get<StaffDetail>(`/staff/${id}`);
+
+export const createStaff = (payload: CreateStaffPayload) => api.post<{ id: number }>("/staff", payload);
+
+export const updateStaff = (id: number, payload: CreateStaffPayload) => api.put(`/staff/${id}`, payload);
+
+export const deleteStaff = (id: number) => api.delete(`/staff/${id}`);
+
+/** Staff / department-role lookup rows used by Staff setup (tenant-scoped). */
+export type StaffHubLookupKind =
+  | "staff-types"
+  | "person-titles"
+  | "designations"
+  | "qualifications"
+  | "employment-statuses"
+  | "department-roles"
+  | "college-roles";
+
+export type StaffLookupAdminRow = {
+  id: number;
+  name: string;
+  code: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  isExclusivePerDepartment: boolean;
+  isExclusivePerCollege: boolean;
+};
+
+export type StaffLookupWritePayload = {
+  name: string;
+  code?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  isExclusivePerDepartment: boolean;
+  isExclusivePerCollege: boolean;
+};
+
+const staffHubLookupsBase = "/staff-hub-lookups";
+
+export const listStaffHubLookups = (kind: StaffHubLookupKind) =>
+  api.get<StaffLookupAdminRow[]>(`${staffHubLookupsBase}/${kind}`);
+
+export const createStaffHubLookup = (kind: StaffHubLookupKind, payload: StaffLookupWritePayload) =>
+  api.post<{ id: number }>(`${staffHubLookupsBase}/${kind}`, payload);
+
+export const updateStaffHubLookup = (kind: StaffHubLookupKind, id: number, payload: StaffLookupWritePayload) =>
+  api.put(`${staffHubLookupsBase}/${kind}/${id}`, payload);
+
+export const deleteStaffHubLookup = (kind: StaffHubLookupKind, id: number) =>
+  api.delete(`${staffHubLookupsBase}/${kind}/${id}`);

@@ -175,7 +175,8 @@ namespace Abhyanvaya.API.Controllers
                     x.Id,
                     x.Name,
                     x.Code,
-                    x.CourseId
+                    x.CourseId,
+                    CourseName = x.Course != null ? x.Course.Name : ""
                 })
                 .ToListAsync();
 

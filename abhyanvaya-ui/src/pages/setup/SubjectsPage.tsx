@@ -25,10 +25,10 @@ import { Link as RouterLink } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import {
   createSubject,
-  listCourses,
   listElectiveGroups,
-  listGroups,
   listLanguages,
+  listMasterCourses,
+  listMasterGroups,
   listSemesters,
   listSubjectCatalog,
   listTenantSubjects,
@@ -115,8 +115,8 @@ const SubjectsPage = () => {
     setError(null);
     try {
       const [cRes, gRes, sRes, lRes, eRes, subRes, tsRes] = await Promise.all([
-        listCourses(),
-        listGroups(),
+        listMasterCourses(),
+        listMasterGroups(),
         listSemesters(),
         listLanguages(),
         listElectiveGroups(),

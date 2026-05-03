@@ -16,6 +16,12 @@ namespace Abhyanvaya.Domain.Entities
         public int CourseId { get; set; }
         public int GroupId { get; set; }
 
+        /// <summary>Optional link to directory row when this login represents staff/faculty.</summary>
+        public int? StaffId { get; set; }
+        public Staff? Staff { get; set; }
+
+        public ICollection<UserApplicationRole> UserApplicationRoles { get; set; } = new List<UserApplicationRole>();
+
         // Navigation properties
         public Course? Course { get; set; }
         public Group? Group { get; set; }
