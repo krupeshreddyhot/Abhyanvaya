@@ -29,5 +29,8 @@ namespace Abhyanvaya.API.Common
 
         /// <summary>Tenant college profile, branding, parent linkage (JWT <c>Organization.Manage</c>).</summary>
         public const string CanManageOrganization = "CanManageOrganization";
+
+        /// <summary>College tenant Admin role only (JWT <c>TenantId</c> &gt; 0). Excludes Super Admin.</summary>
+        public const string TenantCollegeAdminOnly = "TenantCollegeAdminOnly";
     }
 }

@@ -6,7 +6,11 @@ type UserClaims = {
   tenantId: number;
   courseId: number;
   groupId: number;
+  /** Directory row when Faculty login is linked to staff (JWT <c>StaffId</c>). */
+  staffId: number;
   permissions: string[];
+  /** From JWT <c>must_change_password</c> claim. */
+  mustChangePassword: boolean;
 };
 
 interface AuthContextType {
@@ -51,13 +55,21 @@ const getUserClaims = (token: string | null): UserClaims | null => {
 
   const toNum = (value: unknown) => Number.parseInt(String(value ?? "0"), 10) || 0;
 
+  const mc =
+    claims.must_change_password === true ||
+    claims.must_change_password === "true" ||
+    claims.MustChangePassword === true ||
+    claims.MustChangePassword === "true";
+
   return {
     userId: toNum(claims.UserId),
     role: String(claims["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ?? claims.role ?? claims.Role ?? ""),
     tenantId: toNum(claims.TenantId),
     courseId: toNum(claims.CourseId),
     groupId: toNum(claims.GroupId),
+    staffId: toNum(claims.StaffId),
     permissions: extractPermissions(claims),
+    mustChangePassword: Boolean(mc),
   };
 };
 

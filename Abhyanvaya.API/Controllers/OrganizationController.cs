@@ -123,6 +123,7 @@ public sealed class OrganizationController : ControllerBase
             TenantId = nextTenantId,
             CourseId = course.Id,
             GroupId = group.Id,
+            MustChangePassword = false,
             CreatedDate = DateTime.UtcNow,
         };
         adminEntity.PasswordHash = hasher.HashPassword(adminEntity, request.AdminPassword);

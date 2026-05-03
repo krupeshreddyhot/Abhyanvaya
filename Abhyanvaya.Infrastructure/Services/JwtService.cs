@@ -33,7 +33,9 @@ namespace Abhyanvaya.Infrastructure.Services
                 new Claim(ClaimTypes.Role, user.Role.ToString()),
                 new Claim("TenantId", user.TenantId.ToString()),
                 new Claim("CourseId", user.CourseId.ToString()),
-                new Claim("GroupId", user.GroupId.ToString())
+                new Claim("GroupId", user.GroupId.ToString()),
+                new Claim("StaffId", (user.StaffId ?? 0).ToString()),
+                new Claim("must_change_password", user.MustChangePassword ? "true" : "false")
             };
 
             foreach (var key in permissionKeys)

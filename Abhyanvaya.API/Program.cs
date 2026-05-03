@@ -242,6 +242,18 @@ builder.Services.AddAuthorization(options =>
     AddSetupManagePolicy(AuthorizationPolicies.CanManageGroups, PermissionKeys.SetupGroupsManage);
     AddSetupManagePolicy(AuthorizationPolicies.CanManageSemesters, PermissionKeys.SetupSemestersManage);
     AddSetupManagePolicy(AuthorizationPolicies.CanManageOrganization, PermissionKeys.OrganizationManage);
+
+    options.AddPolicy(AuthorizationPolicies.TenantCollegeAdminOnly, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+            return string.Equals(role, nameof(UserRole.Admin), StringComparison.OrdinalIgnoreCase)
+                   && int.TryParse(ctx.User.FindFirst("TenantId")?.Value, out var tid)
+                   && tid > 0;
+        });
+    });
 });
 builder.Services.AddSingleton<IAuthorizationHandler, HasTenantHandler>();
 

@@ -1,6 +1,7 @@
 ﻿using Abhyanvaya.Application.Common.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Abhyanvaya.API.Common;
+using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Abhyanvaya.Domain.Entities;
@@ -141,11 +142,26 @@ namespace Abhyanvaya.API.Controllers
         [HttpGet("subjects")]
         public async Task<IActionResult> GetSubjects(int courseId, int groupId, int semesterId)
         {
-            var subjects = await _context.Subjects
+            var ct = HttpContext.RequestAborted;
+
+            var query = _context.Subjects
                 .Where(x =>
                     x.CourseId == courseId &&
                     x.GroupId == groupId &&
-                    x.SemesterId == semesterId)
+                    x.SemesterId == semesterId);
+
+            if (_currentUser.Role.Equals("Faculty", StringComparison.OrdinalIgnoreCase)
+                && _currentUser.StaffId > 0)
+            {
+                var assigned = await FacultySubjectAccess.GetAssignedSubjectIdsAsync(
+                    _context,
+                    _currentUser.StaffId,
+                    ct).ConfigureAwait(false);
+                var set = assigned.ToHashSet();
+                query = query.Where(x => set.Contains(x.Id));
+            }
+
+            var subjects = await query
                 .Select(x => new
                 {
                     x.Id,
@@ -153,7 +169,7 @@ namespace Abhyanvaya.API.Controllers
                     Code = x.TenantSubject != null ? x.TenantSubject.Code : null,
                     x.IsElective
                 })
-                .ToListAsync();
+                .ToListAsync(ct);
 
             return Ok(subjects);
         }
@@ -189,17 +205,39 @@ namespace Abhyanvaya.API.Controllers
             if (!_currentUser.Role.Equals("Faculty", StringComparison.OrdinalIgnoreCase))
                 return Forbid();
 
+            var ct = HttpContext.RequestAborted;
+
+            if (_currentUser.StaffId <= 0)
+            {
+                var legacy = await _context.Subjects
+                    .Where(x =>
+                        x.CourseId == _currentUser.CourseId &&
+                        x.GroupId == _currentUser.GroupId)
+                    .Select(x => new
+                    {
+                        x.Id,
+                        Name = x.TenantSubject != null ? x.TenantSubject.Name : "",
+                        x.SemesterId
+                    })
+                    .ToListAsync(ct);
+                return Ok(legacy);
+            }
+
+            var ids = await FacultySubjectAccess.GetAssignedSubjectIdsAsync(_context, _currentUser.StaffId, ct)
+                .ConfigureAwait(false);
+            if (ids.Count == 0)
+                return Ok(Array.Empty<object>());
+
+            var idSet = ids.ToHashSet();
             var subjects = await _context.Subjects
-                .Where(x =>
-                    x.CourseId == _currentUser.CourseId &&
-                    x.GroupId == _currentUser.GroupId)
+                .Where(x => idSet.Contains(x.Id))
                 .Select(x => new
                 {
                     x.Id,
                     Name = x.TenantSubject != null ? x.TenantSubject.Name : "",
                     x.SemesterId
                 })
-                .ToListAsync();
+                .ToListAsync(ct);
 
             return Ok(subjects);
         }
@@ -249,11 +287,19 @@ namespace Abhyanvaya.API.Controllers
             int pageSize = 20,
             string? search = null)
         {
+            var ct = HttpContext.RequestAborted;
+
             var subject = await _context.Subjects
                 .FirstOrDefaultAsync(x => x.Id == subjectId);
 
             if (subject == null)
                 return NotFound();
+
+            if (_currentUser.Role.Equals("Faculty", StringComparison.OrdinalIgnoreCase)
+                && _currentUser.StaffId > 0
+                && !await FacultySubjectAccess.StaffTeachesSubjectAsync(_context, _currentUser.StaffId, subjectId, ct)
+                    .ConfigureAwait(false))
+                return Forbid();
 
             IQueryable<Student> query;
 

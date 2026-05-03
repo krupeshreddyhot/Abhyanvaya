@@ -34,6 +34,7 @@ namespace Abhyanvaya.Application.Common.Interfaces
         IQueryable<EmploymentStatusLookup> EmploymentStatusLookups { get; }
         IQueryable<Permission> Permissions { get; }
         IQueryable<ApplicationRole> ApplicationRoles { get; }
+        IQueryable<ApplicationRolePermission> ApplicationRolePermissions { get; }
         IQueryable<UserApplicationRole> UserApplicationRoles { get; }
         Task AddAsync<T>(T entity) where T : class;
         void Remove<T>(T entity) where T : class;

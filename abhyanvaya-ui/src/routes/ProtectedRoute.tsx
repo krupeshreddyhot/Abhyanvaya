@@ -1,4 +1,4 @@
-﻿import { Navigate } from "react-router-dom";
+﻿import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 type ProtectedRouteProps = {
@@ -12,6 +12,8 @@ type ProtectedRouteProps = {
    * Use for Catalog hub: tenant Admin **or** any setup-related permission.
    */
   allowRoleOrPermission?: boolean;
+  /** Reject when JWT <c>TenantId</c> is missing or zero (college-scoped areas only). */
+  requireTenantScope?: boolean;
 };
 
 const ProtectedRoute = ({
@@ -19,11 +21,21 @@ const ProtectedRoute = ({
   allowedRoles,
   anyPermission,
   allowRoleOrPermission,
+  requireTenantScope,
 }: ProtectedRouteProps) => {
   const { isAuthenticated, user, hasAnyPermission } = useAuth();
+  const location = useLocation();
 
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
+  }
+
+  if (requireTenantScope && (user?.tenantId ?? 0) <= 0) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (user?.mustChangePassword && location.pathname !== "/change-password") {
+    return <Navigate to="/change-password?first=1" replace />;
   }
 
   const currentRole = (user?.role ?? "").toLowerCase();
