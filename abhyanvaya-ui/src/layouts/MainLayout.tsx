@@ -23,6 +23,7 @@ import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useMemo, useState } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { PermissionKeys } from "../auth/permissionKeys";
 import { useAuth } from "../context/AuthContext";
 import { useEffect } from "react";
 import { getHeaderInfo, type HeaderInfo } from "../services/uiService";
@@ -34,11 +35,11 @@ type MenuItem = {
   text: string;
   icon: React.ReactNode;
   path: string;
-  allowedRoles: string[];
+  visible: (ctx: { role: string; hasPermission: (k: string) => boolean; hasAnyPermission: (k: string[]) => boolean }) => boolean;
 };
 
 const MainLayout = () => {
-  const { logout, user } = useAuth();
+  const { logout, user, hasPermission, hasAnyPermission } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -47,16 +48,60 @@ const MainLayout = () => {
 
   const userRole = (user?.role ?? "").toLowerCase();
 
-  const menuItems: MenuItem[] = [
-    { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard", allowedRoles: ["admin", "faculty", "student", "superadmin"] },
-    { text: "Students", icon: <PeopleIcon />, path: "/students", allowedRoles: ["admin"] },
-    { text: "Attendance", icon: <EventNoteIcon />, path: "/attendance", allowedRoles: ["admin", "faculty"] },
-    { text: "Reports", icon: <BarChartIcon />, path: "/reports", allowedRoles: ["admin", "faculty"] },
-    { text: "Catalog", icon: <CategoryIcon />, path: "/setup", allowedRoles: ["admin"] },
-    { text: "Organization", icon: <BusinessIcon />, path: "/admin-setup", allowedRoles: ["superadmin"] },
+  const catalogSetupPermissions = [
+    PermissionKeys.SetupDepartmentsManage,
+    PermissionKeys.SetupStaffManage,
+    PermissionKeys.SetupSubjectsManage,
+    PermissionKeys.SetupLookupsManage,
+    PermissionKeys.SetupCoursesManage,
+    PermissionKeys.SetupGroupsManage,
+    PermissionKeys.SetupSemestersManage,
+    PermissionKeys.OrganizationManage,
   ];
 
-  const visibleMenuItems = menuItems.filter((item) => item.allowedRoles.includes(userRole));
+  const menuItems: MenuItem[] = [
+    {
+      text: "Dashboard",
+      icon: <DashboardIcon />,
+      path: "/dashboard",
+      visible: ({ hasPermission: hp }) => hp(PermissionKeys.DashboardView),
+    },
+    {
+      text: "Students",
+      icon: <PeopleIcon />,
+      path: "/students",
+      visible: ({ hasPermission: hp }) => hp(PermissionKeys.StudentsView),
+    },
+    {
+      text: "Attendance",
+      icon: <EventNoteIcon />,
+      path: "/attendance",
+      visible: ({ hasPermission: hp }) => hp(PermissionKeys.AttendanceManage),
+    },
+    {
+      text: "Reports",
+      icon: <BarChartIcon />,
+      path: "/reports",
+      visible: ({ hasPermission: hp }) => hp(PermissionKeys.ReportsView),
+    },
+    {
+      text: "Catalog",
+      icon: <CategoryIcon />,
+      path: "/setup",
+      visible: ({ role, hasAnyPermission: anyPerm }) =>
+        role === "admin" || anyPerm(catalogSetupPermissions),
+    },
+    {
+      text: "Organization",
+      icon: <BusinessIcon />,
+      path: "/admin-setup",
+      visible: ({ role }) => role === "superadmin",
+    },
+  ];
+
+  const visibleMenuItems = menuItems.filter((item) =>
+    item.visible({ role: userRole, hasPermission, hasAnyPermission }),
+  );
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [header, setHeader] = useState<HeaderInfo | null>(null);

@@ -1,5 +1,7 @@
 ﻿using Abhyanvaya.API.Services;
 using Abhyanvaya.Application.Common.Interfaces;
+using Abhyanvaya.Domain.Entities;
+using Abhyanvaya.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Abhyanvaya.API.Common;
 using Microsoft.AspNetCore.Mvc;
@@ -42,9 +44,17 @@ namespace Abhyanvaya.API.Controllers
         [HttpGet("header")]
         public async Task<IActionResult> GetHeaderInfo()
         {
-            var college = await _context.Colleges
-                .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.TenantId == _currentUser.TenantId);
+            College? college;
+            if (string.Equals(_currentUser.Role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+            {
+                college = await _context.Colleges.AsNoTracking().OrderBy(c => c.Id).FirstOrDefaultAsync();
+            }
+            else
+            {
+                college = await _context.Colleges
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.TenantId == _currentUser.TenantId);
+            }
 
             var fullName = string.IsNullOrWhiteSpace(college?.Name) ? "College" : college!.Name;
             var shortName = string.IsNullOrWhiteSpace(college?.ShortName) ? fullName : college!.ShortName!;

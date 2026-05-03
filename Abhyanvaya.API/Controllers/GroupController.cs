@@ -10,7 +10,7 @@ namespace Abhyanvaya.API.Controllers
 {
     [ApiController]
     [Route("api/group")]
-    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    [Authorize(Policy = AuthorizationPolicies.CanManageGroups)]
     public class GroupController : ControllerBase
     {
         private readonly IApplicationDbContext _context;

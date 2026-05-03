@@ -15,6 +15,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Security.Claims;
 using System.Text;
+using Abhyanvaya.Domain.Authorization;
 using Abhyanvaya.Domain.Enums;
 using System.Linq;
 
@@ -98,7 +99,16 @@ builder.Services.AddAuthorization(options =>
     });
 
     options.AddPolicy(AuthorizationPolicies.AdminOnly, policy =>
-        policy.RequireRole("Admin"));
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                return true;
+            return string.Equals(role, nameof(UserRole.Admin), StringComparison.OrdinalIgnoreCase);
+        });
+    });
 
     options.AddPolicy(AuthorizationPolicies.AdminOrFaculty, policy =>
         policy.RequireRole("Admin", "Faculty"));
@@ -106,29 +116,60 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(AuthorizationPolicies.CanViewStudents, policy =>
     {
         policy.RequireAuthenticatedUser();
-        policy.RequireRole("Admin", "Faculty");
-        policy.AddRequirements(new HasTenantRequirement());
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (!string.Equals(role, nameof(UserRole.Admin), StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(role, nameof(UserRole.Faculty), StringComparison.OrdinalIgnoreCase))
+                return false;
+            return int.TryParse(ctx.User.FindFirst("TenantId")?.Value, out var tid) && tid > 0;
+        });
     });
 
     options.AddPolicy(AuthorizationPolicies.CanManageStudents, policy =>
     {
         policy.RequireAuthenticatedUser();
-        policy.RequireRole("Admin");
-        policy.AddRequirements(new HasTenantRequirement());
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                return true;
+            return string.Equals(role, nameof(UserRole.Admin), StringComparison.OrdinalIgnoreCase)
+                   && int.TryParse(ctx.User.FindFirst("TenantId")?.Value, out var tid)
+                   && tid > 0;
+        });
     });
 
     options.AddPolicy(AuthorizationPolicies.CanManageAttendance, policy =>
     {
         policy.RequireAuthenticatedUser();
-        policy.RequireRole("Admin", "Faculty");
-        policy.AddRequirements(new HasTenantRequirement());
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (!string.Equals(role, nameof(UserRole.Admin), StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(role, nameof(UserRole.Faculty), StringComparison.OrdinalIgnoreCase))
+                return false;
+            return int.TryParse(ctx.User.FindFirst("TenantId")?.Value, out var tid) && tid > 0;
+        });
     });
 
     options.AddPolicy(AuthorizationPolicies.CanViewReports, policy =>
     {
         policy.RequireAuthenticatedUser();
-        policy.RequireRole("Admin", "Faculty");
-        policy.AddRequirements(new HasTenantRequirement());
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (!string.Equals(role, nameof(UserRole.Admin), StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(role, nameof(UserRole.Faculty), StringComparison.OrdinalIgnoreCase))
+                return false;
+            return int.TryParse(ctx.User.FindFirst("TenantId")?.Value, out var tid) && tid > 0;
+        });
     });
 
     options.AddPolicy(AuthorizationPolicies.SuperAdminOnly, policy =>
@@ -137,8 +178,15 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(AuthorizationPolicies.TenantScopedAdmin, policy =>
     {
         policy.RequireAuthenticatedUser();
-        policy.RequireRole(nameof(UserRole.Admin));
-        policy.AddRequirements(new HasTenantRequirement());
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                return true;
+            return string.Equals(role, nameof(UserRole.Admin), StringComparison.OrdinalIgnoreCase)
+                   && int.TryParse(ctx.User.FindFirst("TenantId")?.Value, out var tid)
+                   && tid > 0;
+        });
     });
 
     options.AddPolicy(AuthorizationPolicies.UniversityListAccess, policy =>
@@ -148,6 +196,9 @@ builder.Services.AddAuthorization(options =>
         {
             var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
             if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (int.TryParse(ctx.User.FindFirst("TenantId")?.Value, out var tidOrg) && tidOrg > 0
+                && ctx.User.HasClaim("permission", PermissionKeys.OrganizationManage))
                 return true;
             return string.Equals(role, nameof(UserRole.Admin), StringComparison.OrdinalIgnoreCase)
                    && int.TryParse(ctx.User.FindFirst("TenantId")?.Value, out var tid)
@@ -169,6 +220,28 @@ builder.Services.AddAuthorization(options =>
                        || string.Equals(role, nameof(UserRole.Faculty), StringComparison.OrdinalIgnoreCase));
         });
     });
+
+    void AddSetupManagePolicy(string policyName, string permissionKey)
+    {
+        options.AddPolicy(policyName, policy =>
+        {
+            policy.RequireAuthenticatedUser();
+            policy.RequireAssertion(ctx =>
+            {
+                var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+                if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                    return true;
+                if (!int.TryParse(ctx.User.FindFirst("TenantId")?.Value, out var tid) || tid <= 0)
+                    return false;
+                return ctx.User.HasClaim("permission", permissionKey);
+            });
+        });
+    }
+
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageCourses, PermissionKeys.SetupCoursesManage);
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageGroups, PermissionKeys.SetupGroupsManage);
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageSemesters, PermissionKeys.SetupSemestersManage);
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageOrganization, PermissionKeys.OrganizationManage);
 });
 builder.Services.AddSingleton<IAuthorizationHandler, HasTenantHandler>();
 

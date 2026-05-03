@@ -10,7 +10,7 @@ namespace Abhyanvaya.API.Controllers
 {
     [ApiController]
     [Route("api/course")]
-    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    [Authorize(Policy = AuthorizationPolicies.CanManageCourses)]
     public class CourseController : ControllerBase
     {
         private readonly IApplicationDbContext _context;
