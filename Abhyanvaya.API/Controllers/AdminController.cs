@@ -3,6 +3,7 @@ using Abhyanvaya.API.Services;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.DTOs.Admin;
 using Abhyanvaya.Domain.Entities;
+using Abhyanvaya.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -30,6 +31,15 @@ namespace Abhyanvaya.API.Controllers
             _branding = branding;
             _configuration = configuration;
         }
+
+        private bool IsSuperAdmin() =>
+            string.Equals(_currentUser.Role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>Super Admin has no tenant scope; use the first college for catalog-style screens.</summary>
+        private IQueryable<College> CollegesForCurrentAdmin() =>
+            IsSuperAdmin()
+                ? _context.Colleges.OrderBy(c => c.Id)
+                : _context.Colleges.Where(c => c.TenantId == _currentUser.TenantId);
 
         /// <summary>
         /// List universities for dropdowns (admin UI). Same data as public login list but requires auth.
@@ -83,7 +93,7 @@ namespace Abhyanvaya.API.Controllers
         /// excluding the signed-in tenant college row. Uses university scope, not tenant filter.
         /// </summary>
         [HttpGet("parent-college-options")]
-        [Authorize(Policy = AuthorizationPolicies.CanManageStudents)]
+        [Authorize(Policy = AuthorizationPolicies.CanManageOrganization)]
         public async Task<IActionResult> GetParentCollegeOptions([FromQuery] int universityId)
         {
             if (universityId <= 0)
@@ -93,9 +103,7 @@ namespace Abhyanvaya.API.Controllers
             if (!universityExists)
                 return BadRequest("Invalid university.");
 
-            var ownCollege = await _context.Colleges
-                .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.TenantId == _currentUser.TenantId);
+            var ownCollege = await CollegesForCurrentAdmin().AsNoTracking().FirstOrDefaultAsync();
 
             if (ownCollege == null)
                 return BadRequest("No college profile exists for this tenant yet.");
@@ -121,14 +129,14 @@ namespace Abhyanvaya.API.Controllers
         /// College profile for the signed-in tenant (typically one row per tenant).
         /// </summary>
         [HttpGet("tenant-college")]
-        [Authorize(Policy = AuthorizationPolicies.CanManageStudents)]
+        [Authorize(Policy = AuthorizationPolicies.CanManageOrganization)]
         public async Task<IActionResult> GetTenantCollege()
         {
-            var college = await _context.Colleges
+            var college = await CollegesForCurrentAdmin()
                 .AsNoTracking()
                 .Include(c => c.University)
                 .Include(c => c.ParentCollege)
-                .FirstOrDefaultAsync(c => c.TenantId == _currentUser.TenantId);
+                .FirstOrDefaultAsync();
 
             if (college == null)
                 return NotFound("No college profile for this tenant. Create one via onboarding or support.");
@@ -140,7 +148,7 @@ namespace Abhyanvaya.API.Controllers
         /// Upload a logo image; server saves WebP variants (max edge 64 / 128 / 256 px) under wwwroot/branding.
         /// </summary>
         [HttpPost("tenant-college/logo")]
-        [Authorize(Policy = AuthorizationPolicies.CanManageStudents)]
+        [Authorize(Policy = AuthorizationPolicies.CanManageOrganization)]
         [Consumes("multipart/form-data")]
         [RequestSizeLimit(10 * 1024 * 1024)]
         public async Task<IActionResult> UploadTenantCollegeLogo(IFormFile? file, CancellationToken cancellationToken)
@@ -148,7 +156,11 @@ namespace Abhyanvaya.API.Controllers
             if (file == null || file.Length == 0)
                 return BadRequest("Choose an image file.");
 
-            var (ok, error) = await _branding.SaveLogoForTenantAsync(_currentUser.TenantId, file, cancellationToken);
+            var collegeForLogo = await CollegesForCurrentAdmin().FirstOrDefaultAsync();
+            if (collegeForLogo == null)
+                return BadRequest("No college profile found.");
+
+            var (ok, error) = await _branding.SaveLogoForTenantAsync(collegeForLogo.TenantId, file, cancellationToken);
             if (!ok)
                 return BadRequest(error);
 
@@ -156,7 +168,7 @@ namespace Abhyanvaya.API.Controllers
         }
 
         [HttpGet("tenant-college/logo-health")]
-        [Authorize(Policy = AuthorizationPolicies.CanManageStudents)]
+        [Authorize(Policy = AuthorizationPolicies.CanManageOrganization)]
         public async Task<IActionResult> CheckTenantCollegeLogoStorageHealth(CancellationToken cancellationToken)
         {
             var (ok, provider, message) = await _branding.CheckStorageHealthAsync(cancellationToken);
@@ -169,7 +181,7 @@ namespace Abhyanvaya.API.Controllers
         }
 
         [HttpPut("tenant-college")]
-        [Authorize(Policy = AuthorizationPolicies.CanManageStudents)]
+        [Authorize(Policy = AuthorizationPolicies.CanManageOrganization)]
         public async Task<IActionResult> UpdateTenantCollege([FromBody] UpdateTenantCollegeRequest request)
         {
             var name = request.Name.Trim();
@@ -185,8 +197,7 @@ namespace Abhyanvaya.API.Controllers
             if (!universityExists)
                 return BadRequest("Invalid university");
 
-            var college = await _context.Colleges
-                .FirstOrDefaultAsync(c => c.TenantId == _currentUser.TenantId);
+            var college = await CollegesForCurrentAdmin().FirstOrDefaultAsync();
 
             if (college == null)
                 return NotFound("No college profile for this tenant.");

@@ -1,4 +1,5 @@
 ﻿import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { PermissionKeys } from "../auth/permissionKeys";
 import Login from "../pages/Login";
 import Dashboard from "../pages/Dashboard";
 import ProtectedRoute from "./ProtectedRoute";
@@ -15,8 +16,11 @@ import LanguagesPage from "../pages/setup/LanguagesPage";
 import GendersPage from "../pages/setup/GendersPage";
 import MediumsPage from "../pages/setup/MediumsPage";
 import ElectiveGroupsPage from "../pages/setup/ElectiveGroupsPage";
+import StaffLookupsHub from "../pages/setup/StaffLookupsHub";
 import ReportsPage from "../pages/ReportsPage";
 import CollegeProfilePage from "../pages/setup/CollegeProfilePage";
+import DepartmentsPage from "../pages/setup/DepartmentsPage";
+import StaffPage from "../pages/setup/StaffPage";
 
 const AppRoutes = () => {
   return (
@@ -32,20 +36,56 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         >
-          <Route path="dashboard" element={<Dashboard />} />
+          <Route
+            path="dashboard"
+            element={
+              <ProtectedRoute anyPermission={[PermissionKeys.DashboardView]}>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="setup"
             element={
-              <ProtectedRoute allowedRoles={["Admin"]}>
+              <ProtectedRoute
+                allowRoleOrPermission
+                allowedRoles={["Admin"]}
+                anyPermission={[
+                  PermissionKeys.SetupDepartmentsManage,
+                  PermissionKeys.SetupStaffManage,
+                  PermissionKeys.SetupSubjectsManage,
+                  PermissionKeys.SetupLookupsManage,
+                  PermissionKeys.SetupCoursesManage,
+                  PermissionKeys.SetupGroupsManage,
+                  PermissionKeys.SetupSemestersManage,
+                  PermissionKeys.OrganizationManage,
+                ]}
+              >
                 <SetupHub />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="setup/departments"
+            element={
+              <ProtectedRoute anyPermission={[PermissionKeys.SetupDepartmentsManage]}>
+                <DepartmentsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="setup/staff"
+            element={
+              <ProtectedRoute anyPermission={[PermissionKeys.SetupStaffManage]}>
+                <StaffPage />
               </ProtectedRoute>
             }
           />
           <Route
             path="setup/courses"
             element={
-              <ProtectedRoute allowedRoles={["Admin"]}>
+              <ProtectedRoute anyPermission={[PermissionKeys.SetupCoursesManage]}>
                 <CoursesPage />
               </ProtectedRoute>
             }
@@ -53,7 +93,7 @@ const AppRoutes = () => {
           <Route
             path="setup/groups"
             element={
-              <ProtectedRoute allowedRoles={["Admin"]}>
+              <ProtectedRoute anyPermission={[PermissionKeys.SetupGroupsManage]}>
                 <GroupsPage />
               </ProtectedRoute>
             }
@@ -61,7 +101,7 @@ const AppRoutes = () => {
           <Route
             path="setup/semesters"
             element={
-              <ProtectedRoute allowedRoles={["Admin"]}>
+              <ProtectedRoute anyPermission={[PermissionKeys.SetupSemestersManage]}>
                 <SemestersPage />
               </ProtectedRoute>
             }
@@ -69,7 +109,7 @@ const AppRoutes = () => {
           <Route
             path="setup/subjects"
             element={
-              <ProtectedRoute allowedRoles={["Admin"]}>
+              <ProtectedRoute anyPermission={[PermissionKeys.SetupSubjectsManage]}>
                 <SubjectsPage />
               </ProtectedRoute>
             }
@@ -77,7 +117,7 @@ const AppRoutes = () => {
           <Route
             path="setup/languages"
             element={
-              <ProtectedRoute allowedRoles={["Admin"]}>
+              <ProtectedRoute anyPermission={[PermissionKeys.SetupLookupsManage]}>
                 <LanguagesPage />
               </ProtectedRoute>
             }
@@ -85,7 +125,7 @@ const AppRoutes = () => {
           <Route
             path="setup/genders"
             element={
-              <ProtectedRoute allowedRoles={["Admin"]}>
+              <ProtectedRoute anyPermission={[PermissionKeys.SetupLookupsManage]}>
                 <GendersPage />
               </ProtectedRoute>
             }
@@ -93,7 +133,7 @@ const AppRoutes = () => {
           <Route
             path="setup/mediums"
             element={
-              <ProtectedRoute allowedRoles={["Admin"]}>
+              <ProtectedRoute anyPermission={[PermissionKeys.SetupLookupsManage]}>
                 <MediumsPage />
               </ProtectedRoute>
             }
@@ -101,15 +141,23 @@ const AppRoutes = () => {
           <Route
             path="setup/elective-groups"
             element={
-              <ProtectedRoute allowedRoles={["Admin"]}>
+              <ProtectedRoute anyPermission={[PermissionKeys.SetupLookupsManage]}>
                 <ElectiveGroupsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="setup/staff-lookups"
+            element={
+              <ProtectedRoute anyPermission={[PermissionKeys.SetupLookupsManage]}>
+                <StaffLookupsHub />
               </ProtectedRoute>
             }
           />
           <Route
             path="setup/college"
             element={
-              <ProtectedRoute allowedRoles={["Admin"]}>
+              <ProtectedRoute anyPermission={[PermissionKeys.OrganizationManage]}>
                 <CollegeProfilePage />
               </ProtectedRoute>
             }
@@ -126,7 +174,7 @@ const AppRoutes = () => {
           <Route
             path="students"
             element={
-              <ProtectedRoute allowedRoles={["Admin"]}>
+              <ProtectedRoute anyPermission={[PermissionKeys.StudentsView]}>
                 <StudentsPage />
               </ProtectedRoute>
             }
@@ -135,7 +183,7 @@ const AppRoutes = () => {
           <Route
             path="attendance"
             element={
-              <ProtectedRoute allowedRoles={["Admin", "Faculty"]}>
+              <ProtectedRoute anyPermission={[PermissionKeys.AttendanceManage]}>
                 <AttendanceMarking />
               </ProtectedRoute>
             }
@@ -144,7 +192,7 @@ const AppRoutes = () => {
           <Route
             path="reports"
             element={
-              <ProtectedRoute allowedRoles={["Admin", "Faculty"]}>
+              <ProtectedRoute anyPermission={[PermissionKeys.ReportsView]}>
                 <ReportsPage />
               </ProtectedRoute>
             }

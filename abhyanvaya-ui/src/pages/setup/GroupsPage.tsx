@@ -20,7 +20,14 @@ import {
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { createGroup, listCourses, listGroups, updateGroup, type CourseRow, type GroupRow } from "../../services/setupService";
+import {
+  createGroup,
+  listGroups,
+  listMasterCourses,
+  updateGroup,
+  type CourseRow,
+  type GroupRow,
+} from "../../services/setupService";
 
 const errMsg = (e: unknown): string => {
   const d = (e as { response?: { data?: unknown } }).response?.data;
@@ -45,7 +52,7 @@ const GroupsPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const [cRes, gRes] = await Promise.all([listCourses(), listGroups()]);
+      const [cRes, gRes] = await Promise.all([listMasterCourses(), listGroups()]);
       setCourses(cRes.data);
       setRows(gRes.data);
     } catch (e) {

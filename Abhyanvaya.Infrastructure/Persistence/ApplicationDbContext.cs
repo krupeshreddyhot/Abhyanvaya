@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Identity;
 
 namespace Abhyanvaya.Infrastructure.Persistence
 {
-    public class ApplicationDbContext : DbContext, IApplicationDbContext
+    public partial class ApplicationDbContext : DbContext, IApplicationDbContext
     {
         private readonly ICurrentUserService? _currentUserService;
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options,
@@ -36,6 +36,24 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<Subject> Subjects => Set<Subject>();
         public IQueryable<ElectiveGroup> ElectiveGroups => Set<ElectiveGroup>();
         public IQueryable<StudentSubject> StudentSubjects => Set<StudentSubject>();
+
+        public IQueryable<Department> Departments => Set<Department>();
+        public IQueryable<Staff> StaffMembers => Set<Staff>();
+        public IQueryable<StaffDepartment> StaffDepartments => Set<StaffDepartment>();
+        public IQueryable<StaffDepartmentRole> StaffDepartmentRoles => Set<StaffDepartmentRole>();
+        public IQueryable<StaffCollegeRole> StaffCollegeRoles => Set<StaffCollegeRole>();
+        public IQueryable<StaffSubjectAssignment> StaffSubjectAssignments => Set<StaffSubjectAssignment>();
+        public IQueryable<StaffTypeLookup> StaffTypeLookups => Set<StaffTypeLookup>();
+        public IQueryable<PersonTitleLookup> PersonTitleLookups => Set<PersonTitleLookup>();
+        public IQueryable<DesignationLookup> DesignationLookups => Set<DesignationLookup>();
+        public IQueryable<DepartmentRoleLookup> DepartmentRoleLookups => Set<DepartmentRoleLookup>();
+        public IQueryable<CollegeRoleLookup> CollegeRoleLookups => Set<CollegeRoleLookup>();
+        public IQueryable<QualificationLookup> QualificationLookups => Set<QualificationLookup>();
+        public IQueryable<EmploymentStatusLookup> EmploymentStatusLookups => Set<EmploymentStatusLookup>();
+        public IQueryable<Permission> Permissions => Set<Permission>();
+        public IQueryable<ApplicationRole> ApplicationRoles => Set<ApplicationRole>();
+        public IQueryable<UserApplicationRole> UserApplicationRoles => Set<UserApplicationRole>();
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -60,6 +78,24 @@ namespace Abhyanvaya.Infrastructure.Persistence
             builder.Entity<User>();
             builder.Entity<College>();
             builder.Entity<University>();
+
+            builder.Entity<StaffTypeLookup>();
+            builder.Entity<PersonTitleLookup>();
+            builder.Entity<DesignationLookup>();
+            builder.Entity<DepartmentRoleLookup>();
+            builder.Entity<CollegeRoleLookup>();
+            builder.Entity<QualificationLookup>();
+            builder.Entity<EmploymentStatusLookup>();
+            builder.Entity<Department>();
+            builder.Entity<Staff>();
+            builder.Entity<StaffDepartment>();
+            builder.Entity<StaffDepartmentRole>();
+            builder.Entity<StaffCollegeRole>();
+            builder.Entity<StaffSubjectAssignment>();
+            builder.Entity<Permission>();
+            builder.Entity<ApplicationRole>();
+            builder.Entity<ApplicationRolePermission>();
+            builder.Entity<UserApplicationRole>();
 
             builder.Entity<Attendance>()
                 .HasOne(a => a.Student)          // navigation
@@ -225,6 +261,10 @@ namespace Abhyanvaya.Infrastructure.Persistence
                 .HasIndex(x => new { x.UniversityId, x.Code })
                 .IsUnique();
 
+            StaffHubModelConfigurator.ConfigureStaffHub(builder);
+            SeedPermissionsAndRoles(builder);
+            SeedStaffLookupDefaults(builder);
+
             // Apply configurations
             builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
 
@@ -245,8 +285,15 @@ namespace Abhyanvaya.Infrastructure.Persistence
         {
             builder.Entity<TEntity>().HasQueryFilter(e =>
                 !e.IsDeleted &&
-                (_currentUserService == null || e.TenantId == _currentUserService.TenantId));
+                (_currentUserService == null
+                 || IsSuperAdminCrossTenant()
+                 || e.TenantId == _currentUserService.TenantId));
         }
+
+        /// <summary>Super Admin operates across tenants (JWT TenantId is 0); skip row-level tenant filter.</summary>
+        private bool IsSuperAdminCrossTenant() =>
+            _currentUserService != null
+            && string.Equals(_currentUserService.Role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase);
         public void AddAttendances(IEnumerable<Attendance> attendances)
         {
             Set<Attendance>().AddRange(attendances);

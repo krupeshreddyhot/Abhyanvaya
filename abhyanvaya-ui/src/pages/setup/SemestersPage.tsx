@@ -22,8 +22,8 @@ import { Link as RouterLink } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import {
   createSemester,
-  listCourses,
-  listGroups,
+  listMasterCourses,
+  listMasterGroups,
   listSemesters,
   updateSemester,
   type CourseRow,
@@ -58,7 +58,11 @@ const SemestersPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const [cRes, gRes, sRes] = await Promise.all([listCourses(), listGroups(), listSemesters()]);
+      const [cRes, gRes, sRes] = await Promise.all([
+        listMasterCourses(),
+        listMasterGroups(),
+        listSemesters(),
+      ]);
       setCourses(cRes.data);
       setGroups(gRes.data);
       setRows(sRes.data);

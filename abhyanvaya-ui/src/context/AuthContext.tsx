@@ -1,4 +1,4 @@
-﻿import { createContext, useContext, useMemo, useState } from "react";
+﻿import { createContext, useCallback, useContext, useMemo, useState } from "react";
 
 type UserClaims = {
   userId: number;
@@ -6,6 +6,7 @@ type UserClaims = {
   tenantId: number;
   courseId: number;
   groupId: number;
+  permissions: string[];
 };
 
 interface AuthContextType {
@@ -14,6 +15,8 @@ interface AuthContextType {
   login: (token: string) => void;
   logout: () => void;
   isAuthenticated: boolean;
+  hasPermission: (key: string) => boolean;
+  hasAnyPermission: (keys: string[]) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -32,6 +35,14 @@ const parseJwt = (token: string): Record<string, unknown> | null => {
   }
 };
 
+/** Reads duplicate JWT claim type `permission` (string or string[]). */
+const extractPermissions = (claims: Record<string, unknown>): string[] => {
+  const raw = claims.permission ?? claims.Permission;
+  if (Array.isArray(raw)) return raw.map((x) => String(x));
+  if (typeof raw === "string" && raw.length > 0) return [raw];
+  return [];
+};
+
 const getUserClaims = (token: string | null): UserClaims | null => {
   if (!token) return null;
 
@@ -46,6 +57,7 @@ const getUserClaims = (token: string | null): UserClaims | null => {
     tenantId: toNum(claims.TenantId),
     courseId: toNum(claims.CourseId),
     groupId: toNum(claims.GroupId),
+    permissions: extractPermissions(claims),
   };
 };
 
@@ -64,6 +76,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const user = useMemo(() => getUserClaims(token), [token]);
 
+  const hasPermission = useCallback(
+    (key: string) => (user?.permissions ?? []).includes(key),
+    [user?.permissions],
+  );
+
+  const hasAnyPermission = useCallback(
+    (keys: string[]) => keys.some((k) => hasPermission(k)),
+    [hasPermission],
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -72,6 +94,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         login: handleLogin,
         logout: handleLogout,
         isAuthenticated: !!token,
+        hasPermission,
+        hasAnyPermission,
       }}
     >
       {children}

@@ -22,6 +22,195 @@ namespace Abhyanvaya.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.ApplicationRole", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("ApplicationRole");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 100,
+                            Code = "ADMIN",
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Full tenant administration (legacy Admin enum)",
+                            IsDeleted = false,
+                            Name = "Administrator",
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 101,
+                            Code = "FACULTY",
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Teaching staff (legacy Faculty enum)",
+                            IsDeleted = false,
+                            Name = "Faculty",
+                            TenantId = 1
+                        });
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.ApplicationRolePermission", b =>
+                {
+                    b.Property<int>("ApplicationRoleId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PermissionId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ApplicationRoleId", "PermissionId");
+
+                    b.HasIndex("PermissionId");
+
+                    b.ToTable("ApplicationRolePermission");
+
+                    b.HasData(
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 1
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 2
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 3
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 4
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 5
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 6
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 7
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 8
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 9
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 10
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 11
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 12
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 13
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 14
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 15
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 101,
+                            PermissionId = 1
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 101,
+                            PermissionId = 3
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 101,
+                            PermissionId = 4
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 101,
+                            PermissionId = 5
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 101,
+                            PermissionId = 9
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 101,
+                            PermissionId = 11
+                        });
+                });
+
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Attendance", b =>
                 {
                     b.Property<int>("Id")
@@ -137,6 +326,103 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.ToTable("College");
                 });
 
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.CollegeRoleLookup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsExclusivePerCollege")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CollegeRoleLookup");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 509,
+                            Code = "PRINCIPAL",
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsExclusivePerCollege = true,
+                            Name = "Principal",
+                            SortOrder = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 510,
+                            Code = "VP",
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsExclusivePerCollege = false,
+                            Name = "Vice Principal",
+                            SortOrder = 2,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 511,
+                            Code = "CORR",
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsExclusivePerCollege = false,
+                            Name = "Correspondent",
+                            SortOrder = 3,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 512,
+                            Code = "CCE",
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsExclusivePerCollege = false,
+                            Name = "Chief Controller of Examinations",
+                            SortOrder = 4,
+                            TenantId = 1
+                        });
+                });
+
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Course", b =>
                 {
                     b.Property<int>("Id")
@@ -189,6 +475,194 @@ namespace Abhyanvaya.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Department", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .HasColumnType("text");
+
+                    b.Property<int>("CollegeId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CollegeId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("Department");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.DepartmentRoleLookup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsExclusivePerDepartment")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DepartmentRoleLookup");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 507,
+                            Code = "HOD",
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsExclusivePerDepartment = true,
+                            Name = "Head of Department",
+                            SortOrder = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 508,
+                            Code = "ACAD_COORD",
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsExclusivePerDepartment = false,
+                            Name = "Academic Coordinator",
+                            SortOrder = 2,
+                            TenantId = 1
+                        });
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.DesignationLookup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DesignationLookup");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 505,
+                            Code = "LECT",
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Lecturer",
+                            SortOrder = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 506,
+                            Code = "PROF",
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Professor",
+                            SortOrder = 2,
+                            TenantId = 1
+                        });
+                });
+
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.ElectiveGroup", b =>
                 {
                     b.Property<int>("Id")
@@ -237,6 +711,63 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.HasIndex("SemesterId");
 
                     b.ToTable("ElectiveGroup");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.EmploymentStatusLookup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EmploymentStatusLookup");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 515,
+                            Code = "ACTIVE",
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Active",
+                            SortOrder = 1,
+                            TenantId = 1
+                        });
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Gender", b =>
@@ -402,6 +933,277 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.ToTable("Medium");
                 });
 
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Permission", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Resource")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("Permission");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Action = "View",
+                            Key = "Students.View",
+                            Resource = "Students"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Action = "Manage",
+                            Key = "Students.Manage",
+                            Resource = "Students"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Action = "View",
+                            Key = "Attendance.View",
+                            Resource = "Attendance"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Action = "Manage",
+                            Key = "Attendance.Manage",
+                            Resource = "Attendance"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Action = "View",
+                            Key = "Reports.View",
+                            Resource = "Reports"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Action = "Manage",
+                            Key = "Setup.Subjects.Manage",
+                            Resource = "Setup.Subjects"
+                        },
+                        new
+                        {
+                            Id = 7,
+                            Action = "Manage",
+                            Key = "Setup.Departments.Manage",
+                            Resource = "Setup.Departments"
+                        },
+                        new
+                        {
+                            Id = 8,
+                            Action = "Manage",
+                            Key = "Setup.Staff.Manage",
+                            Resource = "Setup.Staff"
+                        },
+                        new
+                        {
+                            Id = 9,
+                            Action = "View",
+                            Key = "Dashboard.View",
+                            Resource = "Dashboard"
+                        },
+                        new
+                        {
+                            Id = 10,
+                            Action = "Manage",
+                            Key = "Organization.Manage",
+                            Resource = "Organization"
+                        },
+                        new
+                        {
+                            Id = 11,
+                            Action = "View",
+                            Key = "Master.View",
+                            Resource = "Master"
+                        },
+                        new
+                        {
+                            Id = 12,
+                            Action = "Manage",
+                            Key = "Setup.Lookups.Manage",
+                            Resource = "Setup.Lookups"
+                        },
+                        new
+                        {
+                            Id = 13,
+                            Action = "Manage",
+                            Key = "Setup.Courses.Manage",
+                            Resource = "Setup.Courses"
+                        },
+                        new
+                        {
+                            Id = 14,
+                            Action = "Manage",
+                            Key = "Setup.Groups.Manage",
+                            Resource = "Setup.Groups"
+                        },
+                        new
+                        {
+                            Id = 15,
+                            Action = "Manage",
+                            Key = "Setup.Semesters.Manage",
+                            Resource = "Setup.Semesters"
+                        });
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.PersonTitleLookup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PersonTitleLookup");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 503,
+                            Code = "DR",
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Dr",
+                            SortOrder = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 504,
+                            Code = "MR",
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Mr",
+                            SortOrder = 2,
+                            TenantId = 1
+                        });
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.QualificationLookup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("QualificationLookup");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 513,
+                            Code = "PHD",
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Ph.D.",
+                            SortOrder = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 514,
+                            Code = "MA",
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "M.A.",
+                            SortOrder = 2,
+                            TenantId = 1
+                        });
+                });
+
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Semester", b =>
                 {
                     b.Property<int>("Id")
@@ -448,6 +1250,354 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.HasIndex("GroupId");
 
                     b.ToTable("Semester");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Staff", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AltPhone")
+                        .HasColumnType("text");
+
+                    b.Property<int>("CollegeId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ContractEndDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DateOfBirth")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DateOfJoining")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DesignationId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("EmploymentStatusId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("GenderId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("PersonTitleId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("QualificationId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StaffCode")
+                        .HasColumnType("text");
+
+                    b.Property<int>("StaffTypeId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Website")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DesignationId");
+
+                    b.HasIndex("EmploymentStatusId");
+
+                    b.HasIndex("GenderId");
+
+                    b.HasIndex("PersonTitleId");
+
+                    b.HasIndex("QualificationId");
+
+                    b.HasIndex("StaffTypeId");
+
+                    b.HasIndex("CollegeId", "StaffCode")
+                        .IsUnique()
+                        .HasFilter("\"StaffCode\" IS NOT NULL");
+
+                    b.ToTable("StaffMembers", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StaffCollegeRole", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CollegeRoleLookupId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("EffectiveFrom")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("EffectiveTo")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("StaffId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CollegeRoleLookupId");
+
+                    b.HasIndex("StaffId", "CollegeRoleLookupId")
+                        .IsUnique();
+
+                    b.ToTable("StaffCollegeRole");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StaffDepartment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("StaffId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("StaffId", "DepartmentId")
+                        .IsUnique();
+
+                    b.ToTable("StaffDepartment");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StaffDepartmentRole", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DepartmentRoleLookupId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("EffectiveFrom")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("EffectiveTo")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("StaffDepartmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentRoleLookupId");
+
+                    b.HasIndex("StaffDepartmentId", "DepartmentRoleLookupId")
+                        .IsUnique();
+
+                    b.ToTable("StaffDepartmentRole");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StaffSubjectAssignment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("StaffId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("StaffId", "SubjectId")
+                        .IsUnique();
+
+                    b.ToTable("StaffSubjectAssignment");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StaffTypeLookup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("StaffTypeLookup");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 501,
+                            Code = "TEACHING",
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Teaching",
+                            SortOrder = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 502,
+                            Code = "NONTEACHING",
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Non-teaching",
+                            SortOrder = 2,
+                            TenantId = 1
+                        });
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Student", b =>
@@ -776,6 +1926,9 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.Property<int>("Role")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("StaffId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("TenantId")
                         .HasColumnType("integer");
 
@@ -795,6 +1948,8 @@ namespace Abhyanvaya.Infrastructure.Migrations
 
                     b.HasIndex("GroupId");
 
+                    b.HasIndex("StaffId");
+
                     b.HasIndex("TenantId", "Username")
                         .IsUnique();
 
@@ -805,7 +1960,7 @@ namespace Abhyanvaya.Infrastructure.Migrations
                         {
                             Id = 1,
                             CourseId = 1,
-                            CreatedDate = new DateTime(2026, 4, 26, 16, 4, 53, 424, DateTimeKind.Utc).AddTicks(6276),
+                            CreatedDate = new DateTime(2026, 5, 3, 7, 25, 19, 718, DateTimeKind.Utc).AddTicks(8228),
                             GroupId = 1,
                             IsDeleted = false,
                             PasswordHash = "AQAAAAIAAYagAAAAEPYuSGVNqHBQTcjqI3OyH/6RZiCAR+6UuGlXPm5sNXqwQZt9izgviBHgdfNrJmzf3A==",
@@ -813,6 +1968,47 @@ namespace Abhyanvaya.Infrastructure.Migrations
                             TenantId = 1,
                             Username = "admin"
                         });
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.UserApplicationRole", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ApplicationRoleId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("UserId", "ApplicationRoleId");
+
+                    b.HasIndex("ApplicationRoleId");
+
+                    b.ToTable("UserApplicationRole");
+
+                    b.HasData(
+                        new
+                        {
+                            UserId = 1,
+                            ApplicationRoleId = 100
+                        });
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.ApplicationRolePermission", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.ApplicationRole", "ApplicationRole")
+                        .WithMany("ApplicationRolePermissions")
+                        .HasForeignKey("ApplicationRoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Permission", "Permission")
+                        .WithMany()
+                        .HasForeignKey("PermissionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ApplicationRole");
+
+                    b.Navigation("Permission");
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Attendance", b =>
@@ -850,6 +2046,17 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.Navigation("ParentCollege");
 
                     b.Navigation("University");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Department", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.College", "College")
+                        .WithMany()
+                        .HasForeignKey("CollegeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("College");
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.ElectiveGroup", b =>
@@ -905,6 +2112,137 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.Navigation("Course");
 
                     b.Navigation("Group");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Staff", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.College", "College")
+                        .WithMany()
+                        .HasForeignKey("CollegeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.DesignationLookup", "Designation")
+                        .WithMany()
+                        .HasForeignKey("DesignationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.EmploymentStatusLookup", "EmploymentStatus")
+                        .WithMany()
+                        .HasForeignKey("EmploymentStatusId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Gender", "Gender")
+                        .WithMany()
+                        .HasForeignKey("GenderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.PersonTitleLookup", "PersonTitle")
+                        .WithMany()
+                        .HasForeignKey("PersonTitleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.QualificationLookup", "Qualification")
+                        .WithMany()
+                        .HasForeignKey("QualificationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.StaffTypeLookup", "StaffType")
+                        .WithMany()
+                        .HasForeignKey("StaffTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("College");
+
+                    b.Navigation("Designation");
+
+                    b.Navigation("EmploymentStatus");
+
+                    b.Navigation("Gender");
+
+                    b.Navigation("PersonTitle");
+
+                    b.Navigation("Qualification");
+
+                    b.Navigation("StaffType");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StaffCollegeRole", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.CollegeRoleLookup", "CollegeRoleLookup")
+                        .WithMany()
+                        .HasForeignKey("CollegeRoleLookupId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Staff", "Staff")
+                        .WithMany("StaffCollegeRoles")
+                        .HasForeignKey("StaffId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CollegeRoleLookup");
+
+                    b.Navigation("Staff");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StaffDepartment", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Staff", "Staff")
+                        .WithMany("StaffDepartments")
+                        .HasForeignKey("StaffId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Department");
+
+                    b.Navigation("Staff");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StaffDepartmentRole", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.DepartmentRoleLookup", "DepartmentRoleLookup")
+                        .WithMany()
+                        .HasForeignKey("DepartmentRoleLookupId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.StaffDepartment", "StaffDepartment")
+                        .WithMany("StaffDepartmentRoles")
+                        .HasForeignKey("StaffDepartmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DepartmentRoleLookup");
+
+                    b.Navigation("StaffDepartment");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StaffSubjectAssignment", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Staff", "Staff")
+                        .WithMany("StaffSubjectAssignments")
+                        .HasForeignKey("StaffId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Staff");
+
+                    b.Navigation("Subject");
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Student", b =>
@@ -1046,9 +2384,61 @@ namespace Abhyanvaya.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Abhyanvaya.Domain.Entities.Staff", "Staff")
+                        .WithMany()
+                        .HasForeignKey("StaffId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Course");
 
                     b.Navigation("Group");
+
+                    b.Navigation("Staff");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.UserApplicationRole", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.ApplicationRole", "ApplicationRole")
+                        .WithMany("UserApplicationRoles")
+                        .HasForeignKey("ApplicationRoleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.User", "User")
+                        .WithMany("UserApplicationRoles")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ApplicationRole");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.ApplicationRole", b =>
+                {
+                    b.Navigation("ApplicationRolePermissions");
+
+                    b.Navigation("UserApplicationRoles");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Staff", b =>
+                {
+                    b.Navigation("StaffCollegeRoles");
+
+                    b.Navigation("StaffDepartments");
+
+                    b.Navigation("StaffSubjectAssignments");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StaffDepartment", b =>
+                {
+                    b.Navigation("StaffDepartmentRoles");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.User", b =>
+                {
+                    b.Navigation("UserApplicationRoles");
                 });
 #pragma warning restore 612, 618
         }

@@ -45,7 +45,7 @@ namespace Abhyanvaya.API.Controllers
             if (result == PasswordVerificationResult.Failed)
                 return Unauthorized("Invalid username or password");
 
-            var token = _jwtService.GenerateToken(user);
+            var token = await _jwtService.GenerateTokenAsync(user);
             return Ok(new { token });
         }
 
@@ -87,7 +87,7 @@ namespace Abhyanvaya.API.Controllers
             if (result == PasswordVerificationResult.Failed)
                 return Unauthorized("Invalid password");
 
-            var token = _jwtService.GenerateToken(user);
+            var token = await _jwtService.GenerateTokenAsync(user);
             return Ok(new { token });
         }
 

@@ -1,22 +1,92 @@
 import { Link as RouterLink } from "react-router-dom";
 import { Box, Button, Card, CardActionArea, CardContent, Typography, Stack } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { PermissionKeys } from "../../auth/permissionKeys";
 import { useAuth } from "../../context/AuthContext";
 
-const links: { to: string; title: string; description: string }[] = [
-  { to: "/setup/courses", title: "Courses", description: "Programmes or streams" },
-  { to: "/setup/groups", title: "Groups", description: "Sections or batches within a course" },
-  { to: "/setup/semesters", title: "Semesters", description: "Terms linked to course and group" },
-  { to: "/setup/subjects", title: "Subjects", description: "Papers including language slots and electives" },
-  { to: "/setup/languages", title: "Languages", description: "First & second language catalog" },
-  { to: "/setup/genders", title: "Genders", description: "Student gender options" },
-  { to: "/setup/mediums", title: "Mediums", description: "Instruction medium" },
-  { to: "/setup/elective-groups", title: "Elective groups", description: "Clusters for elective subject choice" },
+type HubLink = {
+  to: string;
+  title: string;
+  description: string;
+  anyPermission?: string[];
+};
+
+const links: HubLink[] = [
+  {
+    to: "/setup/departments",
+    title: "Departments",
+    description: "Academic departments within a college",
+    anyPermission: [PermissionKeys.SetupDepartmentsManage],
+  },
+  {
+    to: "/setup/staff",
+    title: "Staff",
+    description: "Faculty and staff directory, roles, and subject assignments",
+    anyPermission: [PermissionKeys.SetupStaffManage],
+  },
+  {
+    to: "/setup/courses",
+    title: "Courses",
+    description: "Programmes or streams",
+    anyPermission: [PermissionKeys.SetupCoursesManage],
+  },
+  {
+    to: "/setup/groups",
+    title: "Groups",
+    description: "Sections or batches within a course",
+    anyPermission: [PermissionKeys.SetupGroupsManage],
+  },
+  {
+    to: "/setup/semesters",
+    title: "Semesters",
+    description: "Terms linked to course and group",
+    anyPermission: [PermissionKeys.SetupSemestersManage],
+  },
+  {
+    to: "/setup/subjects",
+    title: "Subjects",
+    description: "Papers including language slots and electives",
+    anyPermission: [PermissionKeys.SetupSubjectsManage],
+  },
+  {
+    to: "/setup/languages",
+    title: "Languages",
+    description: "First & second language catalog",
+    anyPermission: [PermissionKeys.SetupLookupsManage],
+  },
+  {
+    to: "/setup/genders",
+    title: "Genders",
+    description: "Student gender options",
+    anyPermission: [PermissionKeys.SetupLookupsManage],
+  },
+  {
+    to: "/setup/mediums",
+    title: "Mediums",
+    description: "Instruction medium",
+    anyPermission: [PermissionKeys.SetupLookupsManage],
+  },
+  {
+    to: "/setup/elective-groups",
+    title: "Elective groups",
+    description: "Clusters for elective subject choice",
+    anyPermission: [PermissionKeys.SetupLookupsManage],
+  },
+  {
+    to: "/setup/staff-lookups",
+    title: "Staff & department lookups",
+    description: "Staff types, titles, roles, qualifications — values used on Staff and department assignments",
+    anyPermission: [PermissionKeys.SetupLookupsManage],
+  },
 ];
 
 const SetupHub = () => {
-  const role = (useAuth().user?.role ?? "").toLowerCase();
-  const isAdmin = role === "admin";
+  const { hasAnyPermission, hasPermission } = useAuth();
+  const canCollegeProfile = hasPermission(PermissionKeys.OrganizationManage);
+
+  const visibleLinks = links.filter((x) =>
+    x.anyPermission?.length ? hasAnyPermission(x.anyPermission) : false,
+  );
 
   return (
     <Stack spacing={3}>
@@ -31,7 +101,7 @@ const SetupHub = () => {
 
       <Typography variant="body1" color="text.secondary">
         Maintain reference data used across students, attendance, and reports.
-        {isAdmin && (
+        {canCollegeProfile && (
           <>
             {" "}
             Edit your college profile or import students under <strong>College profile</strong>.
@@ -39,7 +109,7 @@ const SetupHub = () => {
         )}
       </Typography>
 
-      {isAdmin && (
+      {canCollegeProfile && (
         <Card variant="outlined">
           <CardActionArea component={RouterLink} to="/setup/college">
             <CardContent>
@@ -64,7 +134,7 @@ const SetupHub = () => {
           gap: 2,
         }}
       >
-        {links.map((x) => (
+        {visibleLinks.map((x) => (
           <Card key={x.to} variant="outlined">
             <CardActionArea component={RouterLink} to={x.to}>
               <CardContent>
