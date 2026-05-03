@@ -17,16 +17,30 @@ import GendersPage from "../pages/setup/GendersPage";
 import MediumsPage from "../pages/setup/MediumsPage";
 import ElectiveGroupsPage from "../pages/setup/ElectiveGroupsPage";
 import StaffLookupsHub from "../pages/setup/StaffLookupsHub";
+import TenantRbacPage from "../pages/setup/TenantRbacPage";
 import ReportsPage from "../pages/ReportsPage";
 import CollegeProfilePage from "../pages/setup/CollegeProfilePage";
 import DepartmentsPage from "../pages/setup/DepartmentsPage";
 import StaffPage from "../pages/setup/StaffPage";
+import ChangePasswordPage from "../pages/ChangePasswordPage";
+import ForgotPasswordPage from "../pages/ForgotPasswordPage";
+import ResetPasswordPage from "../pages/ResetPasswordPage";
 
 const AppRoutes = () => {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route
+          path="/change-password"
+          element={
+            <ProtectedRoute>
+              <ChangePasswordPage />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/"
@@ -151,6 +165,14 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute anyPermission={[PermissionKeys.SetupLookupsManage]}>
                 <StaffLookupsHub />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="setup/roles"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]} requireTenantScope>
+                <TenantRbacPage />
               </ProtectedRoute>
             }
           />

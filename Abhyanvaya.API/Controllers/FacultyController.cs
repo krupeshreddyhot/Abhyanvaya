@@ -26,10 +26,18 @@ namespace Abhyanvaya.API.Controllers
         public async Task<IActionResult> GetStudents(int subjectId, string? search = null)
         {
             var subject = await _context.Subjects
-                .FirstOrDefaultAsync(x => x.Id == subjectId);
+                .FirstOrDefaultAsync(x => x.Id == subjectId && x.TenantId == _currentUser.TenantId);
 
             if (subject == null)
                 return NotFound("Subject not found");
+
+            if (!await FacultySubjectAccess.FacultyMayAccessSubjectAsync(
+                    _context,
+                    _currentUser,
+                    subject.Id,
+                    HttpContext.RequestAborted)
+                .ConfigureAwait(false))
+                return Forbid();
 
             IQueryable<Student> query;
 
@@ -37,6 +45,7 @@ namespace Abhyanvaya.API.Controllers
             {
                 query = _context.Students
                     .Where(x =>
+                        x.TenantId == _currentUser.TenantId &&
                         x.CourseId == subject.CourseId &&
                         x.GroupId == subject.GroupId &&
                         x.SemesterId == subject.SemesterId);
@@ -44,7 +53,7 @@ namespace Abhyanvaya.API.Controllers
             else
             {
                 query = _context.StudentSubjects
-                    .Where(x => x.SubjectId == subjectId)
+                    .Where(x => x.SubjectId == subjectId && x.Student.TenantId == _currentUser.TenantId)
                     .Select(x => x.Student);
             }
 

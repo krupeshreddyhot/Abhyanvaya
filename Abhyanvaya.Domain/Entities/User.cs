@@ -10,6 +10,14 @@ namespace Abhyanvaya.Domain.Entities
         // Store hashed password (never plain text)
         public required string PasswordHash { get; set; }
 
+        /// <summary>When true, client must prompt for password change before full app use.</summary>
+        public bool MustChangePassword { get; set; }
+
+        /// <summary>SHA-256 hex of self-service reset token (opaque bearer).</summary>
+        public string? PasswordResetTokenHash { get; set; }
+
+        public DateTime? PasswordResetTokenExpires { get; set; }
+
         public UserRole Role { get; set; }
 
         // Faculty-specific restrictions

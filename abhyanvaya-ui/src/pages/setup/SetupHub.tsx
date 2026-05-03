@@ -81,8 +81,10 @@ const links: HubLink[] = [
 ];
 
 const SetupHub = () => {
-  const { hasAnyPermission, hasPermission } = useAuth();
+  const { hasAnyPermission, hasPermission, user } = useAuth();
   const canCollegeProfile = hasPermission(PermissionKeys.OrganizationManage);
+  const isTenantAdmin =
+    (user?.role ?? "").toLowerCase() === "admin" && (user?.tenantId ?? 0) > 0;
 
   const visibleLinks = links.filter((x) =>
     x.anyPermission?.length ? hasAnyPermission(x.anyPermission) : false,
@@ -117,6 +119,19 @@ const SetupHub = () => {
               <Typography variant="body2" color="text.secondary">
                 College name, code, university linkage, branding, Excel student import (edit only — no new college
                 tenant here)
+              </Typography>
+            </CardContent>
+          </CardActionArea>
+        </Card>
+      )}
+
+      {isTenantAdmin && (
+        <Card variant="outlined">
+          <CardActionArea component={RouterLink} to="/setup/roles">
+            <CardContent>
+              <Typography variant="h6">Roles &amp; permissions</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Application roles, permission sets, and which users hold each role (college administrators only)
               </Typography>
             </CardContent>
           </CardActionArea>

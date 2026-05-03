@@ -59,17 +59,62 @@ namespace Abhyanvaya.API.Controllers
 
             if (_currentUser.Role.Equals("Faculty", StringComparison.OrdinalIgnoreCase))
             {
-                studentsQuery = studentsQuery.Where(x =>
-                    x.CourseId == _currentUser.CourseId &&
-                    x.GroupId == _currentUser.GroupId);
+                if (_currentUser.StaffId > 0)
+                {
+                    var assignedIds = await FacultySubjectAccess.GetAssignedSubjectIdsAsync(
+                            _context,
+                            _currentUser.StaffId,
+                            HttpContext.RequestAborted)
+                        .ConfigureAwait(false);
 
-                subjectsQuery = subjectsQuery.Where(x =>
-                    x.CourseId == _currentUser.CourseId &&
-                    x.GroupId == _currentUser.GroupId);
+                    if (assignedIds.Count == 0)
+                    {
+                        return Ok(new
+                        {
+                            TotalStudents = 0,
+                            TotalSubjects = 0,
+                            TotalAttendance = 0,
+                            TotalPresent = 0,
+                            OverallPercentage = 0d,
+                            TodayPresent = 0,
+                            TodayAbsent = 0
+                        });
+                    }
 
-                attendanceQuery = attendanceQuery.Where(x =>
-                    x.Student.CourseId == _currentUser.CourseId &&
-                    x.Student.GroupId == _currentUser.GroupId);
+                    var staffId = _currentUser.StaffId;
+                    subjectsQuery = subjectsQuery.Where(s => assignedIds.Contains(s.Id));
+                    attendanceQuery = attendanceQuery.Where(a => assignedIds.Contains(a.SubjectId));
+
+                    studentsQuery = studentsQuery.Where(student =>
+                        _context.StaffSubjectAssignments.Any(ssa =>
+                            ssa.StaffId == staffId &&
+                            assignedIds.Contains(ssa.SubjectId) &&
+                            _context.Subjects.Any(sub =>
+                                sub.Id == ssa.SubjectId &&
+                                (
+                                    (!sub.IsElective &&
+                                     student.CourseId == sub.CourseId &&
+                                     student.GroupId == sub.GroupId &&
+                                     student.SemesterId == sub.SemesterId)
+                                    ||
+                                    (sub.IsElective &&
+                                     _context.StudentSubjects.Any(ss =>
+                                         ss.StudentId == student.Id && ss.SubjectId == sub.Id))))));
+                }
+                else
+                {
+                    studentsQuery = studentsQuery.Where(x =>
+                        x.CourseId == _currentUser.CourseId &&
+                        x.GroupId == _currentUser.GroupId);
+
+                    subjectsQuery = subjectsQuery.Where(x =>
+                        x.CourseId == _currentUser.CourseId &&
+                        x.GroupId == _currentUser.GroupId);
+
+                    attendanceQuery = attendanceQuery.Where(x =>
+                        x.Student.CourseId == _currentUser.CourseId &&
+                        x.Student.GroupId == _currentUser.GroupId);
+                }
             }
 
             var totalStudents = await studentsQuery.CountAsync();
@@ -196,6 +241,19 @@ namespace Abhyanvaya.API.Controllers
         [Authorize(Policy = AuthorizationPolicies.TenantScopedUser)]
         public async Task<IActionResult> GetClassDashboard(int subjectId, DateTime date)
         {
+            var subjectRow = await _context.Subjects.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == subjectId && x.TenantId == _currentUser.TenantId);
+            if (subjectRow == null)
+                return NotFound();
+
+            if (!await FacultySubjectAccess.FacultyMayAccessSubjectAsync(
+                    _context,
+                    _currentUser,
+                    subjectRow.Id,
+                    HttpContext.RequestAborted)
+                .ConfigureAwait(false))
+                return Forbid();
+
             var tz = ReportingCalendar.ResolveReportingTimeZone(_configuration["Dashboard:ReportingTimeZoneId"]);
             var utc = ReportingCalendar.NormalizeToUtc(date);
             var (dayStartUtc, dayEndUtc) = ReportingCalendar.GetUtcRangeForReportingDayContainingUtc(utc, tz);
@@ -233,8 +291,21 @@ namespace Abhyanvaya.API.Controllers
         [Authorize(Policy = AuthorizationPolicies.TenantScopedUser)]
         public async Task<IActionResult> GetSubjectPerformance(int subjectId)
         {
+            var subjectRow = await _context.Subjects.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == subjectId && x.TenantId == _currentUser.TenantId);
+            if (subjectRow == null)
+                return NotFound();
+
+            if (!await FacultySubjectAccess.FacultyMayAccessSubjectAsync(
+                    _context,
+                    _currentUser,
+                    subjectRow.Id,
+                    HttpContext.RequestAborted)
+                .ConfigureAwait(false))
+                return Forbid();
+
             var data = await _context.Attendances
-                .Where(x => x.SubjectId == subjectId)
+                .Where(x => x.SubjectId == subjectId && x.TenantId == _currentUser.TenantId)
                 .GroupBy(x => x.Student.StudentNumber)
                 .Select(g => new
                 {
