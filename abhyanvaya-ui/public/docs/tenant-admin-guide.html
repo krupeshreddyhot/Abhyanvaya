@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Guide for college administrators — Abhyanvaya</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --fg: #1a1a1a;
+        --muted: #555;
+        --border: #ddd;
+        --link: #1565c0;
+        --bg: #fafafa;
+        --callout: #e3f2fd;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fg: #e8e8e8;
+          --muted: #aaa;
+          --border: #444;
+          --link: #90caf9;
+          --bg: #121212;
+          --callout: #1e3a5f;
+        }
+      }
+      body {
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        line-height: 1.55;
+        max-width: 46rem;
+        margin: 0 auto;
+        padding: 1.5rem;
+        color: var(--fg);
+        background: var(--bg);
+      }
+      h1 {
+        font-size: 1.45rem;
+        margin-top: 0;
+      }
+      h2 {
+        font-size: 1.15rem;
+        margin-top: 2rem;
+        padding-bottom: 0.25rem;
+        border-bottom: 1px solid var(--border);
+      }
+      p,
+      li {
+        color: var(--muted);
+      }
+      strong {
+        color: var(--fg);
+      }
+      a {
+        color: var(--link);
+      }
+      nav.top {
+        margin-bottom: 1.25rem;
+      }
+      nav.top a {
+        margin-right: 1rem;
+      }
+      .callout {
+        padding: 1rem 1.1rem;
+        border-radius: 8px;
+        background: var(--callout);
+        border: 1px solid var(--border);
+        margin: 1.25rem 0;
+      }
+      .callout p:last-child {
+        margin-bottom: 0;
+      }
+      ol.steps {
+        padding-left: 1.25rem;
+      }
+      ol.steps li {
+        margin-bottom: 0.5rem;
+      }
+      ul.plain li {
+        margin-bottom: 0.45rem;
+      }
+      .footer-links {
+        margin-top: 2.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border);
+        font-size: 0.95rem;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="top">
+      <a href="/setup">Setup catalog</a>
+      <a href="/setup/roles">Roles &amp; permissions</a>
+    </nav>
+
+    <h1>Guide for college administrators</h1>
+    <p>
+      This page explains how <strong>users</strong>, <strong>login types</strong>, and <strong>roles &amp; permissions</strong> work in your college’s Abhyanvaya portal. You manage these under
+      <strong>Setup → Roles &amp; permissions</strong> (only college administrators can open this screen).
+    </p>
+
+    <div class="callout">
+      <p>
+        <strong>After you change roles or permissions for someone</strong>, ask them to <strong>sign out and sign in again</strong>. Their access is carried in their login session; a fresh sign-in applies your changes.
+      </p>
+    </div>
+
+    <h2>Two ideas: login type vs application roles</h2>
+    <ul class="plain">
+      <li>
+        <strong>Login type</strong> (sometimes called enum role) is set when the account is created: typically <strong>Admin</strong> or <strong>Faculty</strong>. It defines broad behaviour—for example, only Admins can manage certain catalog screens; Faculty accounts used for teaching are often linked to a person in your <strong>Staff</strong> directory.
+      </li>
+      <li>
+        <strong>Application roles</strong> are labels you define for your college (for example “Exam officer”, “HoD”). Each role bundles a set of <strong>permissions</strong> (view students, manage courses, manage staff setup, and so on).
+      </li>
+    </ul>
+    <p>
+      You assign one or more application roles to each user on the <strong>User assignments</strong> tab. If a user has <strong>no</strong> application roles, the system falls back to sensible defaults for their login type. As soon as you assign <strong>any</strong> application role to someone, their permissions come <strong>only</strong> from those roles—so make sure each role you assign includes everything they should be allowed to do.
+    </p>
+
+    <h2>Getting started with Roles &amp; permissions</h2>
+    <ol class="steps">
+      <li>Open <strong>Setup</strong> from the main menu, then <strong>Roles &amp; permissions</strong>.</li>
+      <li>
+        On <strong>Application roles</strong>, create roles your college needs and open each role to tick the <strong>permissions</strong> that role should grant.
+      </li>
+      <li>
+        On <strong>User assignments</strong>, pick a user and assign the application roles they should have. Save—then remind them to sign out and back in.
+      </li>
+    </ol>
+
+    <h2>Faculty logins and Staff</h2>
+    <p>
+      When you <strong>add a Faculty user</strong>, you choose a <strong>staff profile</strong> from your Staff directory. That link tells the system which <strong>subjects</strong> that teacher may work with (based on subject assignments on the Staff record). If someone teaches new subjects later, update their assignments on the <strong>Staff</strong> page as usual.
+    </p>
+    <p>
+      You can change which staff profile is linked to a Faculty account from the same <strong>User assignments</strong> dialog when editing that user.
+    </p>
+
+    <h2>Passwords</h2>
+    <ul class="plain">
+      <li>Use <strong>Reset password</strong> on the User assignments tab to set a temporary password; the user will be asked to choose a new password after signing in.</li>
+      <li>Users can change their own password from the app header when logged in.</li>
+    </ul>
+
+    <h2>Need technical detail?</h2>
+    <p class="footer-links">
+      For developers or auditors: see the
+      <a href="index.html">documentation hub</a> (CSV downloads and links to the full <a href="authorization-matrix.html">authorization matrix</a>). These describe API policies and do not affect day-to-day college setup.
+    </p>
+  </body>
+</html>

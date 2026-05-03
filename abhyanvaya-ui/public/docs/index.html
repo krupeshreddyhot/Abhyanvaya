@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Authorization documentation — Abhyanvaya</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --fg: #1a1a1a;
+        --muted: #555;
+        --border: #ddd;
+        --link: #1565c0;
+        --bg: #fafafa;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fg: #e8e8e8;
+          --muted: #aaa;
+          --border: #444;
+          --link: #90caf9;
+          --bg: #121212;
+        }
+      }
+      body {
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        line-height: 1.5;
+        max-width: 52rem;
+        margin: 0 auto;
+        padding: 1.5rem;
+        color: var(--fg);
+        background: var(--bg);
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin-top: 0;
+      }
+      p {
+        color: var(--muted);
+      }
+      ul.doc-list {
+        list-style: none;
+        padding: 0;
+      }
+      ul.doc-list li {
+        margin-bottom: 1rem;
+        padding: 1rem;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+      }
+      ul.doc-list a.main {
+        font-weight: 600;
+        color: var(--link);
+      }
+      ul.doc-list .desc {
+        display: block;
+        margin-top: 0.35rem;
+        font-size: 0.95rem;
+        color: var(--muted);
+      }
+      h2 {
+        font-size: 1.1rem;
+        margin-top: 2rem;
+      }
+      .csv a {
+        display: inline-block;
+        margin: 0.25rem 0.75rem 0.25rem 0;
+        color: var(--link);
+      }
+      nav.back {
+        margin-bottom: 1rem;
+      }
+      nav.back a {
+        color: var(--link);
+        text-decoration: none;
+      }
+      nav.back a:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="back"><a href="/setup/roles">← Back to Roles &amp; permissions</a></nav>
+    <h1>Documentation</h1>
+    <p>
+      <strong>College administrators</strong> should start with the <a href="tenant-admin-guide.html">guide for college administrators</a> (plain language). The resources below are technical references for API policies, JWT claims, and spreadsheets.
+    </p>
+
+    <ul class="doc-list">
+      <li>
+        <a class="main" href="tenant-admin-guide.html">Guide for college administrators</a>
+        <span class="desc">Login types, application roles, Faculty and Staff, passwords, and when users must sign in again.</span>
+      </li>
+      <li>
+        <a class="main" href="authorization-matrix.html">Authorization matrix (full HTML)</a>
+        <span class="desc">Policies, permission keys, endpoint summary, data-layer rules, and maintenance notes.</span>
+      </li>
+    </ul>
+
+    <h2>CSV exports (Excel / Google Sheets)</h2>
+    <p class="csv">
+      <a href="csv/authorization_policies.csv" download>authorization_policies.csv</a>
+      <a href="csv/permission_keys.csv" download>permission_keys.csv</a>
+      <a href="csv/jwt_permission_resolution.csv" download>jwt_permission_resolution.csv</a>
+      <a href="csv/data_layer_rules.csv" download>data_layer_rules.csv</a>
+      <a href="csv/authorization_endpoints.csv" download>authorization_endpoints.csv</a>
+    </p>
+    <p><small>CSV column meanings: see repository file <code>docs/csv/README.md</code>.</small></p>
+  </body>
+</html>
