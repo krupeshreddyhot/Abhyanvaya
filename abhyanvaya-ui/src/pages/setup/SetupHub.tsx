@@ -1,6 +1,7 @@
 import { Link as RouterLink } from "react-router-dom";
-import { Box, Button, Card, CardActionArea, CardContent, Typography, Stack } from "@mui/material";
+import { Box, Button, Card, CardActionArea, CardContent, Link, Typography, Stack } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { PermissionKeys } from "../../auth/permissionKeys";
 import { useAuth } from "../../context/AuthContext";
 
@@ -133,6 +134,33 @@ const SetupHub = () => {
               <Typography variant="body2" color="text.secondary">
                 Application roles, permission sets, and which users hold each role (college administrators only)
               </Typography>
+              <Box sx={{ mt: 1, display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: 1, rowGap: 0.5 }}>
+                <Link
+                  href="/docs/tenant-admin-guide.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="body2"
+                  onClick={(e) => e.stopPropagation()}
+                  sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontWeight: 600 }}
+                >
+                  College admin guide
+                  <OpenInNewIcon fontSize="small" aria-hidden />
+                </Link>
+                <Typography variant="body2" color="text.secondary" component="span">
+                  ·
+                </Typography>
+                <Link
+                  href="/docs/index.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="body2"
+                  onClick={(e) => e.stopPropagation()}
+                  sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}
+                >
+                  Technical docs &amp; CSV
+                  <OpenInNewIcon fontSize="small" aria-hidden />
+                </Link>
+              </Box>
             </CardContent>
           </CardActionArea>
         </Card>
