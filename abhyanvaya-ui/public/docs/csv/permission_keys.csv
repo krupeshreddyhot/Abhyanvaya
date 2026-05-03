@@ -1,0 +1,16 @@
+PermissionKey,InPermissionKeysAll,InLegacyFacultyJwtFallback,TypicalUse
+Students.View,Yes,Yes,Frontend / intent; many APIs gate by role instead
+Students.Manage,Yes,No,Frontend / intent
+Attendance.View,Yes,Yes,Frontend / intent
+Attendance.Manage,Yes,Yes,Frontend / intent
+Reports.View,Yes,Yes,Frontend / intent
+Dashboard.View,Yes,Yes,Frontend / intent
+Master.View,Yes,Yes,Frontend / intent
+Setup.Subjects.Manage,Yes,No,
+Setup.Departments.Manage,Yes,No,
+Setup.Staff.Manage,Yes,No,
+Setup.Lookups.Manage,Yes,No,
+Setup.Courses.Manage,Yes,No,Binds to CanManageCourses policy
+Setup.Groups.Manage,Yes,No,Binds to CanManageGroups policy
+Setup.Semesters.Manage,Yes,No,Binds to CanManageSemesters policy
+Organization.Manage,Yes,No,Binds to CanManageOrganization policy

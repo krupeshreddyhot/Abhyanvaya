@@ -6,12 +6,14 @@ import {
   Button,
   Card,
   CardContent,
+  Link,
   MenuItem,
   Stack,
   TextField,
   Typography,
   CircularProgress,
 } from "@mui/material";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import {
   createUniversity,
   getAdminUniversities,
@@ -152,6 +154,25 @@ const OrganizationPage = () => {
   return (
     <Stack spacing={3}>
       <Typography variant="h4">Organization</Typography>
+      <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.5 }}>
+        <Typography variant="body2" color="text.secondary" component="span">
+          Documentation
+        </Typography>
+        <Link href="/docs/index.html" target="_blank" rel="noopener noreferrer" variant="body2" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+          Overview &amp; CSV downloads
+          <OpenInNewIcon sx={{ fontSize: "1rem" }} aria-hidden />
+        </Link>
+        <Link
+          href="/docs/authorization-matrix.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          variant="body2"
+          sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}
+        >
+          Full authorization matrix (HTML)
+          <OpenInNewIcon sx={{ fontSize: "1rem" }} aria-hidden />
+        </Link>
+      </Box>
       <Typography variant="body2" color="text.secondary">
         Super Admin: create universities and provision new colleges (each college is a separate tenant with its own
         admin login).
