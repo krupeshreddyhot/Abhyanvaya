@@ -22,7 +22,7 @@ import BusinessIcon from "@mui/icons-material/Business";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useMemo, useState } from "react";
-import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Outlet, useNavigate, useLocation, Link as RouterLink } from "react-router-dom";
 import { PermissionKeys } from "../auth/permissionKeys";
 import { useAuth } from "../context/AuthContext";
 import { useEffect } from "react";
@@ -220,6 +220,9 @@ const MainLayout = () => {
             <Typography variant="body2" sx={{ display: { xs: "none", sm: "block" } }}>
               {user?.role || "User"}
             </Typography>
+            <Button color="inherit" size={isMobile ? "small" : "medium"} component={RouterLink} to="/change-password">
+              Change password
+            </Button>
             <Button
               color="inherit"
               size={isMobile ? "small" : "medium"}

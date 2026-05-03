@@ -1,0 +1,7 @@
+Area,Rule
+Faculty with StaffId > 0 (staff-linked),FacultySubjectAccess: operations limited to subjects in StaffSubjectAssignment for that staff
+Faculty with StaffId 0 (legacy),Many flows also filter by JWT CourseId and GroupId (cohort)
+api/reports student and monthly (legacy faculty),403 if student not in same course and group as faculty JWT
+api/reports student and monthly (staff-linked faculty),Attendance rows filtered to assigned subject ids; tenant scoping
+Dashboard overview (staff-linked faculty),Metrics limited to assigned subjects and related students
+Attendance / Master / Faculty / Dashboard subject actions,Subject-level checks in controller in addition to policies

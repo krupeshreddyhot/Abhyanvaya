@@ -1,9 +1,9 @@
-﻿using Abhyanvaya.Application.Common.Interfaces;
+﻿using Abhyanvaya.API.Common;
+using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.DTOs;
 using Abhyanvaya.Domain.Entities;
 using Abhyanvaya.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
-using Abhyanvaya.API.Common;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -59,26 +59,41 @@ namespace Abhyanvaya.API.Controllers
             if (subject == null)
                 return BadRequest("Invalid subject");
 
+            if (!await FacultySubjectAccess.FacultyMayAccessSubjectAsync(
+                    _context,
+                    _currentUser,
+                    subject.Id,
+                    HttpContext.RequestAborted)
+                .ConfigureAwait(false))
+                return Forbid();
+
+            var firstNumber = request.Students.FirstOrDefault()?.StudentNumber;
+            if (string.IsNullOrEmpty(firstNumber))
+                return BadRequest("Students list is required");
+
             var student = await _context.Students
-                .FirstOrDefaultAsync(x => x.StudentNumber == request.Students.FirstOrDefault().StudentNumber);
+                .FirstOrDefaultAsync(x => x.StudentNumber == firstNumber);
 
-                if (!subject.IsElective)
+            if (student == null)
+                return BadRequest("Invalid student");
+
+            if (!subject.IsElective)
+            {
+                // must belong to course/group/semester
+                if (student.CourseId != subject.CourseId ||
+                    student.GroupId != subject.GroupId ||
+                    student.SemesterId != subject.SemesterId)
                 {
-                    // must belong to course/group/semester
-                    if (student.CourseId != subject.CourseId ||
-                        student.GroupId != subject.GroupId ||
-                        student.SemesterId != subject.SemesterId)
-                    {
-                        return BadRequest($"Invalid student: {student.StudentNumber}");
-                    }
-
-                    if (!StudentMatchesLanguageSubject(subject, student))
-                    {
-                        return BadRequest(
-                            $"Student {student.StudentNumber} is not in this language cohort for the selected subject.");
-                    }
+                    return BadRequest($"Invalid student: {student.StudentNumber}");
                 }
-                else
+
+                if (!StudentMatchesLanguageSubject(subject, student))
+                {
+                    return BadRequest(
+                        $"Student {student.StudentNumber} is not in this language cohort for the selected subject.");
+                }
+            }
+            else
             {
                 // must exist in StudentSubjects
                 var exists = await _context.StudentSubjects
@@ -122,7 +137,8 @@ namespace Abhyanvaya.API.Controllers
                     studentNumbers.Contains(x.StudentNumber) &&
                     x.TenantId == _currentUser.TenantId);
 
-            if (_currentUser.Role.Equals("Faculty", StringComparison.OrdinalIgnoreCase))
+            if (_currentUser.Role.Equals("Faculty", StringComparison.OrdinalIgnoreCase)
+                && _currentUser.StaffId <= 0)
             {
                 query = query.Where(x =>
                     x.CourseId == _currentUser.CourseId &&
@@ -189,6 +205,14 @@ namespace Abhyanvaya.API.Controllers
             if (subject == null)
                 return BadRequest("Invalid subject.");
 
+            if (!await FacultySubjectAccess.FacultyMayAccessSubjectAsync(
+                    _context,
+                    _currentUser,
+                    subject.Id,
+                    HttpContext.RequestAborted)
+                .ConfigureAwait(false))
+                return Forbid();
+
             var query = _context.Attendances
                 .Where(x => x.TenantId == _currentUser.TenantId &&
                             x.SubjectId == subjectId &&
@@ -197,8 +221,9 @@ namespace Abhyanvaya.API.Controllers
 
             query = ApplyLanguageSubjectFilterForAttendance(query, subject);
 
-            // 🔐 Faculty restriction
-            if (_currentUser.Role.Equals("Faculty", StringComparison.OrdinalIgnoreCase))
+            // 🔐 Legacy Faculty (no staff link): cohort restriction
+            if (_currentUser.Role.Equals("Faculty", StringComparison.OrdinalIgnoreCase)
+                && _currentUser.StaffId <= 0)
             {
                 query = query.Where(x =>
                     x.Student.CourseId == _currentUser.CourseId &&
@@ -249,6 +274,14 @@ namespace Abhyanvaya.API.Controllers
             if (subject.CourseId != courseId || subject.GroupId != groupId || subject.SemesterId != semesterId)
                 return BadRequest("Selected subject does not belong to selected course/group/semester.");
 
+            if (!await FacultySubjectAccess.FacultyMayAccessSubjectAsync(
+                    _context,
+                    _currentUser,
+                    subject.Id,
+                    HttpContext.RequestAborted)
+                .ConfigureAwait(false))
+                return Forbid();
+
             var query = _context.Students
                 .AsNoTracking()
                 .Where(x =>
@@ -257,7 +290,8 @@ namespace Abhyanvaya.API.Controllers
                     x.GroupId == groupId &&
                     x.SemesterId == semesterId);
 
-            if (_currentUser.Role.Equals("Faculty", StringComparison.OrdinalIgnoreCase))
+            if (_currentUser.Role.Equals("Faculty", StringComparison.OrdinalIgnoreCase)
+                && _currentUser.StaffId <= 0)
             {
                 query = query.Where(x =>
                     x.CourseId == _currentUser.CourseId &&
@@ -365,6 +399,14 @@ namespace Abhyanvaya.API.Controllers
             if (subject == null)
                 return BadRequest("Invalid subject.");
 
+            if (!await FacultySubjectAccess.FacultyMayAccessSubjectAsync(
+                    _context,
+                    _currentUser,
+                    subject.Id,
+                    HttpContext.RequestAborted)
+                .ConfigureAwait(false))
+                return Forbid();
+
             var recordsQuery = _context.Attendances
                 .Where(x =>
                     x.SubjectId == subjectId &&
@@ -402,6 +444,14 @@ namespace Abhyanvaya.API.Controllers
 
             if (subject == null)
                 return BadRequest("Invalid subject.");
+
+            if (!await FacultySubjectAccess.FacultyMayAccessSubjectAsync(
+                    _context,
+                    _currentUser,
+                    subject.Id,
+                    HttpContext.RequestAborted)
+                .ConfigureAwait(false))
+                return Forbid();
 
             var recordsQuery = _context.Attendances
                 .Where(x =>

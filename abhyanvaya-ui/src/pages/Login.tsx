@@ -16,7 +16,7 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { getUniversities, login as loginApi, superAdminLogin, type UniversityOption } from "../services/authService";
 import { useAuth } from "../context/AuthContext";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link as RouterLink, useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 
 type LoginMode = "institution" | "superadmin";
@@ -105,7 +105,7 @@ const Login = () => {
       if (loginMode === "superadmin") {
         const res = await superAdminLogin(username, password);
         login(res.data.token);
-        navigate("/dashboard");
+        navigate(res.data.mustChangePassword ? "/change-password?first=1" : "/dashboard");
         return;
       }
 
@@ -116,7 +116,7 @@ const Login = () => {
 
       const res = await loginApi(universityCode, collegeCode, username, password);
       login(res.data.token);
-      navigate("/dashboard");
+      navigate(res.data.mustChangePassword ? "/change-password?first=1" : "/dashboard");
     } catch (err) {
       setError(resolveLoginError(err, loginMode));
     } finally {
@@ -260,6 +260,14 @@ const Login = () => {
             <Button type="button" variant="contained" size="large" fullWidth onClick={() => void handleLogin()}>
               {loading ? <CircularProgress size={24} color="inherit" /> : "Login"}
             </Button>
+
+            {loginMode === "institution" && (
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                <RouterLink to="/forgot-password" style={{ color: "inherit" }}>
+                  Forgot password?
+                </RouterLink>
+              </Typography>
+            )}
           </Box>
         </Paper>
       </Container>

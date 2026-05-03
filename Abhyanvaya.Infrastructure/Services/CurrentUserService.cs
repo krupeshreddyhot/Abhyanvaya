@@ -13,6 +13,7 @@ namespace Abhyanvaya.Infrastructure.Services
             UserId = TryParseInt(user?.FindFirst("UserId")?.Value);
             Role = user?.FindFirst(ClaimTypes.Role)?.Value ?? "";
             TenantId = TryParseInt(user?.FindFirst("TenantId")?.Value);
+            StaffId = TryParseInt(user?.FindFirst("StaffId")?.Value);
             CourseId = TryParseInt(user?.FindFirst("CourseId")?.Value);            
             GroupId = TryParseInt(user?.FindFirst("GroupId")?.Value);
         }
@@ -20,6 +21,7 @@ namespace Abhyanvaya.Infrastructure.Services
         public int UserId { get; }
         public string Role { get; }
         public int TenantId { get; }
+        public int StaffId { get; }
         public int CourseId { get; set; }
         public int GroupId { get; set; }
 

@@ -52,6 +52,7 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<EmploymentStatusLookup> EmploymentStatusLookups => Set<EmploymentStatusLookup>();
         public IQueryable<Permission> Permissions => Set<Permission>();
         public IQueryable<ApplicationRole> ApplicationRoles => Set<ApplicationRole>();
+        public IQueryable<ApplicationRolePermission> ApplicationRolePermissions => Set<ApplicationRolePermission>();
         public IQueryable<UserApplicationRole> UserApplicationRoles => Set<UserApplicationRole>();
 
         protected override void OnModelCreating(ModelBuilder builder)
