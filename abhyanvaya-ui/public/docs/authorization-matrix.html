@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Authorization matrix (API) — Abhyanvaya</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --fg: #1a1a1a;
+        --muted: #555;
+        --border: #ccc;
+        --link: #1565c0;
+        --bg: #fafafa;
+        --thead: #e8e8e8;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fg: #e8e8e8;
+          --muted: #aaa;
+          --border: #444;
+          --link: #90caf9;
+          --bg: #121212;
+          --thead: #2a2a2a;
+        }
+      }
+      body {
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        line-height: 1.5;
+        max-width: 56rem;
+        margin: 0 auto;
+        padding: 1.5rem;
+        color: var(--fg);
+        background: var(--bg);
+      }
+      h1 {
+        font-size: 1.35rem;
+        margin-top: 0;
+      }
+      h2 {
+        font-size: 1.15rem;
+        margin-top: 2rem;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0.35rem;
+      }
+      h3 {
+        font-size: 1rem;
+        margin-top: 1.25rem;
+      }
+      p,
+      li {
+        color: var(--muted);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+        margin: 1rem 0;
+      }
+      th,
+      td {
+        border: 1px solid var(--border);
+        padding: 0.45rem 0.55rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      thead th {
+        background: var(--thead);
+        color: var(--fg);
+        font-weight: 600;
+      }
+      code {
+        font-size: 0.88em;
+        padding: 0.1em 0.35em;
+        border-radius: 4px;
+        background: rgba(128, 128, 128, 0.15);
+      }
+      nav.top a {
+        color: var(--link);
+        margin-right: 1rem;
+      }
+      .intro strong {
+        color: var(--fg);
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="top">
+      <a href="tenant-admin-guide.html">College admin guide</a>
+      <a href="index.html">Documentation hub</a>
+      <a href="/setup/roles">← Roles &amp; permissions app</a>
+    </nav>
+
+    <h1>Authorization matrix (API)</h1>
+    <p class="intro">
+      Maps ASP.NET <strong>authorization policies</strong> to <strong>roles</strong>, JWT <code>permission</code> claims,
+      and <strong>extra data rules</strong> in controllers (from <code>Program.cs</code> and controller attributes).
+    </p>
+    <p>
+      <strong>Spreadsheet exports:</strong>
+      <a href="csv/authorization_policies.csv">authorization_policies.csv</a> ·
+      <a href="csv/permission_keys.csv">permission_keys.csv</a> ·
+      <a href="csv/jwt_permission_resolution.csv">jwt_permission_resolution.csv</a> ·
+      <a href="csv/data_layer_rules.csv">data_layer_rules.csv</a> ·
+      <a href="csv/authorization_endpoints.csv">authorization_endpoints.csv</a>
+    </p>
+
+    <h2>How policies combine</h2>
+    <ul>
+      <li><strong>Class + method</strong> <code>[Authorize]</code>: user must satisfy <strong>all</strong> applicable policies (logical AND).</li>
+      <li><strong>TenantScopedUser</strong>: <code>HasTenantHandler</code> — SuperAdmin always passes; others need <code>TenantId</code> claim &gt; 0.</li>
+    </ul>
+
+    <h2>1. Policy definitions (<code>Program.cs</code>)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Policy</th>
+          <th>Who passes (summary)</th>
+          <th>JWT permission claim?</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>AuthenticatedUser</code></td>
+          <td>Any authenticated user</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><code>TenantScopedUser</code></td>
+          <td>SuperAdmin or TenantId &gt; 0</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><code>AdminOnly</code></td>
+          <td>SuperAdmin or Admin</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><code>AdminOrFaculty</code></td>
+          <td>Role Admin or Faculty (no tenant check in policy)</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><code>TenantScopedAdmin</code></td>
+          <td>SuperAdmin or (Admin and tenant-scoped)</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><code>TenantCollegeAdminOnly</code></td>
+          <td>Admin and tenant-scoped (excludes SuperAdmin)</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><code>CanViewStudents</code></td>
+          <td>SuperAdmin or (Admin or Faculty) with tenant</td>
+          <td>No (role + tenant only)</td>
+        </tr>
+        <tr>
+          <td><code>CanManageStudents</code></td>
+          <td>SuperAdmin or tenant-scoped Admin</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><code>CanManageAttendance</code></td>
+          <td>SuperAdmin or (Admin or Faculty) with tenant</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><code>CanViewReports</code></td>
+          <td>SuperAdmin or (Admin or Faculty) with tenant</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><code>SuperAdminOnly</code></td>
+          <td>Role SuperAdmin</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><code>UniversityListAccess</code></td>
+          <td>SuperAdmin, or tenant Admin, or tenant user with Organization.Manage</td>
+          <td>Yes (org branch)</td>
+        </tr>
+        <tr>
+          <td><code>DashboardOverviewAccess</code></td>
+          <td>SuperAdmin or tenant-scoped Admin/Faculty</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><code>CanManageCourses</code></td>
+          <td>SuperAdmin or (tenant + Setup.Courses.Manage)</td>
+          <td>Yes</td>
+        </tr>
+        <tr>
+          <td><code>CanManageGroups</code></td>
+          <td>SuperAdmin or (tenant + Setup.Groups.Manage)</td>
+          <td>Yes</td>
+        </tr>
+        <tr>
+          <td><code>CanManageSemesters</code></td>
+          <td>SuperAdmin or (tenant + Setup.Semesters.Manage)</td>
+          <td>Yes</td>
+        </tr>
+        <tr>
+          <td><code>CanManageOrganization</code></td>
+          <td>SuperAdmin or (tenant + Organization.Manage)</td>
+          <td>Yes</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p><strong>JWT permission resolution</strong> (<code>JwtService.ResolvePermissionKeysAsync</code>):</p>
+    <ul>
+      <li>If the user has any <code>UserApplicationRole</code> rows → JWT <code>permission</code> claims come <strong>only</strong> from those roles (no merge with <code>PermissionKeys.All</code> / <code>LegacyFacultySet</code>).</li>
+      <li>If none → Admin gets <code>PermissionKeys.All</code>; Faculty gets <code>PermissionKeys.LegacyFacultySet</code>; SuperAdmin gets every permission row in the database.</li>
+    </ul>
+
+    <h2>2. Permission keys catalog (<code>PermissionKeys</code>)</h2>
+    <p>
+      Stable strings include: <code>Students.View</code>, <code>Students.Manage</code>, <code>Attendance.View</code>,
+      <code>Attendance.Manage</code>, <code>Reports.View</code>, <code>Dashboard.View</code>, <code>Master.View</code>,
+      <code>Setup.Subjects.Manage</code>, <code>Setup.Departments.Manage</code>, <code>Setup.Staff.Manage</code>,
+      <code>Setup.Lookups.Manage</code>, <code>Setup.Courses.Manage</code>, <code>Setup.Groups.Manage</code>,
+      <code>Setup.Semesters.Manage</code>, <code>Organization.Manage</code>.
+    </p>
+    <p>
+      Many API policies <strong>do not</strong> assert these strings; they assert <strong>role + tenant</strong> instead.
+      Keys still matter for setup-style policies and front-end toggles.
+    </p>
+
+    <h2>3. Data-layer rules (not policies)</h2>
+    <p>Applied after policy checks pass:</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Area</th>
+          <th>Rule</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Faculty + linked staff (StaffId &gt; 0)</td>
+          <td><code>FacultySubjectAccess</code> / <code>StaffSubjectAssignment</code> — subject-scoped operations only for assigned subjects.</td>
+        </tr>
+        <tr>
+          <td>Faculty, legacy (no staff link)</td>
+          <td>Many endpoints restrict by JWT CourseId / GroupId (cohort).</td>
+        </tr>
+        <tr>
+          <td>Reports (<code>/api/reports/student</code>, <code>/api/reports/monthly</code>)</td>
+          <td>Legacy Faculty: 403 if student not same course/group. Staff-linked: attendance filtered to assigned subject IDs + tenant.</td>
+        </tr>
+        <tr>
+          <td>Dashboard overview (staff-linked Faculty)</td>
+          <td>Metrics scoped to assigned subjects / related students.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>4. Endpoints by controller</h2>
+    <p><strong>Legend:</strong> Policy = effective gate (class ∩ method). Data = extra rules in code.</p>
+
+    <h3><code>api/Auth</code></h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Route</th>
+          <th>Method</th>
+          <th>Access</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>super-admin-login</td>
+          <td>POST</td>
+          <td>Anonymous</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>login</td>
+          <td>POST</td>
+          <td>Anonymous</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>forgot-password, reset-password</td>
+          <td>POST</td>
+          <td>Anonymous</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>change-password</td>
+          <td>POST</td>
+          <td>Authenticated</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>universities</td>
+          <td>GET</td>
+          <td>Authenticated</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3><code>api/Admin</code></h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Route</th>
+          <th>Method</th>
+          <th>Policy</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>universities</td>
+          <td>GET</td>
+          <td>UniversityListAccess</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>universities</td>
+          <td>POST</td>
+          <td>SuperAdminOnly</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>parent-college-options, tenant-college, tenant-college/logo, logo-health, PUT tenant-college</td>
+          <td>—</td>
+          <td>CanManageOrganization</td>
+          <td>Organization.Manage claim for tenant admins</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3><code>api/Organization</code></h3>
+    <p>SuperAdminOnly for parent-college-options GET and colleges POST.</p>
+
+    <h3><code>api/Dashboard</code></h3>
+    <p>
+      overview → <code>DashboardOverviewAccess</code>. student, low-attendance, monthly-trend, class, subject-performance →
+      <code>TenantScopedUser</code>. Staff-linked Faculty: extra subject/data rules on overview, class, subject-performance.
+    </p>
+
+    <h3><code>api/Master</code></h3>
+    <p>GET routes → <code>TenantScopedUser</code>. Staff Faculty: subjects/students per assignments in code.</p>
+
+    <h3><code>api/Student</code></h3>
+    <p>GET list → <code>CanViewStudents</code>. POST/PUT/export/upload → <code>CanManageStudents</code> (with class policy AND).</p>
+
+    <h3><code>api/Attendance</code></h3>
+    <p>All → <code>CanManageAttendance</code>. Staff Faculty: subject + cohort in code.</p>
+
+    <h3><code>api/Reports</code></h3>
+    <p>GET student/subject/monthly → <code>CanViewReports</code> + tenant/Faculty scope in code.</p>
+
+    <h3><code>api/Faculty</code></h3>
+    <p>students GET → <code>AdminOrFaculty</code> + <code>FacultyMayAccessSubjectAsync</code> in code.</p>
+
+    <h3><code>api/Subject</code></h3>
+    <p>Class <code>TenantScopedUser</code>. Catalog / tenant-lookup / create / update also require <code>AdminOnly</code> (both policies).</p>
+
+    <h3><code>api/Course</code>, <code>api/Group</code>, <code>api/Semester</code></h3>
+    <p><code>CanManageCourses</code> / <code>CanManageGroups</code> / <code>CanManageSemesters</code> (permission + tenant; SuperAdmin bypass).</p>
+
+    <h3><code>api/Staff</code>, <code>api/Department</code></h3>
+    <p>Staff: class TenantScopedUser + actions TenantScopedAdmin. Department CRUD: TenantScopedAdmin.</p>
+
+    <h3><code>api/StaffHubLookups</code>, elective-group, gender, language, medium</h3>
+    <p><code>AdminOnly</code> (class-level).</p>
+
+    <h3><code>api/tenant-rbac</code>, <code>api/tenant-users</code></h3>
+    <p><code>TenantCollegeAdminOnly</code>.</p>
+
+    <h3><code>api/ui</code></h3>
+    <p><code>TenantScopedUser</code> (me, header).</p>
+
+    <h2>5. Maintenance tips</h2>
+    <ol>
+      <li>New endpoints: set policy on the action (or document inherited auth).</li>
+      <li>New permission key: wire in <code>Program.cs</code> if the API should enforce it.</li>
+      <li>
+        Application roles replace default JWT permission sets entirely when any assignment exists — inform tenant admins in
+        the RBAC UI.
+      </li>
+    </ol>
+
+    <p><small>Reference only — update when policies or controllers change.</small></p>
+  </body>
+</html>

@@ -1,0 +1,5 @@
+Scenario,JwtPermissionClaimsSource
+User has one or more UserApplicationRole assignments,Union of permissions from those application roles only (no merge with All or LegacyFacultySet)
+User has no application roles and is Admin,PermissionKeys.All
+User has no application roles and is Faculty,PermissionKeys.LegacyFacultySet
+User is SuperAdmin,All rows from Permissions table in database

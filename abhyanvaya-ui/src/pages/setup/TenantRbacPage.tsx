@@ -27,9 +27,11 @@ import {
   Tabs,
   TextField,
   Typography,
+  Link,
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { useAuth } from "../../context/AuthContext";
 import {
   createApplicationRole,
@@ -437,6 +439,30 @@ const TenantRbacPage = () => {
         Define application roles for your college and assign them to user accounts. Login type (Admin / Faculty) still
         applies; when a user has application roles, JWT permissions come from those roles until you clear them.
       </Typography>
+
+      <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.5 }}>
+        <Typography variant="body2" color="text.secondary" component="span">
+          Documentation
+        </Typography>
+        <Link
+          href="/docs/tenant-admin-guide.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          variant="body2"
+          sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontWeight: 600 }}
+        >
+          College admin guide
+          <OpenInNewIcon sx={{ fontSize: "1rem" }} aria-hidden />
+        </Link>
+        <Link href="/docs/index.html" target="_blank" rel="noopener noreferrer" variant="body2" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+          Technical hub &amp; CSV downloads
+          <OpenInNewIcon sx={{ fontSize: "1rem" }} aria-hidden />
+        </Link>
+        <Link href="/docs/authorization-matrix.html" target="_blank" rel="noopener noreferrer" variant="body2" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+          Authorization matrix (HTML)
+          <OpenInNewIcon sx={{ fontSize: "1rem" }} aria-hidden />
+        </Link>
+      </Box>
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)}>
         <Tab label="Application roles" />

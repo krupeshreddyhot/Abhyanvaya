@@ -4,6 +4,8 @@ This document maps **ASP.NET authorization policies** to **roles**, **JWT `permi
 
 **Spreadsheet exports (CSV):** see `docs/csv/` — `authorization_policies.csv`, `permission_keys.csv`, `jwt_permission_resolution.csv`, `data_layer_rules.csv`, and `authorization_endpoints.csv` (one row per route where listed).
 
+**HTML (app):** static files in `abhyanvaya-ui/public/docs/` are served as `/docs/...`. **Tenant admins:** `/docs/tenant-admin-guide.html` (plain-language guide). **Technical:** `/docs/index.html` (hub + CSV links) and `/docs/authorization-matrix.html` (full matrix). CSVs: `/docs/csv/`. The **Roles &amp; permissions** and **Setup** catalog pages link to the college admin guide and technical docs; **Organization** (Super Admin) links to the technical hub and matrix.
+
 ## How policies combine
 
 - **Class + method** `[Authorize]`: the user must satisfy **all** applicable policy requirements (logical **AND**).

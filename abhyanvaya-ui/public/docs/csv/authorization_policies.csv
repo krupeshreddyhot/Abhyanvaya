@@ -1,0 +1,18 @@
+PolicyName,WhoPassesSummary,UsesJwtPermissionClaimInPolicy,Notes
+AuthenticatedUser,Any authenticated user,No,
+TenantScopedUser,SuperAdmin OR TenantId claim > 0 (via HasTenantHandler),No,Others need tenant scope
+AdminOnly,SuperAdmin OR Admin role,No,
+AdminOrFaculty,Role Admin or Faculty only (no tenant check),No,Caution: tenant not enforced by policy alone
+TenantScopedAdmin,SuperAdmin OR tenant-scoped Admin,No,
+TenantCollegeAdminOnly,Tenant-scoped Admin only (not SuperAdmin),No,RBAC / tenant user admin
+CanViewStudents,SuperAdmin OR (Admin or Faculty with TenantId > 0),No,Does NOT check Students.View claim in Program.cs
+CanManageStudents,SuperAdmin OR tenant-scoped Admin,No,Does NOT check Students.Manage claim in Program.cs
+CanManageAttendance,SuperAdmin OR (Admin or Faculty with TenantId > 0),No,Does NOT check Attendance.* claims in Program.cs
+CanViewReports,SuperAdmin OR (Admin or Faculty with TenantId > 0),No,Does NOT check Reports.View claim in Program.cs
+SuperAdminOnly,Role SuperAdmin only,No,
+UniversityListAccess,"SuperAdmin OR tenant Admin OR tenant user with Organization.Manage claim",Yes,Organization.Manage branch uses permission claim
+DashboardOverviewAccess,SuperAdmin OR tenant-scoped Admin or Faculty,No,
+CanManageCourses,SuperAdmin OR (tenant + Setup.Courses.Manage claim),Yes,
+CanManageGroups,SuperAdmin OR (tenant + Setup.Groups.Manage claim),Yes,
+CanManageSemesters,SuperAdmin OR (tenant + Setup.Semesters.Manage claim),Yes,
+CanManageOrganization,SuperAdmin OR (tenant + Organization.Manage claim),Yes,
