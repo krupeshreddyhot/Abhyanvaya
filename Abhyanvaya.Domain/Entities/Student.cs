@@ -30,6 +30,15 @@ namespace Abhyanvaya.Domain.Entities
 
         public string? FatherName { get; set; }
         public string? MotherName { get; set; }
+
+        /// <summary>Storage base path for student photo variants (e.g. students/{tenantId}/{studentId}).</summary>
+        public string? PhotoKey { get; set; }
+
+        /// <summary>UTC timestamp of last photo upload (cache-busting).</summary>
+        public DateTime? PhotoUploadedUtc { get; set; }
+
+        /// <summary>True when an administrator has verified the student photo.</summary>
+        public bool PhotoVerified { get; set; }
         
         //Navigation properties (nullable)
         public Course? Course { get; set; }

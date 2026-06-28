@@ -32,6 +32,7 @@ import {
   type UniversityDto,
 } from "../../services/adminService";
 import { brandingAssetUrl } from "../../utils/brandingUrl";
+import { MediaUpload } from "../../components/media";
 import { uploadStudentsExcel, type UploadStudentsResultDto } from "../../services/studentService";
 
 const NO_PARENT_VALUE = "__no_parent__";
@@ -61,7 +62,9 @@ const CollegeProfilePage = () => {
   const [logoMdPath, setLogoMdPath] = useState<string | null>(null);
   const [logoLgPath, setLogoLgPath] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
   const [logoError, setLogoError] = useState<string | null>(null);
+  const [logoUploadKey, setLogoUploadKey] = useState(0);
 
   const loadData = async () => {
     setLoading(true);
@@ -157,14 +160,6 @@ const CollegeProfilePage = () => {
     e.target.value = "";
   };
 
-  const onPickLogo = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    setLogoError(null);
-    e.target.value = "";
-    if (!file) return;
-    void runLogoUpload(file);
-  };
-
   const toFriendlyLogoError = (message: string | null) => {
     if (!message) return "Unable to upload logo right now. Please try again.";
     const normalized = message.toLowerCase();
@@ -176,13 +171,16 @@ const CollegeProfilePage = () => {
 
   const runLogoUpload = async (file: File) => {
     setUploadingLogo(true);
+    setLogoUploadProgress(0);
     setLogoError(null);
     try {
-      await uploadTenantCollegeLogo(file);
+      await uploadTenantCollegeLogo(file, setLogoUploadProgress);
       window.dispatchEvent(new CustomEvent("abhyanvaya:header-refresh"));
       setMessage("College logo saved (small, medium, large).");
       await loadData();
+      setLogoUploadKey((k) => k + 1);
     } catch (err: unknown) {
+      setLogoUploadKey((k) => k + 1);
       if (axios.isAxiosError(err)) {
         const d = err.response?.data;
         const detail =
@@ -200,13 +198,14 @@ const CollegeProfilePage = () => {
                   ? (d as { title: string }).title
                   : null;
         setLogoError(
-          toFriendlyLogoError(msg ?? "Unable to upload logo. Use JPEG, PNG, GIF, or WebP under 5 MB.")
+          toFriendlyLogoError(msg ?? "Unable to upload logo. Use JPG, JPEG, PNG, or WebP under 5 MB.")
         );
       } else {
         setLogoError("Unable to upload logo right now. Please try again.");
       }
     } finally {
       setUploadingLogo(false);
+      setLogoUploadProgress(null);
     }
   };
 
@@ -273,31 +272,20 @@ const CollegeProfilePage = () => {
             />
 
             <Box>
-              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                College logo
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Upload one image (JPEG, PNG, GIF, or WebP, max 5 MB). The server saves three WebP sizes.
-              </Typography>
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, alignItems: "center", mb: 1 }}>
-                <Button variant="outlined" component="label" disabled={uploadingLogo}>
-                  {uploadingLogo ? (
-                    <>
-                      <CircularProgress size={18} sx={{ mr: 1 }} /> Processing…
-                    </>
-                  ) : (
-                    "Upload logo"
-                  )}
-                  <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden onChange={onPickLogo} />
-                </Button>
-              </Box>
-              {logoError && (
-                <Alert severity="error" sx={{ mb: 1 }}>
-                  {logoError}
-                </Alert>
-              )}
+              <MediaUpload
+                key={logoUploadKey}
+                label="College logo"
+                helperText="Upload one image (JPG, JPEG, PNG, or WebP, max 5 MB). The server saves three WebP sizes."
+                previewUrl={brandingAssetUrl(logoMdPath)}
+                previewAlt="College logo"
+                uploading={uploadingLogo}
+                uploadProgress={logoUploadProgress}
+                error={logoError}
+                showDelete={false}
+                onUpload={runLogoUpload}
+              />
               {(logoSmPath || logoMdPath || logoLgPath) && (
-                <Table size="small" sx={{ border: 1, borderColor: "divider", borderRadius: 1 }}>
+                <Table size="small" sx={{ border: 1, borderColor: "divider", borderRadius: 1, mt: 2 }}>
                   <TableHead>
                     <TableRow>
                       <TableCell>Variant</TableCell>

@@ -98,6 +98,8 @@ namespace Abhyanvaya.Infrastructure.Persistence
             builder.Entity<ApplicationRolePermission>();
             builder.Entity<UserApplicationRole>();
 
+            builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
+
             builder.Entity<Attendance>()
                 .HasOne(a => a.Student)          // navigation
                 .WithMany()                     // no collection in Student

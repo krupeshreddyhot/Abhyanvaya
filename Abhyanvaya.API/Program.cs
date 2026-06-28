@@ -1,9 +1,11 @@
 ﻿using Abhyanvaya.API.Common;
+using Abhyanvaya.API.Media;
 using Abhyanvaya.API.Services;
 using Abhyanvaya.API.Common.Auth.Handlers;
 using Abhyanvaya.API.Common.Auth.Requirements;
 using Abhyanvaya.Application;
 using Abhyanvaya.Application.Common.Interfaces;
+using Abhyanvaya.Application.Mappings;
 using Abhyanvaya.Infrastructure;
 using Abhyanvaya.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -65,7 +67,10 @@ builder.Services.AddSwaggerGen(options =>
 // Add Infrastructure
 builder.Services.AddInfrastructure(builder.Configuration);
 
-builder.Services.AddScoped<IStudentService, StudentService>();
+builder.Services.AddApplication();
+builder.Services.AddAutoMapper(typeof(StudentMappingProfile).Assembly);
+builder.Services.AddMediaStorage();
+builder.Services.AddStudentPhotoServices();
 builder.Services.AddScoped<CollegeBrandingService>();
 
 builder.Services.AddAuthentication(options =>
@@ -340,6 +345,18 @@ void AddPublicBrandingHeaders(StaticFileResponseContext ctx)
     ctx.Context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
 }
 
+static string ResolveLocalMediaPhysicalRoot(IConfiguration configuration, IWebHostEnvironment env)
+{
+    var configured = configuration["Media:PhysicalRoot"]?.Trim();
+    if (string.IsNullOrEmpty(configured))
+        configured = configuration["Branding:PhysicalRoot"]?.Trim();
+    if (!string.IsNullOrEmpty(configured))
+        return configured;
+
+    var webRoot = env.WebRootPath ?? Path.Combine(env.ContentRootPath, "wwwroot");
+    return Path.Combine(webRoot, "branding");
+}
+
 var brandingPhysical = app.Configuration["Branding:PhysicalRoot"]?.Trim();
 if (!string.IsNullOrEmpty(brandingPhysical))
 {
@@ -351,6 +368,15 @@ if (!string.IsNullOrEmpty(brandingPhysical))
         OnPrepareResponse = AddPublicBrandingHeaders,
     });
 }
+
+var mediaPhysical = ResolveLocalMediaPhysicalRoot(app.Configuration, app.Environment);
+Directory.CreateDirectory(mediaPhysical);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(mediaPhysical),
+    RequestPath = "/media",
+    OnPrepareResponse = AddPublicBrandingHeaders,
+});
 
 app.UseStaticFiles(new StaticFileOptions
 {
