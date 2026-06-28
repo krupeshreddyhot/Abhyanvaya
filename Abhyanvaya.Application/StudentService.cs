@@ -235,6 +235,16 @@ namespace Abhyanvaya.Application
             return result;
         }
 
+        public string BuildPhotoStoragePath(int tenantId, int studentId) =>
+            StudentMediaPaths.BuildStoragePath(tenantId, studentId);
+
+        public string? BuildPhotoVariantPath(
+            string? photoKey,
+            DateTime? photoUploadedUtc,
+            string variant,
+            string? publicBaseUrl = null) =>
+            StudentMediaPaths.BuildVariantPath(photoKey, photoUploadedUtc, variant, publicBaseUrl);
+
         private async Task<int> GetOrCreateEnglishLanguageIdAsync(int tenantId, CancellationToken cancellationToken)
         {
             var lang = await _context.Languages

@@ -56,10 +56,18 @@ export const updateTenantCollege = async (payload: {
   return await api.put("/admin/tenant-college", payload);
 };
 
-export const uploadTenantCollegeLogo = async (file: File) => {
+export const uploadTenantCollegeLogo = async (
+  file: File,
+  onUploadProgress?: (percent: number) => void
+) => {
   const form = new FormData();
   form.append("file", file);
-  return await api.post<{ message: string }>("/admin/tenant-college/logo", form);
+  return await api.post<{ message: string }>("/admin/tenant-college/logo", form, {
+    onUploadProgress: (event) => {
+      if (!event.total) return;
+      onUploadProgress?.(Math.round((event.loaded / event.total) * 100));
+    },
+  });
 };
 
 export type ProvisionedCollegeDto = {

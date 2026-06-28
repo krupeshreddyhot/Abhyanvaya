@@ -9,7 +9,7 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
-using Abhyanvaya.Application;
+using Abhyanvaya.API.Services;
 using Abhyanvaya.Domain.Enums;
 
 namespace Abhyanvaya.API.Controllers
@@ -22,12 +22,18 @@ namespace Abhyanvaya.API.Controllers
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUser;
         private readonly IStudentService _studentService;
+        private readonly IStudentPhotoService _studentPhotoService;
 
-        public StudentController(IApplicationDbContext context, ICurrentUserService currentUser, IStudentService studentService)
+        public StudentController(
+            IApplicationDbContext context,
+            ICurrentUserService currentUser,
+            IStudentService studentService,
+            IStudentPhotoService studentPhotoService)
         {
             _context = context;
             _currentUser = currentUser;
             _studentService = studentService;
+            _studentPhotoService = studentPhotoService;
         }
 
         [HttpGet]
@@ -122,7 +128,10 @@ namespace Abhyanvaya.API.Controllers
                     x.ParentMobileNumber,
                     x.ParentAlternateMobileNumber,
                     x.FatherName,
-                    x.MotherName
+                    x.MotherName,
+                    x.PhotoKey,
+                    x.PhotoUploadedUtc,
+                    x.PhotoVerified
                 })
                 .ToListAsync();
 
@@ -246,6 +255,60 @@ namespace Abhyanvaya.API.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(student);
+        }
+
+        [HttpPost("{id:int}/photo")]
+        [Authorize(Policy = AuthorizationPolicies.CanManageStudents)]
+        [Consumes("multipart/form-data")]
+        [RequestSizeLimit(10 * 1024 * 1024)]
+        public async Task<IActionResult> UploadPhoto(int id, IFormFile? file, CancellationToken cancellationToken)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("Choose an image file.");
+
+            var (ok, error, result) = await _studentPhotoService.UploadPhotoAsync(
+                _currentUser.TenantId,
+                id,
+                file,
+                cancellationToken);
+
+            if (!ok)
+                return BadRequest(error);
+
+            return Ok(result);
+        }
+
+        [HttpGet("{id:int}/photo")]
+        public async Task<IActionResult> GetPhoto(int id, CancellationToken cancellationToken)
+        {
+            int? tenantId = string.Equals(_currentUser.Role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase)
+                ? null
+                : _currentUser.TenantId;
+
+            var photo = await _studentPhotoService.GetPhotoAsync(id, tenantId, cancellationToken);
+            if (photo is null)
+                return NotFound();
+
+            return Ok(photo);
+        }
+
+        [HttpDelete("{id:int}/photo")]
+        [Authorize(Policy = AuthorizationPolicies.CanManageStudents)]
+        public async Task<IActionResult> DeletePhoto(int id, CancellationToken cancellationToken)
+        {
+            var (ok, error) = await _studentPhotoService.DeletePhotoAsync(
+                _currentUser.TenantId,
+                id,
+                cancellationToken);
+
+            if (!ok)
+            {
+                return string.Equals(error, "Student not found for this tenant.", StringComparison.Ordinal)
+                    ? NotFound()
+                    : BadRequest(error);
+            }
+
+            return NoContent();
         }
 
         [HttpGet("export")]

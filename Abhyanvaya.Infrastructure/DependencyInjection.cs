@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Abhyanvaya.Infrastructure.Persistence.Repositories;
 using Abhyanvaya.Infrastructure.Services;
 
 namespace Abhyanvaya.Infrastructure
@@ -20,6 +21,7 @@ namespace Abhyanvaya.Infrastructure
             services.AddScoped<IJwtService, JwtService>();
             services.AddHttpContextAccessor();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
+            services.AddScoped<IStudentRepository, StudentRepository>();
 
             return services;
         }
