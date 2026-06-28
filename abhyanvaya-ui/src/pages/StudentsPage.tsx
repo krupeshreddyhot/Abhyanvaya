@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   Alert,
   Box,
@@ -11,8 +11,11 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Grid,
   MenuItem,
   Stack,
+  Tab,
+  Tabs,
   Table,
   TableBody,
   TableCell,
@@ -26,6 +29,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import {
   createStudent,
+  deleteStudentPhoto,
   exportStudentsCsv,
   getCourses,
   getGenders,
@@ -33,13 +37,19 @@ import {
   getLanguages,
   getMediums,
   getSemesters,
+  getStudentPhoto,
   getStudents,
+  uploadStudentPhoto,
   type GroupOptionDto,
   type MasterOptionDto,
+  type StudentPhotoDto,
   type StudentRecordDto,
   type StudentUpsertPayload,
   updateStudent,
 } from "../services/studentsService";
+import { PhotoCard } from "../components/media";
+import { StudentProfileHeader } from "../components/students";
+import { mediaAssetUrl } from "../utils/mediaAssetUrl";
 
 type StudentForm = {
   id: number;
@@ -87,6 +97,38 @@ const emptyForm: StudentForm = {
   motherName: "",
 };
 
+const STUDENT_DIALOG_TAB_LABELS = ["General", "Academic", "Contact", "Parents", "Photo"] as const;
+
+const STUDENT_DIALOG_MAX_WIDTH = 1100;
+
+const studentFormFieldProps = {
+  fullWidth: true,
+  size: "small" as const,
+  margin: "dense" as const,
+};
+
+const studentFormGridSize = { xs: 12, md: 6 } as const;
+
+const studentDialogTabPanelSx = (active: boolean) => ({
+  display: active ? "block" : "none",
+});
+
+const STUDENT_DIALOG_FORM_ID = "student-dialog-form";
+const STUDENT_DIALOG_TITLE_ID = "student-dialog-title";
+
+const dialogFocusVisibleSx = {
+  "& .MuiButton-root:focus-visible": {
+    outline: "2px solid",
+    outlineColor: "primary.main",
+    outlineOffset: 2,
+  },
+  "& .MuiTab-root:focus-visible": {
+    outline: "2px solid",
+    outlineColor: "primary.main",
+    outlineOffset: -2,
+  },
+} as const;
+
 const StudentsPage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -114,8 +156,83 @@ const StudentsPage = () => {
   const [message, setMessage] = useState<string | null>(null);
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogTab, setDialogTab] = useState(0);
   const [isEdit, setIsEdit] = useState(false);
   const [form, setForm] = useState<StudentForm>(emptyForm);
+  const [studentPhoto, setStudentPhoto] = useState<StudentPhotoDto | null>(null);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoUploadProgress, setPhotoUploadProgress] = useState<number | null>(null);
+  const [photoDeleting, setPhotoDeleting] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  const resetPhotoState = () => {
+    setStudentPhoto(null);
+    setPhotoLoading(false);
+    setPhotoUploading(false);
+    setPhotoUploadProgress(null);
+    setPhotoDeleting(false);
+    setPhotoError(null);
+  };
+
+  const loadStudentPhoto = async (studentId: number) => {
+    setPhotoLoading(true);
+    setPhotoError(null);
+    try {
+      const res = await getStudentPhoto(studentId);
+      setStudentPhoto(res.data);
+    } catch {
+      setStudentPhoto(null);
+      setPhotoError("Could not load student photo.");
+    } finally {
+      setPhotoLoading(false);
+    }
+  };
+
+  const handlePhotoUpload = async (file: File) => {
+    if (!form.id) return;
+    setPhotoUploading(true);
+    setPhotoUploadProgress(0);
+    setPhotoError(null);
+    try {
+      const res = await uploadStudentPhoto(form.id, file, setPhotoUploadProgress);
+      setStudentPhoto({
+        hasPhoto: true,
+        photoKey: res.data.photoKey,
+        photoUploadedUtc: res.data.photoUploadedUtc,
+        photoVerified: res.data.photoVerified,
+        originalUrl: res.data.originalUrl,
+        thumbnailUrl: res.data.thumbnailUrl,
+      });
+    } catch {
+      setPhotoError("Failed to upload student photo.");
+    } finally {
+      setPhotoUploading(false);
+      setPhotoUploadProgress(null);
+    }
+  };
+
+  const handlePhotoDelete = async () => {
+    if (!form.id) return;
+    setPhotoDeleting(true);
+    setPhotoError(null);
+    try {
+      await deleteStudentPhoto(form.id);
+      setStudentPhoto({
+        hasPhoto: false,
+        photoVerified: false,
+      });
+    } catch {
+      setPhotoError("Failed to remove student photo.");
+    } finally {
+      setPhotoDeleting(false);
+    }
+  };
+
+  const studentPhotoPreviewUrl =
+    studentPhoto?.hasPhoto === true
+      ? mediaAssetUrl(studentPhoto.thumbnailUrl ?? studentPhoto.originalUrl)
+      : null;
 
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput.trim()), 300);
@@ -180,14 +297,74 @@ const StudentsPage = () => {
 
   const groupOptions = useMemo(() => groups.filter((g) => g.courseId === form.courseId), [groups, form.courseId]);
 
+  const profileCourseName = useMemo(
+    () => courses.find((c) => c.id === form.courseId)?.name ?? "",
+    [courses, form.courseId]
+  );
+
+  const profileSemesterName = useMemo(
+    () => semesters.find((s) => s.id === form.semesterId)?.name ?? "",
+    [semesters, form.semesterId]
+  );
+
+  const renderStudentPhotoSection = () => {
+    if (!isEdit || form.id <= 0) {
+      return (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+          Create the student first, then open Edit to upload a photo.
+        </Typography>
+      );
+    }
+
+    if (photoLoading) {
+      return (
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", py: 1 }}>
+          <CircularProgress size={20} />
+          <Typography variant="body2" color="text.secondary">
+            Loading photo…
+          </Typography>
+        </Stack>
+      );
+    }
+
+    return (
+      <PhotoCard
+        title="Student Photo"
+        photoUrl={studentPhotoPreviewUrl}
+        verified={studentPhoto?.photoVerified ?? false}
+        uploadedUtc={studentPhoto?.photoUploadedUtc ?? null}
+        uploading={photoUploading}
+        uploadProgress={photoUploadProgress}
+        deleting={photoDeleting}
+        error={photoError}
+        disabled={saving}
+        previewAlt={`${form.name || "Student"} photo`}
+        helperText="Saved when you upload here — not with Update Student."
+        allowDelete={studentPhoto?.hasPhoto === true}
+        allowReplace
+        deleteDialogTitle="Delete Student Photo"
+        deleteDialogMessage="Are you sure you want to permanently remove this photo?"
+        replaceDialogTitle="Replace Student Photo?"
+        replaceDialogMessage="Existing photo will be overwritten."
+        onUpload={handlePhotoUpload}
+        onReplace={handlePhotoUpload}
+        onDelete={handlePhotoDelete}
+      />
+    );
+  };
+
   const openAdd = () => {
     setIsEdit(false);
+    setDialogTab(0);
     setForm(emptyForm);
+    resetPhotoState();
     setDialogOpen(true);
   };
 
   const openEdit = (s: StudentRecordDto) => {
     setIsEdit(true);
+    setDialogTab(0);
+    resetPhotoState();
     setForm({
       id: s.id,
       appraId: s.appraId ?? "",
@@ -211,6 +388,7 @@ const StudentsPage = () => {
       motherName: s.motherName ?? "",
     });
     setDialogOpen(true);
+    void loadStudentPhoto(s.id);
   };
 
   const validate = () => {
@@ -277,6 +455,16 @@ const StudentsPage = () => {
     }
   };
 
+  const handleStudentFormSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void saveStudent();
+  };
+
+  const handleStudentDialogClose = () => {
+    if (saving) return;
+    setDialogOpen(false);
+  };
+
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   const activeFilterChips = [
@@ -326,7 +514,7 @@ const StudentsPage = () => {
       </Box>
 
       {message && <Alert severity="success">{message}</Alert>}
-      {error && <Alert severity="error">{error}</Alert>}
+      {error && !dialogOpen && <Alert severity="error">{error}</Alert>}
 
       <Box
         sx={{
@@ -524,198 +712,416 @@ const StudentsPage = () => {
         </TableContainer>
       )}
 
-      <Dialog open={dialogOpen} onClose={() => !saving && setDialogOpen(false)} fullScreen={isMobile} maxWidth="md" fullWidth>
-        <DialogTitle>{isEdit ? "Edit Student" : "Add Student"}</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2} sx={{ mt: 0.5 }}>
-            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}>
-              <TextField
-                label="Student Number"
-                value={form.studentNumber}
-                onChange={(e) => setForm((f) => ({ ...f, studentNumber: e.target.value }))}
-                fullWidth
-                disabled={isEdit}
+      <Dialog
+        open={dialogOpen}
+        onClose={handleStudentDialogClose}
+        fullScreen={isMobile}
+        maxWidth={false}
+        aria-labelledby={STUDENT_DIALOG_TITLE_ID}
+        slotProps={{
+          paper: {
+            sx: {
+              width: "100%",
+              maxWidth: STUDENT_DIALOG_MAX_WIDTH,
+              m: { xs: 0, sm: 2 },
+              maxHeight: { xs: "100%", sm: "calc(100vh - 32px)" },
+              display: "flex",
+              flexDirection: "column",
+              minWidth: 0,
+              ...dialogFocusVisibleSx,
+            },
+          },
+        }}
+      >
+        <DialogTitle id={STUDENT_DIALOG_TITLE_ID} sx={{ py: 1.5, px: { xs: 1.5, sm: 2, md: 3 }, flexShrink: 0 }}>
+          {isEdit ? "Edit Student" : "Add Student"}
+        </DialogTitle>
+        <DialogContent
+          dividers
+          sx={{
+            flex: 1,
+            overflowY: "auto",
+            py: 1.5,
+            px: { xs: 1.5, sm: 2, md: 3 },
+            minWidth: 0,
+          }}
+        >
+          <Box
+            component="form"
+            id={STUDENT_DIALOG_FORM_ID}
+            onSubmit={handleStudentFormSubmit}
+            noValidate
+          >
+          <StudentProfileHeader
+            isEdit={isEdit}
+            name={form.name}
+            studentNumber={form.studentNumber}
+            courseName={profileCourseName}
+            semesterName={profileSemesterName}
+            batch={form.batch.trim() ? form.batch : null}
+            photoUrl={studentPhotoPreviewUrl}
+            photoVerified={studentPhoto?.photoVerified ?? false}
+            hasPhoto={studentPhoto?.hasPhoto === true}
+          />
+
+          {error && dialogOpen && (
+            <Alert severity="error" role="alert" sx={{ mb: 1.5 }}>
+              {error}
+            </Alert>
+          )}
+
+          {isMobile && isEdit && form.id > 0 && (
+            <Box sx={{ mb: 1.5, minWidth: 0 }}>{renderStudentPhotoSection()}</Box>
+          )}
+
+          <Tabs
+            value={dialogTab}
+            onChange={(_, value) => setDialogTab(value)}
+            variant={isMobile ? "scrollable" : "standard"}
+            scrollButtons={isMobile ? "auto" : false}
+            allowScrollButtonsMobile
+            aria-label="Student form sections"
+            sx={{
+              borderBottom: 1,
+              borderColor: "divider",
+              mb: 1.5,
+              minHeight: 40,
+              minWidth: 0,
+              "& .MuiTab-root": {
+                minHeight: 40,
+                py: 0.75,
+                px: { xs: 1.25, sm: 1.5, md: 2 },
+                minWidth: { xs: "auto", sm: 90 },
+                fontSize: { xs: "0.8125rem", sm: "0.875rem" },
+              },
+            }}
+          >
+            {STUDENT_DIALOG_TAB_LABELS.map((label, index) => (
+              <Tab
+                key={label}
+                label={label}
+                id={`student-dialog-tab-${index}`}
+                aria-controls={`student-dialog-tabpanel-${index}`}
               />
-              <TextField
-                label="Appra Id"
-                value={form.appraId}
-                onChange={(e) => setForm((f) => ({ ...f, appraId: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                label="Student Name"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                label="Batch"
-                type="number"
-                value={form.batch}
-                onChange={(e) => setForm((f) => ({ ...f, batch: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                select
-                label="Course"
-                value={form.courseId}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, courseId: Number(e.target.value), groupId: 0 }))
-                }
-                fullWidth
-              >
-                <MenuItem value={0}>Select course</MenuItem>
-                {courses.map((x) => (
-                  <MenuItem key={x.id} value={x.id}>
-                    {x.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                label="Group"
-                value={form.groupId}
-                onChange={(e) => setForm((f) => ({ ...f, groupId: Number(e.target.value) }))}
-                fullWidth
-              >
-                <MenuItem value={0}>Select group</MenuItem>
-                {groupOptions.map((x) => (
-                  <MenuItem key={x.id} value={x.id}>
-                    {x.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                label="Semester"
-                value={form.semesterId}
-                onChange={(e) => setForm((f) => ({ ...f, semesterId: Number(e.target.value) }))}
-                fullWidth
-              >
-                <MenuItem value={0}>Select semester</MenuItem>
-                {semesters.map((x) => (
-                  <MenuItem key={x.id} value={x.id}>
-                    {x.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                label="Gender"
-                value={form.genderId}
-                onChange={(e) => setForm((f) => ({ ...f, genderId: Number(e.target.value) }))}
-                fullWidth
-              >
-                <MenuItem value={0}>Select gender</MenuItem>
-                {genders.map((x) => (
-                  <MenuItem key={x.id} value={x.id}>
-                    {x.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                label="Medium"
-                value={form.mediumId}
-                onChange={(e) => setForm((f) => ({ ...f, mediumId: Number(e.target.value) }))}
-                fullWidth
-              >
-                <MenuItem value={0}>Select medium</MenuItem>
-                {mediums.map((x) => (
-                  <MenuItem key={x.id} value={x.id}>
-                    {x.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                label={isEdit ? "First language" : "First language (optional)"}
-                value={form.firstLanguageId}
-                onChange={(e) => setForm((f) => ({ ...f, firstLanguageId: Number(e.target.value) }))}
-                fullWidth
-                helperText={
-                  isEdit ? undefined : "Leave unselected to default to English for your institution."
-                }
-              >
-                <MenuItem value={0}>{isEdit ? "Select first language" : "Default (English)"}</MenuItem>
-                {languages.map((x) => (
-                  <MenuItem key={x.id} value={x.id}>
-                    {x.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                label="Second language"
-                value={form.languageId}
-                onChange={(e) => setForm((f) => ({ ...f, languageId: Number(e.target.value) }))}
-                fullWidth
-              >
-                <MenuItem value={0}>Select second language</MenuItem>
-                {languages.map((x) => (
-                  <MenuItem key={x.id} value={x.id}>
-                    {x.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                label="Date of Birth"
-                type="date"
-                value={form.dateOfBirth}
-                onChange={(e) => setForm((f) => ({ ...f, dateOfBirth: e.target.value }))}
-                slotProps={{ inputLabel: { shrink: true } }}
-                fullWidth
-              />
-              <TextField
-                label="Mobile Number"
-                value={form.mobileNumber}
-                onChange={(e) => setForm((f) => ({ ...f, mobileNumber: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                label="Alternate Mobile Number"
-                value={form.alternateMobileNumber}
-                onChange={(e) => setForm((f) => ({ ...f, alternateMobileNumber: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                label="Email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                label="Parent Mobile Number"
-                value={form.parentMobileNumber}
-                onChange={(e) => setForm((f) => ({ ...f, parentMobileNumber: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                label="Parent Alternate Mobile Number"
-                value={form.parentAlternateMobileNumber}
-                onChange={(e) => setForm((f) => ({ ...f, parentAlternateMobileNumber: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                label="Father Name"
-                value={form.fatherName}
-                onChange={(e) => setForm((f) => ({ ...f, fatherName: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                label="Mother Name"
-                value={form.motherName}
-                onChange={(e) => setForm((f) => ({ ...f, motherName: e.target.value }))}
-                fullWidth
-              />
-            </Box>
-          </Stack>
+            ))}
+          </Tabs>
+
+          <Box
+            role="tabpanel"
+            id="student-dialog-tabpanel-0"
+            aria-labelledby="student-dialog-tab-0"
+            hidden={dialogTab !== 0}
+            aria-hidden={dialogTab !== 0}
+            sx={studentDialogTabPanelSx(dialogTab === 0)}
+          >
+            <Grid container spacing={{ xs: 1.5, md: 2 }}>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  label="Student Number"
+                  value={form.studentNumber}
+                  onChange={(e) => setForm((f) => ({ ...f, studentNumber: e.target.value }))}
+                  disabled={isEdit}
+                  {...studentFormFieldProps}
+                />
+              </Grid>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  label="Appra Id"
+                  value={form.appraId}
+                  onChange={(e) => setForm((f) => ({ ...f, appraId: e.target.value }))}
+                  {...studentFormFieldProps}
+                />
+              </Grid>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  label="Student Name"
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  {...studentFormFieldProps}
+                />
+              </Grid>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  select
+                  label="Gender"
+                  value={form.genderId}
+                  onChange={(e) => setForm((f) => ({ ...f, genderId: Number(e.target.value) }))}
+                  {...studentFormFieldProps}
+                >
+                  <MenuItem value={0}>Select gender</MenuItem>
+                  {genders.map((x) => (
+                    <MenuItem key={x.id} value={x.id}>
+                      {x.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  label="Date of Birth"
+                  type="date"
+                  value={form.dateOfBirth}
+                  onChange={(e) => setForm((f) => ({ ...f, dateOfBirth: e.target.value }))}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  {...studentFormFieldProps}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+
+          <Box
+            role="tabpanel"
+            id="student-dialog-tabpanel-1"
+            aria-labelledby="student-dialog-tab-1"
+            hidden={dialogTab !== 1}
+            aria-hidden={dialogTab !== 1}
+            sx={studentDialogTabPanelSx(dialogTab === 1)}
+          >
+            <Grid container spacing={{ xs: 1.5, md: 2 }}>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  select
+                  label="Course"
+                  value={form.courseId}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, courseId: Number(e.target.value), groupId: 0 }))
+                  }
+                  {...studentFormFieldProps}
+                >
+                  <MenuItem value={0}>Select course</MenuItem>
+                  {courses.map((x) => (
+                    <MenuItem key={x.id} value={x.id}>
+                      {x.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  select
+                  label="Group"
+                  value={form.groupId}
+                  onChange={(e) => setForm((f) => ({ ...f, groupId: Number(e.target.value) }))}
+                  {...studentFormFieldProps}
+                >
+                  <MenuItem value={0}>Select group</MenuItem>
+                  {groupOptions.map((x) => (
+                    <MenuItem key={x.id} value={x.id}>
+                      {x.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  select
+                  label="Semester"
+                  value={form.semesterId}
+                  onChange={(e) => setForm((f) => ({ ...f, semesterId: Number(e.target.value) }))}
+                  {...studentFormFieldProps}
+                >
+                  <MenuItem value={0}>Select semester</MenuItem>
+                  {semesters.map((x) => (
+                    <MenuItem key={x.id} value={x.id}>
+                      {x.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  label="Batch"
+                  type="number"
+                  value={form.batch}
+                  onChange={(e) => setForm((f) => ({ ...f, batch: e.target.value }))}
+                  {...studentFormFieldProps}
+                />
+              </Grid>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  select
+                  label="Medium"
+                  value={form.mediumId}
+                  onChange={(e) => setForm((f) => ({ ...f, mediumId: Number(e.target.value) }))}
+                  {...studentFormFieldProps}
+                >
+                  <MenuItem value={0}>Select medium</MenuItem>
+                  {mediums.map((x) => (
+                    <MenuItem key={x.id} value={x.id}>
+                      {x.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  select
+                  label={isEdit ? "First language" : "First language (optional)"}
+                  value={form.firstLanguageId}
+                  onChange={(e) => setForm((f) => ({ ...f, firstLanguageId: Number(e.target.value) }))}
+                  helperText={
+                    isEdit ? undefined : "Leave unselected to default to English for your institution."
+                  }
+                  {...studentFormFieldProps}
+                >
+                  <MenuItem value={0}>{isEdit ? "Select first language" : "Default (English)"}</MenuItem>
+                  {languages.map((x) => (
+                    <MenuItem key={x.id} value={x.id}>
+                      {x.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  select
+                  label="Second language"
+                  value={form.languageId}
+                  onChange={(e) => setForm((f) => ({ ...f, languageId: Number(e.target.value) }))}
+                  {...studentFormFieldProps}
+                >
+                  <MenuItem value={0}>Select second language</MenuItem>
+                  {languages.map((x) => (
+                    <MenuItem key={x.id} value={x.id}>
+                      {x.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+            </Grid>
+          </Box>
+
+          <Box
+            role="tabpanel"
+            id="student-dialog-tabpanel-2"
+            aria-labelledby="student-dialog-tab-2"
+            hidden={dialogTab !== 2}
+            aria-hidden={dialogTab !== 2}
+            sx={studentDialogTabPanelSx(dialogTab === 2)}
+          >
+            <Grid container spacing={{ xs: 1.5, md: 2 }}>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  label="Mobile Number"
+                  value={form.mobileNumber}
+                  onChange={(e) => setForm((f) => ({ ...f, mobileNumber: e.target.value }))}
+                  {...studentFormFieldProps}
+                />
+              </Grid>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  label="Alternate Mobile Number"
+                  value={form.alternateMobileNumber}
+                  onChange={(e) => setForm((f) => ({ ...f, alternateMobileNumber: e.target.value }))}
+                  {...studentFormFieldProps}
+                />
+              </Grid>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  label="Email"
+                  value={form.email}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  {...studentFormFieldProps}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+
+          <Box
+            role="tabpanel"
+            id="student-dialog-tabpanel-3"
+            aria-labelledby="student-dialog-tab-3"
+            hidden={dialogTab !== 3}
+            aria-hidden={dialogTab !== 3}
+            sx={studentDialogTabPanelSx(dialogTab === 3)}
+          >
+            <Grid container spacing={{ xs: 1.5, md: 2 }}>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  label="Father Name"
+                  value={form.fatherName}
+                  onChange={(e) => setForm((f) => ({ ...f, fatherName: e.target.value }))}
+                  {...studentFormFieldProps}
+                />
+              </Grid>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  label="Mother Name"
+                  value={form.motherName}
+                  onChange={(e) => setForm((f) => ({ ...f, motherName: e.target.value }))}
+                  {...studentFormFieldProps}
+                />
+              </Grid>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  label="Parent Mobile Number"
+                  value={form.parentMobileNumber}
+                  onChange={(e) => setForm((f) => ({ ...f, parentMobileNumber: e.target.value }))}
+                  {...studentFormFieldProps}
+                />
+              </Grid>
+              <Grid size={studentFormGridSize}>
+                <TextField
+                  label="Parent Alternate Mobile Number"
+                  value={form.parentAlternateMobileNumber}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, parentAlternateMobileNumber: e.target.value }))
+                  }
+                  {...studentFormFieldProps}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+
+          <Box
+            role="tabpanel"
+            id="student-dialog-tabpanel-4"
+            aria-labelledby="student-dialog-tab-4"
+            hidden={dialogTab !== 4}
+            aria-hidden={dialogTab !== 4}
+            sx={studentDialogTabPanelSx(dialogTab === 4)}
+          >
+            <Grid container spacing={{ xs: 1.5, md: 2 }}>
+              <Grid size={{ xs: 12, md: 8 }} sx={{ mx: { md: "auto" }, minWidth: 0 }}>
+                {isMobile && isEdit && form.id > 0 ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                    The student photo is displayed at the top of this dialog on mobile.
+                  </Typography>
+                ) : (
+                  renderStudentPhotoSection()
+                )}
+              </Grid>
+            </Grid>
+          </Box>
+          </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)} disabled={saving}>
+        <DialogActions
+          sx={{
+            flexShrink: 0,
+            px: { xs: 1.5, sm: 2, md: 3 },
+            py: 1.5,
+            borderTop: 1,
+            borderColor: "divider",
+            flexDirection: { xs: "column-reverse", sm: "row" },
+            alignItems: { xs: "stretch", sm: "center" },
+            gap: { xs: 1, sm: 0 },
+            "& > .MuiButton-root": {
+              width: { xs: "100%", sm: "auto" },
+              m: 0,
+            },
+            ...dialogFocusVisibleSx,
+          }}
+        >
+          <Button type="button" onClick={handleStudentDialogClose} disabled={saving} aria-label="Cancel and close student dialog">
             Cancel
           </Button>
-          <Button variant="contained" onClick={saveStudent} disabled={saving}>
+          <Button
+            type="submit"
+            form={STUDENT_DIALOG_FORM_ID}
+            variant="contained"
+            disabled={saving}
+            aria-label={isEdit ? "Update student" : "Create student"}
+          >
             {saving ? "Saving..." : isEdit ? "Update Student" : "Create Student"}
           </Button>
         </DialogActions>

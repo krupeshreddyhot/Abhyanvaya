@@ -39,6 +39,26 @@ export type StudentRecordDto = {
   parentAlternateMobileNumber?: string | null;
   fatherName?: string | null;
   motherName?: string | null;
+  photoKey?: string | null;
+  photoUploadedUtc?: string | null;
+  photoVerified?: boolean;
+};
+
+export type StudentPhotoDto = {
+  hasPhoto: boolean;
+  photoKey?: string | null;
+  photoUploadedUtc?: string | null;
+  photoVerified: boolean;
+  originalUrl?: string | null;
+  thumbnailUrl?: string | null;
+};
+
+export type StudentPhotoUploadResult = {
+  photoKey: string;
+  photoUploadedUtc: string;
+  photoVerified: boolean;
+  originalUrl?: string | null;
+  thumbnailUrl?: string | null;
 };
 
 export type StudentsListResponse = {
@@ -105,4 +125,25 @@ export const exportStudentsCsv = async (params?: {
     params,
     responseType: "blob",
   });
+
+export const getStudentPhoto = async (studentId: number) =>
+  api.get<StudentPhotoDto>(`/student/${studentId}/photo`);
+
+export const uploadStudentPhoto = async (
+  studentId: number,
+  file: File,
+  onUploadProgress?: (percent: number) => void
+) => {
+  const form = new FormData();
+  form.append("file", file);
+  return api.post<StudentPhotoUploadResult>(`/student/${studentId}/photo`, form, {
+    onUploadProgress: (event) => {
+      if (!event.total) return;
+      onUploadProgress?.(Math.round((event.loaded / event.total) * 100));
+    },
+  });
+};
+
+export const deleteStudentPhoto = async (studentId: number) =>
+  api.delete(`/student/${studentId}/photo`);
 
