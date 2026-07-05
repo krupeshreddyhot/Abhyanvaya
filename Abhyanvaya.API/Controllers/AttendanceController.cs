@@ -1,8 +1,11 @@
 ﻿using Abhyanvaya.API.Common;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.DTOs;
+using Abhyanvaya.Domain.Common;
 using Abhyanvaya.Domain.Entities;
 using Abhyanvaya.Domain.Enums;
+using Abhyanvaya.Domain.Events;
+using Abhyanvaya.Domain.ValueObjects;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,29 +20,26 @@ namespace Abhyanvaya.API.Controllers
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUser;
         private readonly ILogger<AttendanceController> _logger;
-        private readonly IConfiguration _configuration;
+        private readonly IAttendanceCalendar _attendanceCalendar;
+        private readonly IDomainEventDispatcher _domainEventDispatcher;
 
         public AttendanceController(
             IApplicationDbContext context,
             ICurrentUserService currentUser,
             ILogger<AttendanceController> logger,
-            IConfiguration configuration)
+            IAttendanceCalendar attendanceCalendar,
+            IDomainEventDispatcher domainEventDispatcher)
         {
             _context = context;
             _currentUser = currentUser;
             _logger = logger;
-            _configuration = configuration;
+            _attendanceCalendar = attendanceCalendar;
+            _domainEventDispatcher = domainEventDispatcher;
         }
 
-        private TimeZoneInfo ReportingTz =>
-            ReportingCalendar.ResolveReportingTimeZone(_configuration["Dashboard:ReportingTimeZoneId"]);
-
-        /// <summary>UTC half-open range [start, end) for the reporting calendar day implied by the client date.</summary>
-        private (DateTime StartUtcInclusive, DateTime EndUtcExclusive) ReportingDayRange(DateTime clientDateTime)
-        {
-            var utc = ReportingCalendar.NormalizeToUtc(clientDateTime);
-            return ReportingCalendar.GetUtcRangeForReportingDayContainingUtc(utc, ReportingTz);
-        }
+        /// <summary>UTC half-open range [start, end) view of an <see cref="AttendanceDay"/> for LINQ predicates.</summary>
+        private static (DateTime StartUtcInclusive, DateTime EndUtcExclusive) ToRange(AttendanceDay day) =>
+            (day.UtcStart, day.UtcEnd);
 
         [HttpPost("mark")]
         public async Task<IActionResult> MarkAttendance(MarkAttendanceRequest request)
@@ -47,10 +47,10 @@ namespace Abhyanvaya.API.Controllers
             if (request?.Students == null || !request.Students.Any())
                 return BadRequest("Students list is required");
 
-            var (dayStartUtc, dayEndUtc) = ReportingDayRange(request.Date);
-            var localToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, ReportingTz).Date;
-            var localSelected = TimeZoneInfo.ConvertTimeFromUtc(dayStartUtc, ReportingTz).Date;
-            if (localSelected > localToday)
+            var attendanceDay = _attendanceCalendar.GetAttendanceDay(request.Date);
+            var (dayStartUtc, dayEndUtc) = ToRange(attendanceDay);
+            var today = _attendanceCalendar.Today();
+            if (attendanceDay.LocalDate > today.LocalDate)
                 return BadRequest("Cannot mark future attendance");
 
             var subject = await _context.Subjects
@@ -186,6 +186,21 @@ namespace Abhyanvaya.API.Controllers
             _context.AddAttendances(attendanceList);
             await _context.SaveChangesAsync(CancellationToken.None);
 
+            if (attendanceList.Count > 0)
+            {
+                await _domainEventDispatcher.DispatchAsync(
+                    [
+                        new AttendanceMarkedEvent(
+                            _currentUser.TenantId,
+                            request.SubjectId,
+                            attendanceDay,
+                            attendanceList.Count,
+                            AttendanceMethod.Manual,
+                            _currentUser.UserId > 0 ? _currentUser.UserId : null)
+                    ],
+                    CancellationToken.None);
+            }
+
             return Ok(new
             {
                 Message = "Attendance saved successfully",
@@ -196,7 +211,7 @@ namespace Abhyanvaya.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAttendance(int subjectId, DateTime date)
         {
-            var (dayStartUtc, dayEndUtc) = ReportingDayRange(date);
+            var (dayStartUtc, dayEndUtc) = ToRange(_attendanceCalendar.GetAttendanceDay(date));
 
             var subject = await _context.Subjects
                 .AsNoTracking()
@@ -310,7 +325,7 @@ namespace Abhyanvaya.API.Controllers
                     (x.AlternateMobileNumber != null && x.AlternateMobileNumber.ToLower().Contains(s)));
             }
 
-            var (dayStartUtc, dayEndUtc) = ReportingDayRange(date);
+            var (dayStartUtc, dayEndUtc) = ToRange(_attendanceCalendar.GetAttendanceDay(date));
             var tenantId = _currentUser.TenantId;
 
             // Present first (for the selected subject + date), then name A–Z
@@ -355,7 +370,15 @@ namespace Abhyanvaya.API.Controllers
                 })
                 .ToListAsync();
 
-            var existingByStudent = existing.ToDictionary(x => x.StudentId, x => x.Status);
+            // Collapse to one status per student (Present wins) so legacy duplicate rows for the same
+            // student/subject/day cannot throw a duplicate-key exception while building the dictionary.
+            var existingByStudent = existing
+                .GroupBy(x => x.StudentId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Any(x => x.Status == AttendanceStatus.Present)
+                        ? AttendanceStatus.Present
+                        : g.First().Status);
             var isLocked = existing.Any(x => x.IsLocked);
 
             var result = students
@@ -388,7 +411,8 @@ namespace Abhyanvaya.API.Controllers
         [HttpPost("lock")]
         public async Task<IActionResult> LockAttendance(int subjectId, DateTime date)
         {
-            var (dayStartUtc, dayEndUtc) = ReportingDayRange(date);
+            var attendanceDay = _attendanceCalendar.GetAttendanceDay(date);
+            var (dayStartUtc, dayEndUtc) = ToRange(attendanceDay);
 
             var subject = await _context.Subjects
                 .AsNoTracking()
@@ -428,13 +452,24 @@ namespace Abhyanvaya.API.Controllers
 
             await _context.SaveChangesAsync();
 
+            await _domainEventDispatcher.DispatchAsync(
+                [
+                    new AttendanceLockedEvent(
+                        _currentUser.TenantId,
+                        subjectId,
+                        attendanceDay,
+                        records.Count,
+                        _currentUser.UserId > 0 ? _currentUser.UserId : null)
+                ],
+                CancellationToken.None);
+
             return Ok("Attendance locked");
         }
 
         [HttpPut("edit")]
         public async Task<IActionResult> EditAttendance(EditAttendanceRequest request)
         {
-            var (dayStartUtc, dayEndUtc) = ReportingDayRange(request.Date);
+            var (dayStartUtc, dayEndUtc) = ToRange(_attendanceCalendar.GetAttendanceDay(request.Date));
 
             var subject = await _context.Subjects
                 .AsNoTracking()

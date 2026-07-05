@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -7,7 +8,9 @@ import {
   CardContent,
   Checkbox,
   CircularProgress,
+  FormControl,
   FormControlLabel,
+  FormLabel,
   MenuItem,
   Paper,
   Stack,
@@ -24,6 +27,12 @@ import {
 } from "@mui/material";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
+import { AiAttendancePanel } from "../components/attendance/AiAttendancePanel";
+import { PERIOD_OPTIONS } from "../constants/attendanceConstants";
+import {
+  type AttendanceContext,
+  type AttendanceMethodMode,
+} from "../types/attendanceContext";
 import {
   editAttendance,
   getCourses,
@@ -39,21 +48,89 @@ import {
   type SubjectDto,
 } from "../services/attendanceService";
 
+/**
+ * Remembers the faculty's last course/group/semester/subject/period/method/date selection and
+ * caches the course/group/semester/subject lookup lists in memory for this browser tab/session.
+ * Without this, navigating away (e.g. to the AI recognition review page) and back always reset
+ * every dropdown to blank and re-fetched the course/semester lists from scratch, because this
+ * component fully unmounts on route change and all of the above lived in local component state.
+ */
+const SELECTION_STORAGE_KEY = "attendanceMarking.selection.v1";
+
+type PersistedAttendanceSelection = {
+  courseId: number;
+  groupId: number;
+  semesterId: number;
+  subjectId: number;
+  periodNumber: number;
+  attendanceMethod: AttendanceMethodMode;
+  date: string;
+};
+
+const readPersistedSelection = (): Partial<PersistedAttendanceSelection> => {
+  try {
+    const raw = sessionStorage.getItem(SELECTION_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Partial<PersistedAttendanceSelection>;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const writePersistedSelection = (selection: PersistedAttendanceSelection) => {
+  try {
+    sessionStorage.setItem(SELECTION_STORAGE_KEY, JSON.stringify(selection));
+  } catch {
+    // Ignore storage errors (e.g. private browsing quota) — persistence is a UX nicety, not critical.
+  }
+};
+
+/** Module-level (in-memory) lookup caches — survive component unmount/remount within this page load. */
+let coursesCache: CourseDto[] | null = null;
+let semestersCache: SemesterDto[] | null = null;
+const groupsCache = new Map<number, GroupDto[]>();
+const subjectsCache = new Map<string, SubjectDto[]>();
+const subjectsCacheKey = (courseId: number, groupId: number, semesterId: number) =>
+  `${courseId}:${groupId}:${semesterId}`;
+
 const AttendanceMarking = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  const [courses, setCourses] = useState<CourseDto[]>([]);
-  const [groups, setGroups] = useState<GroupDto[]>([]);
-  const [semesters, setSemesters] = useState<SemesterDto[]>([]);
-  const [subjects, setSubjects] = useState<SubjectDto[]>([]);
+  const initialSelection = readPersistedSelection();
+  // Coming back from "View attendance" / "Return" after finalizing an AI photo session should land
+  // on the Manual Attendance grid (to review the just-generated records), not stay on AI Photo mode.
+  const forceManualMode = Boolean(
+    (location.state as { switchToManual?: boolean } | null)?.switchToManual
+  );
 
-  const [courseId, setCourseId] = useState(0);
-  const [groupId, setGroupId] = useState(0);
-  const [semesterId, setSemesterId] = useState(0);
-  const [subjectId, setSubjectId] = useState(0);
+  const [courses, setCourses] = useState<CourseDto[]>(coursesCache ?? []);
+  const [groups, setGroups] = useState<GroupDto[]>(() =>
+    initialSelection.courseId ? (groupsCache.get(initialSelection.courseId) ?? []) : []
+  );
+  const [semesters, setSemesters] = useState<SemesterDto[]>(semestersCache ?? []);
+  const [subjects, setSubjects] = useState<SubjectDto[]>(() =>
+    initialSelection.courseId && initialSelection.groupId && initialSelection.semesterId
+      ? (subjectsCache.get(
+          subjectsCacheKey(initialSelection.courseId, initialSelection.groupId, initialSelection.semesterId)
+        ) ?? [])
+      : []
+  );
+
+  const [courseId, setCourseId] = useState(() => initialSelection.courseId ?? 0);
+  const [groupId, setGroupId] = useState(() => initialSelection.groupId ?? 0);
+  const [semesterId, setSemesterId] = useState(() => initialSelection.semesterId ?? 0);
+  const [subjectId, setSubjectId] = useState(() => initialSelection.subjectId ?? 0);
+  const [periodNumber, setPeriodNumber] = useState(() => initialSelection.periodNumber ?? 1);
+  const [attendanceMethod, setAttendanceMethod] = useState<AttendanceMethodMode>(
+    () => (forceManualMode ? "manual" : (initialSelection.attendanceMethod ?? "manual"))
+  );
   /** YYYY-MM-DD in the user's local calendar (date input); never use toISOString().slice(0,10) here — that is UTC date. */
   const [date, setDate] = useState(() => {
+    if (initialSelection.date) return initialSelection.date;
     const d = new Date();
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -77,7 +154,7 @@ const AttendanceMarking = () => {
   const rosterPageSize = 200;
   const [statusMap, setStatusMap] = useState<Record<string, number>>({});
 
-  const [loadingMeta, setLoadingMeta] = useState(true);
+  const [loadingMeta, setLoadingMeta] = useState(() => !(coursesCache && semestersCache));
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -89,17 +166,48 @@ const AttendanceMarking = () => {
     setViewMode(isMobile ? "card" : "table");
   }, [isMobile]);
 
+  // Consume the one-time "switch to manual" navigation flag so it doesn't linger on this history
+  // entry (e.g. re-applying if the user navigates back to this exact entry again later).
+  useEffect(() => {
+    if (forceManualMode) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Remember the current selection so it survives navigating away and back (e.g. AI photo
+  // attendance → recognition review → back to this page) instead of resetting every dropdown.
+  useEffect(() => {
+    writePersistedSelection({
+      courseId,
+      groupId,
+      semesterId,
+      subjectId,
+      periodNumber,
+      attendanceMethod,
+      date,
+    });
+  }, [courseId, groupId, semesterId, subjectId, periodNumber, attendanceMethod, date]);
+
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput.trim()), 300);
     return () => clearTimeout(t);
   }, [searchInput]);
 
   useEffect(() => {
+    if (coursesCache && semestersCache) {
+      setCourses(coursesCache);
+      setSemesters(semestersCache);
+      setLoadingMeta(false);
+      return;
+    }
     const loadMeta = async () => {
       setLoadingMeta(true);
       setError(null);
       try {
         const [cRes, sRes] = await Promise.all([getCourses(), getSemesters()]);
+        coursesCache = cRes.data;
+        semestersCache = sRes.data;
         setCourses(cRes.data);
         setSemesters(sRes.data);
       } catch {
@@ -117,9 +225,15 @@ const AttendanceMarking = () => {
       setGroupId(0);
       return;
     }
+    const cached = groupsCache.get(courseId);
+    if (cached) {
+      setGroups(cached);
+      return;
+    }
     const loadGroups = async () => {
       try {
         const res = await getGroups(courseId);
+        groupsCache.set(courseId, res.data);
         setGroups(res.data);
       } catch {
         setGroups([]);
@@ -134,9 +248,16 @@ const AttendanceMarking = () => {
       setSubjectId(0);
       return;
     }
+    const key = subjectsCacheKey(courseId, groupId, semesterId);
+    const cached = subjectsCache.get(key);
+    if (cached) {
+      setSubjects(cached);
+      return;
+    }
     const loadSubjects = async () => {
       try {
         const res = await getSubjects(courseId, groupId, semesterId);
+        subjectsCache.set(key, res.data);
         setSubjects(res.data);
       } catch {
         setSubjects([]);
@@ -313,6 +434,38 @@ const AttendanceMarking = () => {
     }
   };
 
+  const isManualMode = attendanceMethod === "manual";
+  const isAiPhotoMode = attendanceMethod === "aiPhoto";
+
+  const attendanceContext = useMemo<AttendanceContext>(
+    () => ({
+      courseId,
+      groupId,
+      semesterId,
+      subjectId,
+      attendanceDate: date,
+      periodNumber,
+      attendanceMethod,
+      courseName: courses.find((c) => c.id === courseId)?.name,
+      groupName: groups.find((g) => g.id === groupId)?.name,
+      semesterName: semesters.find((s) => s.id === semesterId)?.name,
+      subjectName: subjects.find((s) => s.id === subjectId)?.name,
+    }),
+    [
+      courseId,
+      groupId,
+      semesterId,
+      subjectId,
+      date,
+      periodNumber,
+      attendanceMethod,
+      courses,
+      groups,
+      semesters,
+      subjects,
+    ]
+  );
+
   return (
     <Stack spacing={2} sx={{ pb: isMobile ? 22 : 10 }}>
       <Typography variant={isMobile ? "h5" : "h4"}>Mark Attendance</Typography>
@@ -328,8 +481,8 @@ const AttendanceMarking = () => {
 
       {message && <Alert severity="success">{message}</Alert>}
       {error && <Alert severity="error">{error}</Alert>}
-      {isLocked && <Alert severity="warning">Attendance is locked for this date and subject.</Alert>}
-      {!isLocked && canLoadStudents && (
+      {isLocked && isManualMode && <Alert severity="warning">Attendance is locked for this date and subject.</Alert>}
+      {!isLocked && canLoadStudents && isManualMode && (
         <Alert severity="info" sx={{ py: 0.75 }}>
           Search only filters the list. Save sends every student in this class for the selected subject and date
           (present and absent).
@@ -414,6 +567,47 @@ const AttendanceMarking = () => {
             </TextField>
 
             <TextField
+              select
+              label="Period"
+              value={periodNumber}
+              onChange={(e) => setPeriodNumber(Number(e.target.value))}
+              fullWidth
+            >
+              {PERIOD_OPTIONS.map((period) => (
+                <MenuItem key={period.value} value={period.value}>
+                  {period.label}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <FormControl component="fieldset" fullWidth>
+              <FormLabel component="legend" sx={{ mb: 1 }}>
+                Attendance Method
+              </FormLabel>
+              <ToggleButtonGroup
+                exclusive
+                fullWidth
+                value={attendanceMethod}
+                onChange={(_, value: AttendanceMethodMode | null) => {
+                  if (value) setAttendanceMethod(value);
+                }}
+                aria-label="Attendance method"
+                sx={{
+                  display: "flex",
+                  "& .MuiToggleButton-root": {
+                    flex: 1,
+                    py: 1.25,
+                    textTransform: "none",
+                    fontWeight: 600,
+                  },
+                }}
+              >
+                <ToggleButton value="manual">Manual Attendance</ToggleButton>
+                <ToggleButton value="aiPhoto">AI Photo Attendance</ToggleButton>
+              </ToggleButtonGroup>
+            </FormControl>
+
+            <TextField
               label="Attendance Date"
               type="date"
               value={date}
@@ -422,16 +616,24 @@ const AttendanceMarking = () => {
               slotProps={{ inputLabel: { shrink: true } }}
             />
 
-            <TextField
-              label="Search (student no / name / mobile)"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              fullWidth
-            />
+            {isManualMode && (
+              <TextField
+                label="Search (student no / name / mobile)"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                fullWidth
+              />
+            )}
           </Stack>
         </CardContent>
       </Card>
 
+      {isAiPhotoMode && (
+        <AiAttendancePanel context={attendanceContext} totalStudents={fullClassTotal} />
+      )}
+
+      {isManualMode && (
+        <>
       <Box
         sx={{
           display: "flex",
@@ -687,6 +889,8 @@ const AttendanceMarking = () => {
             {saving ? "Saving..." : alreadyMarked ? "Update attendance" : "Save attendance"}
           </Button>
         </Box>
+      )}
+        </>
       )}
     </Stack>
   );

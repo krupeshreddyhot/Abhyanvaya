@@ -219,6 +219,9 @@ namespace Abhyanvaya.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<Guid?>("AttendanceSessionId")
+                        .HasColumnType("uuid");
+
                     b.Property<int?>("CreatedBy")
                         .HasColumnType("integer");
 
@@ -254,9 +257,15 @@ namespace Abhyanvaya.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AttendanceSessionId")
+                        .HasDatabaseName("IX_Attendance_AttendanceSessionId");
+
                     b.HasIndex("StudentId");
 
                     b.HasIndex("SubjectId");
+
+                    b.HasIndex("TenantId", "AttendanceSessionId")
+                        .HasDatabaseName("IX_Attendance_Tenant_AttendanceSession");
 
                     b.HasIndex("TenantId", "SubjectId", "Date")
                         .HasDatabaseName("IX_Attendance_Tenant_Subject_Date");
@@ -265,6 +274,547 @@ namespace Abhyanvaya.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Attendance");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.AttendanceDetail", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AttendanceId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("AttendanceRecognitionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("CaptureMethod")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("ConfidenceScore")
+                        .HasColumnType("numeric");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("FaceNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("RecognitionSnapshotJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<bool>("TeacherOverride")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttendanceId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_AttendanceDetail_AttendanceId");
+
+                    b.HasIndex("AttendanceRecognitionId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_AttendanceDetail_AttendanceRecognitionId")
+                        .HasFilter("\"AttendanceRecognitionId\" IS NOT NULL");
+
+                    b.HasIndex("TenantId", "AttendanceId")
+                        .HasDatabaseName("IX_AttendanceDetail_Tenant_Attendance");
+
+                    b.ToTable("AttendanceDetail", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.AttendanceRecognition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AttendanceSessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("BoundingBoxHeight")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("BoundingBoxWidth")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("BoundingBoxX")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("BoundingBoxY")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("ConfidenceScore")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.Property<decimal?>("EmbeddingDistance")
+                        .HasPrecision(10, 6)
+                        .HasColumnType("numeric(10,6)");
+
+                    b.Property<string>("FaceImageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("FaceNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<short>("ImageSequence")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)1);
+
+                    b.Property<int>("RecognitionStatus")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int?>("RecognitionTimeMilliseconds")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ReviewNotes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<int?>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("TeacherOverride")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("VerifiedByTeacher")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttendanceSessionId")
+                        .HasDatabaseName("IX_AttendanceRecognition_AttendanceSessionId");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("AttendanceSessionId", "ImageSequence")
+                        .HasDatabaseName("IX_AttendanceRecognition_Session_ImageSequence");
+
+                    b.HasIndex("TenantId", "AttendanceSessionId")
+                        .HasDatabaseName("IX_AttendanceRecognition_Tenant_Session");
+
+                    b.HasIndex("TenantId", "RecognitionStatus")
+                        .HasDatabaseName("IX_AttendanceRecognition_Tenant_Status");
+
+                    b.HasIndex("TenantId", "StudentId")
+                        .HasDatabaseName("IX_AttendanceRecognition_Tenant_Student");
+
+                    b.HasIndex("AttendanceSessionId", "ImageSequence", "FaceNumber")
+                        .IsUnique()
+                        .HasDatabaseName("IX_AttendanceRecognition_Session_ImageSequence_FaceNumber");
+
+                    b.HasIndex("TenantId", "AttendanceSessionId", "RecognitionStatus")
+                        .HasDatabaseName("IX_AttendanceRecognition_Tenant_Session_Status");
+
+                    b.ToTable("AttendanceRecognition", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.AttendanceRecognitionReviewHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("NewStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("NewStudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OldStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("OldStudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("RecognitionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ReviewAction")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ReviewNotes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("ReviewedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("ReviewedUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReviewedBy")
+                        .HasDatabaseName("IX_AttendanceRecognitionReviewHistory_ReviewedBy");
+
+                    b.HasIndex("RecognitionId", "ReviewedUtc")
+                        .HasDatabaseName("IX_AttendanceRecognitionReviewHistory_Recognition_ReviewedUtc");
+
+                    b.ToTable("AttendanceRecognitionReviewHistory", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.AttendanceSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AnnotatedImageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("ApprovedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ApprovedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("AttendanceDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("AttendanceMethod")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<int>("AttendanceSource")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<decimal?>("AverageConfidence")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<Guid?>("ClassScheduleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CourseId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.Property<int>("DetectedFaces")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DuplicateCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("GroupId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("IgnoredCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("LowConfidenceCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("ManualAssignmentCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("OriginalFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<int?>("PeriodNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ProcessingError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int?>("ProcessingMilliseconds")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("RecognitionCompletionPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<string>("RecognitionModel")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("RecognitionPipelineVersion")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("RecognitionProvider")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("RecognizedCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("RecognizedFaces")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RejectedCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("RetryCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<int>("SemesterId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SessionName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<short>("SessionNumber")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)1);
+
+                    b.Property<int?>("StaffId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("StartedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ThumbnailImageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("TotalStudents")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UnknownCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("UnknownFaces")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedBy");
+
+                    b.HasIndex("ClassScheduleId")
+                        .HasDatabaseName("IX_AttendanceSession_ClassScheduleId");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("SemesterId");
+
+                    b.HasIndex("StaffId")
+                        .HasDatabaseName("IX_AttendanceSession_StaffId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("TenantId", "AttendanceMethod")
+                        .HasDatabaseName("IX_AttendanceSession_Tenant_Method");
+
+                    b.HasIndex("TenantId", "Status")
+                        .HasDatabaseName("IX_AttendanceSession_Tenant_Status");
+
+                    b.HasIndex("TenantId", "AttendanceDate", "PeriodNumber")
+                        .HasDatabaseName("IX_AttendanceSession_Tenant_Date_Period");
+
+                    b.HasIndex("TenantId", "AttendanceDate", "Status")
+                        .HasDatabaseName("IX_AttendanceSession_Tenant_Date_Status");
+
+                    b.HasIndex("TenantId", "StaffId", "AttendanceDate")
+                        .HasDatabaseName("IX_AttendanceSession_Tenant_Staff_Date");
+
+                    b.HasIndex("TenantId", "SubjectId", "AttendanceDate")
+                        .HasDatabaseName("IX_AttendanceSession_Tenant_Subject_Date");
+
+                    b.HasIndex("TenantId", "SubjectId", "AttendanceDate", "PeriodNumber")
+                        .HasDatabaseName("IX_AttendanceSession_Tenant_Subject_Date_Period");
+
+                    b.HasIndex("TenantId", "CourseId", "GroupId", "SemesterId", "SubjectId", "AttendanceDate", "PeriodNumber", "SessionNumber")
+                        .HasDatabaseName("IX_AttendanceSession_Tenant_Context_SessionNumber");
+
+                    b.ToTable("AttendanceSession", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.AuditEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("Action")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("EntityId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("EntityName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("NewValues")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("OldValues")
+                        .HasColumnType("jsonb");
+
+                    b.Property<int?>("PerformedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("PerformedUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "PerformedUtc")
+                        .HasDatabaseName("IX_AuditEntry_Tenant_PerformedUtc");
+
+                    b.HasIndex("TenantId", "EntityName", "EntityId")
+                        .HasDatabaseName("IX_AuditEntry_Tenant_Entity");
+
+                    b.ToTable("AuditEntry", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.ClassSchedule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("CourseId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.Property<int>("GroupId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("PeriodNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("ScheduleDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("SemesterId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StaffId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("SemesterId");
+
+                    b.HasIndex("StaffId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("TenantId", "ScheduleDate", "PeriodNumber")
+                        .HasDatabaseName("IX_ClassSchedule_Tenant_Date_Period");
+
+                    b.HasIndex("TenantId", "StaffId", "ScheduleDate")
+                        .HasDatabaseName("IX_ClassSchedule_Tenant_Staff_Date");
+
+                    b.ToTable("ClassSchedule", (string)null);
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.College", b =>
@@ -1719,6 +2269,94 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.ToTable("Student");
                 });
 
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentFaceEmbedding", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("EmbeddingDimension")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("EmbeddingModel")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<int>("EmbeddingQuality")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("EmbeddingStatus")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<float[]>("EmbeddingVector")
+                        .IsRequired()
+                        .HasColumnType("real[]");
+
+                    b.Property<string>("EmbeddingVersion")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int?>("GeneratedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("GeneratedUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("LastFailureReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("LastFailureUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PhotoKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<long>("PhotoVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(0L);
+
+                    b.Property<int>("RetryCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentId", "IsActive")
+                        .IsUnique()
+                        .HasDatabaseName("IX_StudentFaceEmbedding_Student_Active")
+                        .HasFilter("\"IsActive\" = true");
+
+                    b.HasIndex("TenantId", "StudentId")
+                        .HasDatabaseName("IX_StudentFaceEmbedding_Tenant_Student");
+
+                    b.ToTable("StudentFaceEmbedding", (string)null);
+                });
+
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentSubject", b =>
                 {
                     b.Property<int>("Id")
@@ -1981,7 +2619,7 @@ namespace Abhyanvaya.Infrastructure.Migrations
                         {
                             Id = 1,
                             CourseId = 1,
-                            CreatedDate = new DateTime(2026, 6, 28, 11, 39, 47, 828, DateTimeKind.Utc).AddTicks(5152),
+                            CreatedDate = new DateTime(2026, 7, 5, 14, 3, 46, 17, DateTimeKind.Utc).AddTicks(7044),
                             GroupId = 1,
                             IsDeleted = false,
                             MustChangePassword = false,
@@ -2035,6 +2673,11 @@ namespace Abhyanvaya.Infrastructure.Migrations
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Attendance", b =>
                 {
+                    b.HasOne("Abhyanvaya.Domain.Entities.AttendanceSession", "AttendanceSession")
+                        .WithMany("Attendances")
+                        .HasForeignKey("AttendanceSessionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Abhyanvaya.Domain.Entities.Student", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
@@ -2047,7 +2690,218 @@ namespace Abhyanvaya.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("AttendanceSession");
+
                     b.Navigation("Student");
+
+                    b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.AttendanceDetail", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Attendance", "Attendance")
+                        .WithOne("Detail")
+                        .HasForeignKey("Abhyanvaya.Domain.Entities.AttendanceDetail", "AttendanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.AttendanceRecognition", "AttendanceRecognition")
+                        .WithMany()
+                        .HasForeignKey("AttendanceRecognitionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Attendance");
+
+                    b.Navigation("AttendanceRecognition");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.AttendanceRecognition", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.AttendanceSession", "AttendanceSession")
+                        .WithMany("Recognitions")
+                        .HasForeignKey("AttendanceSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Student", "Student")
+                        .WithMany("AttendanceRecognitions")
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AttendanceSession");
+
+                    b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.AttendanceRecognitionReviewHistory", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.AttendanceRecognition", "Recognition")
+                        .WithMany("ReviewHistory")
+                        .HasForeignKey("RecognitionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.User", "ReviewedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReviewedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Recognition");
+
+                    b.Navigation("ReviewedByUser");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.AttendanceSession", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.User", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.ClassSchedule", "ClassSchedule")
+                        .WithMany("AttendanceSessions")
+                        .HasForeignKey("ClassScheduleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Course", "Course")
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Group", "Group")
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Semester", "Semester")
+                        .WithMany()
+                        .HasForeignKey("SemesterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Staff", "Staff")
+                        .WithMany()
+                        .HasForeignKey("StaffId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsOne("Abhyanvaya.Domain.ValueObjects.ClassroomImageMetadata", "ImageMetadata", b1 =>
+                        {
+                            b1.Property<Guid>("AttendanceSessionId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("CaptureDevice")
+                                .HasMaxLength(100)
+                                .HasColumnType("character varying(100)")
+                                .HasColumnName("CaptureDevice");
+
+                            b1.Property<DateTime?>("CaptureTimestamp")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("CaptureTimestamp");
+
+                            b1.Property<long?>("FileSize")
+                                .HasColumnType("bigint")
+                                .HasColumnName("ImageFileSize");
+
+                            b1.Property<int?>("Height")
+                                .HasColumnType("integer")
+                                .HasColumnName("ImageHeight");
+
+                            b1.Property<string>("ImageHash")
+                                .HasMaxLength(128)
+                                .HasColumnType("character varying(128)")
+                                .HasColumnName("OriginalImageHash");
+
+                            b1.Property<string>("ImageKey")
+                                .HasMaxLength(500)
+                                .HasColumnType("character varying(500)")
+                                .HasColumnName("OriginalImageKey");
+
+                            b1.Property<short?>("Orientation")
+                                .HasColumnType("smallint")
+                                .HasColumnName("ImageOrientation");
+
+                            b1.Property<DateTime?>("UploadedUtc")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("ImageUploadedUtc");
+
+                            b1.Property<int?>("Width")
+                                .HasColumnType("integer")
+                                .HasColumnName("ImageWidth");
+
+                            b1.HasKey("AttendanceSessionId");
+
+                            b1.ToTable("AttendanceSession");
+
+                            b1.WithOwner()
+                                .HasForeignKey("AttendanceSessionId");
+                        });
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("ClassSchedule");
+
+                    b.Navigation("Course");
+
+                    b.Navigation("Group");
+
+                    b.Navigation("ImageMetadata")
+                        .IsRequired();
+
+                    b.Navigation("Semester");
+
+                    b.Navigation("Staff");
+
+                    b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.ClassSchedule", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Course", "Course")
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Group", "Group")
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Semester", "Semester")
+                        .WithMany()
+                        .HasForeignKey("SemesterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Staff", "Staff")
+                        .WithMany()
+                        .HasForeignKey("StaffId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Course");
+
+                    b.Navigation("Group");
+
+                    b.Navigation("Semester");
+
+                    b.Navigation("Staff");
 
                     b.Navigation("Subject");
                 });
@@ -2326,6 +3180,17 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.Navigation("Semester");
                 });
 
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentFaceEmbedding", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Student", "Student")
+                        .WithMany("FaceEmbeddings")
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Student");
+                });
+
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentSubject", b =>
                 {
                     b.HasOne("Abhyanvaya.Domain.Entities.Student", "Student")
@@ -2444,6 +3309,28 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.Navigation("UserApplicationRoles");
                 });
 
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Attendance", b =>
+                {
+                    b.Navigation("Detail");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.AttendanceRecognition", b =>
+                {
+                    b.Navigation("ReviewHistory");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.AttendanceSession", b =>
+                {
+                    b.Navigation("Attendances");
+
+                    b.Navigation("Recognitions");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.ClassSchedule", b =>
+                {
+                    b.Navigation("AttendanceSessions");
+                });
+
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Staff", b =>
                 {
                     b.Navigation("StaffCollegeRoles");
@@ -2456,6 +3343,13 @@ namespace Abhyanvaya.Infrastructure.Migrations
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.StaffDepartment", b =>
                 {
                     b.Navigation("StaffDepartmentRoles");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Student", b =>
+                {
+                    b.Navigation("AttendanceRecognitions");
+
+                    b.Navigation("FaceEmbeddings");
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.User", b =>

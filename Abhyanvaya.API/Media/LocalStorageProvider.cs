@@ -5,7 +5,8 @@ namespace Abhyanvaya.API.Media;
 /// <summary>Branding files under <see cref="ResolveRootDirectory"/> (default wwwroot/branding).</summary>
 public sealed class LocalStorageProvider : IStorageProvider
 {
-    public const string ProviderName = "local";
+    /// <summary>Machine-readable id used in <c>Media:Provider</c> configuration and provider lookups.</summary>
+    public const string Id = "local";
 
     private readonly IWebHostEnvironment _env;
     private readonly MediaOptions _mediaOptions;
@@ -21,7 +22,11 @@ public sealed class LocalStorageProvider : IStorageProvider
         _logger = logger;
     }
 
-    public string Name => ProviderName;
+    public string ProviderName => Id;
+
+    public string DisplayName => "Local File System";
+
+    public string ProviderType => "FileSystem";
 
     public string ResolveRootDirectory()
     {

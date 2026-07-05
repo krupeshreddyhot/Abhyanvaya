@@ -20,13 +20,13 @@ public class CollegeBrandingService
         };
 
     private readonly IApplicationDbContext _context;
-    private readonly IMediaStorageService _imageStorage;
+    private readonly Abhyanvaya.API.Media.IMediaStorageService _imageStorage;
     private readonly LocalStorageProvider _localStorage;
     private readonly ILogger<CollegeBrandingService> _logger;
 
     public CollegeBrandingService(
         IApplicationDbContext context,
-        IMediaStorageService imageStorage,
+        Abhyanvaya.API.Media.IMediaStorageService imageStorage,
         LocalStorageProvider localStorage,
         ILogger<CollegeBrandingService> logger)
     {

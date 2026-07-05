@@ -15,7 +15,7 @@ public sealed class ConfigureMediaOptions : IConfigureOptions<MediaOptions>
 
     public void Configure(MediaOptions options)
     {
-        options.Provider = Get("Provider") ?? LocalStorageProvider.ProviderName;
+        options.Provider = Get("Provider") ?? LocalStorageProvider.Id;
         options.PhysicalRoot = Get("PhysicalRoot");
         options.PublicBaseUrl = Get("PublicBaseUrl");
 

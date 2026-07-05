@@ -16,18 +16,18 @@ namespace Abhyanvaya.API.Controllers
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUser;
         private readonly ILogger<AttendanceController> _logger;
-        private readonly IConfiguration _configuration;
+        private readonly IAttendanceCalendar _attendanceCalendar;
 
         public DashboardController(
             IApplicationDbContext context,
             ICurrentUserService currentUser,
             ILogger<AttendanceController> logger,
-            IConfiguration configuration)
+            IAttendanceCalendar attendanceCalendar)
         {
             _context = context;
             _currentUser = currentUser;
             _logger = logger;
-            _configuration = configuration;
+            _attendanceCalendar = attendanceCalendar;
         }
 
         [HttpGet("overview")]
@@ -123,8 +123,8 @@ namespace Abhyanvaya.API.Controllers
             var totalPresent = await attendanceQuery.CountAsync(x => x.Status == AttendanceStatus.Present);
 
             // Attendance rows store UTC instants for the start of a reporting-zone calendar day.
-            var tz = ReportingCalendar.ResolveReportingTimeZone(_configuration["Dashboard:ReportingTimeZoneId"]);
-            var (dayStartUtc, dayEndUtc) = ReportingCalendar.GetReportingDayUtcRangeForUtcNow(DateTime.UtcNow, tz);
+            var today = _attendanceCalendar.Today();
+            var (dayStartUtc, dayEndUtc) = (today.UtcStart, today.UtcEnd);
             var todayAttendance = await attendanceQuery
                 .Where(x => x.Date >= dayStartUtc && x.Date < dayEndUtc)
                 .ToListAsync();
@@ -204,12 +204,9 @@ namespace Abhyanvaya.API.Controllers
         [Authorize(Policy = AuthorizationPolicies.TenantScopedUser)]
         public async Task<IActionResult> GetMonthlyTrend(int month, int year)
         {
-            var tz = ReportingCalendar.ResolveReportingTimeZone(_configuration["Dashboard:ReportingTimeZoneId"]);
-            var monthStart = ReportingCalendar.GetUtcRangeForReportingCalendarDate(year, month, 1, tz).StartUtcInclusive;
+            var monthStart = _attendanceCalendar.ForCalendarDate(year, month, 1).UtcStart;
             var lastDay = DateTime.DaysInMonth(year, month);
-            var monthEndExclusive = ReportingCalendar
-                .GetUtcRangeForReportingCalendarDate(year, month, lastDay, tz)
-                .EndUtcExclusive;
+            var monthEndExclusive = _attendanceCalendar.ForCalendarDate(year, month, lastDay).UtcEnd;
 
             var rows = await _context.Attendances
                 .Where(x =>
@@ -219,16 +216,14 @@ namespace Abhyanvaya.API.Controllers
                 .Select(x => new { x.Date, x.Status })
                 .ToListAsync();
 
+            // Group by AttendanceDay (not exact instant) — reuses the same reporting-day boundary logic as the
+            // attendance capture paths (AI13.DOMAIN.3/AI13.DOMAIN.5), so this report can never disagree with them
+            // about which calendar day a given Attendance.Date belongs to.
             var data = rows
-                .GroupBy(x =>
-                {
-                    var utc = DateTime.SpecifyKind(x.Date, DateTimeKind.Utc);
-                    var local = TimeZoneInfo.ConvertTimeFromUtc(utc, tz);
-                    return new DateTime(local.Year, local.Month, local.Day, 0, 0, 0, DateTimeKind.Unspecified);
-                })
+                .GroupBy(x => _attendanceCalendar.GetAttendanceDay(x.Date))
                 .Select(g => new
                 {
-                    Date = TimeZoneInfo.ConvertTimeToUtc(g.Key, tz),
+                    Date = g.Key.UtcStart,
                     Present = g.Count(x => x.Status == AttendanceStatus.Present),
                     Total = g.Count(),
                 })
@@ -254,9 +249,8 @@ namespace Abhyanvaya.API.Controllers
                 .ConfigureAwait(false))
                 return Forbid();
 
-            var tz = ReportingCalendar.ResolveReportingTimeZone(_configuration["Dashboard:ReportingTimeZoneId"]);
-            var utc = ReportingCalendar.NormalizeToUtc(date);
-            var (dayStartUtc, dayEndUtc) = ReportingCalendar.GetUtcRangeForReportingDayContainingUtc(utc, tz);
+            var attendanceDay = _attendanceCalendar.GetAttendanceDay(date);
+            var (dayStartUtc, dayEndUtc) = (attendanceDay.UtcStart, attendanceDay.UtcEnd);
 
             var data = await _context.Attendances
                 .Where(x =>

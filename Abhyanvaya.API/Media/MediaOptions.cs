@@ -7,7 +7,7 @@ public sealed class MediaOptions
 {
     public const string SectionName = "Media";
 
-    public string Provider { get; set; } = LocalStorageProvider.ProviderName;
+    public string Provider { get; set; } = LocalStorageProvider.Id;
 
     /// <summary>Local provider root directory. When empty, defaults to <c>wwwroot/branding</c>.</summary>
     public string? PhysicalRoot { get; set; }
@@ -20,10 +20,10 @@ public sealed class MediaOptions
     /// <summary>Normalized active provider name: <c>local</c> or <c>s3</c>.</summary>
     public string GetActiveProviderName()
     {
-        var name = (Provider ?? LocalStorageProvider.ProviderName).Trim().ToLowerInvariant();
-        return name == S3StorageProvider.ProviderName
-            ? S3StorageProvider.ProviderName
-            : LocalStorageProvider.ProviderName;
+        var name = (Provider ?? LocalStorageProvider.Id).Trim().ToLowerInvariant();
+        return name == S3StorageProvider.Id
+            ? S3StorageProvider.Id
+            : LocalStorageProvider.Id;
     }
 }
 
