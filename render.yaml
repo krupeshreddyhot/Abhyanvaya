@@ -1,0 +1,36 @@
+# Render Blueprint — Abhyanvaya API (Docker)
+# Docs: docs/DEPLOYMENT_RENDER.md
+#
+# For an existing Render Web Service (manual setup), set:
+#   Build Command:  bash scripts/render-build.sh
+#   Start Command:  cd ./publish && dotnet Abhyanvaya.API.dll
+
+services:
+  - type: web
+    name: abhyanvaya-api
+    runtime: docker
+    region: singapore
+    plan: starter
+    branch: AI-attandance-feature
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health/ready
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: Cors__AllowCloudflarePages
+        value: "true"
+      - key: UseRedis
+        value: "false"
+      - key: Jwt__Key
+        generateValue: true
+      - key: ConnectionStrings__DefaultConnection
+        fromDatabase:
+          name: abhyanvaya-db
+          property: connectionString
+
+databases:
+  - name: abhyanvaya-db
+    region: singapore
+    plan: starter
+    databaseName: abhyanvaya_db
+    user: abhyanvaya

@@ -46,13 +46,7 @@ public sealed class InsightFaceOnnxModelHost : IDisposable
             }
 
             var path = Path.Combine(_options.ModelDirectory, modelFile);
-            if (!File.Exists(path))
-            {
-                throw new FileNotFoundException(
-                    $"InsightFace {label} model not found at '{path}'. " +
-                    "Place ONNX models under InsightFace:ModelDirectory and configure appsettings.",
-                    path);
-            }
+            EnsureModelFilePresent(path, label);
 
             session = new InferenceSession(path);
             _logger.LogInformation("InsightFace {Label} ONNX model loaded from {Path}", label, path);
@@ -63,5 +57,27 @@ public sealed class InsightFaceOnnxModelHost : IDisposable
     {
         _detectionSession?.Dispose();
         _recognitionSession?.Dispose();
+    }
+
+    private static void EnsureModelFilePresent(string path, string label)
+    {
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException(
+                $"InsightFace {label} model not found at '{path}'. " +
+                "The API (not the Cloudflare Pages UI) must be deployed with ONNX files under " +
+                "Abhyanvaya.API/models/insightface/. Run 'git lfs pull' before publish if models are stored in Git LFS.",
+                path);
+        }
+
+        // Git LFS pointer files are ~130 bytes and start with this header — they are not valid ONNX.
+        if (new FileInfo(path).Length < 4096 &&
+            File.ReadLines(path).FirstOrDefault()?.StartsWith("version https://git-lfs.github.com", StringComparison.Ordinal) == true)
+        {
+            throw new FileNotFoundException(
+                $"InsightFace {label} model at '{path}' is a Git LFS pointer, not the actual ONNX file. " +
+                "Run 'git lfs pull' on the API deployment machine (or CI checkout with LFS enabled) and redeploy the API.",
+                path);
+        }
     }
 }
