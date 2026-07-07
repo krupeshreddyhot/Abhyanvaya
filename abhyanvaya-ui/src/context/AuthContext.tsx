@@ -83,6 +83,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    sessionStorage.removeItem("attendanceMarking.selection.v1");
     setToken(null);
   };
 

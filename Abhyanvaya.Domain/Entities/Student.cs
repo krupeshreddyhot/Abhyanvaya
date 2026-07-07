@@ -51,5 +51,11 @@ namespace Abhyanvaya.Domain.Entities
         public int SemesterId { get; set; }
         public Semester? Semester { get; set; }
 
+        /// <summary>AI face-recognition matches linked to this student across sessions.</summary>
+        public ICollection<AttendanceRecognition> AttendanceRecognitions { get; set; } = new List<AttendanceRecognition>();
+
+        /// <summary>Face-embedding vectors generated from student photos.</summary>
+        public ICollection<StudentFaceEmbedding> FaceEmbeddings { get; set; } = new List<StudentFaceEmbedding>();
+
     }
 }

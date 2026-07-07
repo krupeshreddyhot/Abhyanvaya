@@ -7,7 +7,7 @@ public sealed class MediaOptionsValidator : IValidateOptions<MediaOptions>
 {
     public ValidateOptionsResult Validate(string? name, MediaOptions options)
     {
-        if (options.GetActiveProviderName() != S3StorageProvider.ProviderName)
+        if (options.GetActiveProviderName() != S3StorageProvider.Id)
             return ValidateOptionsResult.Success;
 
         if (string.IsNullOrWhiteSpace(options.S3.Bucket))

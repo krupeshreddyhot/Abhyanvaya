@@ -3,19 +3,24 @@ using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Domain.Entities;
 using Abhyanvaya.Domain.Common;
 using Abhyanvaya.Domain.Enums;
+using Microsoft.Extensions.Logging;
 using System.Reflection;
-using Microsoft.AspNetCore.Identity;
 
 namespace Abhyanvaya.Infrastructure.Persistence
 {
     public partial class ApplicationDbContext : DbContext, IApplicationDbContext
     {
         private readonly ICurrentUserService? _currentUserService;
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options,
-                ICurrentUserService? currentUserService)
+        private readonly ILogger<ApplicationDbContext>? _logger;
+
+        public ApplicationDbContext(
+            DbContextOptions<ApplicationDbContext> options,
+            ICurrentUserService? currentUserService,
+            ILogger<ApplicationDbContext>? logger = null)
             : base(options)
         {
             _currentUserService = currentUserService;
+            _logger = logger;
         }
 
         public IQueryable<Student> Students => Set<Student>();
@@ -54,6 +59,14 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<ApplicationRole> ApplicationRoles => Set<ApplicationRole>();
         public IQueryable<ApplicationRolePermission> ApplicationRolePermissions => Set<ApplicationRolePermission>();
         public IQueryable<UserApplicationRole> UserApplicationRoles => Set<UserApplicationRole>();
+        public IQueryable<AttendanceSession> AttendanceSessions => Set<AttendanceSession>();
+        public IQueryable<AttendanceRecognition> AttendanceRecognitions => Set<AttendanceRecognition>();
+        public IQueryable<AttendanceRecognitionReviewHistory> AttendanceRecognitionReviewHistories =>
+            Set<AttendanceRecognitionReviewHistory>();
+        public IQueryable<AttendanceDetail> AttendanceDetails => Set<AttendanceDetail>();
+        public IQueryable<AuditEntry> AuditEntries => Set<AuditEntry>();
+        public IQueryable<StudentFaceEmbedding> StudentFaceEmbeddings => Set<StudentFaceEmbedding>();
+        public IQueryable<ClassSchedule> ClassSchedules => Set<ClassSchedule>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -97,17 +110,15 @@ namespace Abhyanvaya.Infrastructure.Persistence
             builder.Entity<ApplicationRole>();
             builder.Entity<ApplicationRolePermission>();
             builder.Entity<UserApplicationRole>();
+            builder.Entity<AttendanceSession>();
+            builder.Entity<AttendanceRecognition>();
+            builder.Entity<AttendanceRecognitionReviewHistory>();
+            builder.Entity<AttendanceDetail>();
+            builder.Entity<AuditEntry>();
+            builder.Entity<StudentFaceEmbedding>();
+            builder.Entity<ClassSchedule>();
 
             builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
-
-            builder.Entity<Attendance>()
-                .HasOne(a => a.Student)          // navigation
-                .WithMany()                     // no collection in Student
-                .HasForeignKey(a => a.StudentId);
-            builder.Entity<Attendance>()
-                .HasOne(a => a.Subject)
-                .WithMany()
-                .HasForeignKey(a => a.SubjectId);
 
             // Seed data
             builder.Entity<Course>().HasData(
@@ -129,7 +140,6 @@ namespace Abhyanvaya.Infrastructure.Persistence
                 }
             );
 
-            var hasher = new PasswordHasher<User>();
             builder.Entity<User>().HasData(
                 new User
                 {
@@ -236,15 +246,6 @@ namespace Abhyanvaya.Infrastructure.Persistence
             builder.Entity<Subject>()
                 .HasIndex(s => new { s.TenantId, s.CourseId, s.GroupId, s.SemesterId, s.TenantSubjectId });
 
-            builder.Entity<Attendance>()
-                .HasIndex(x => new { x.TenantId, x.StudentId, x.SubjectId, x.Date })
-                .IsUnique();
-
-            // Speeds listing attendance by subject + date (marking screen, dashboards, reports)
-            builder.Entity<Attendance>()
-                .HasIndex(x => new { x.TenantId, x.SubjectId, x.Date })
-                .HasDatabaseName("IX_Attendance_Tenant_Subject_Date");
-
             builder.Entity<University>()
                 .HasIndex(u => u.Code)
                 .IsUnique();
@@ -268,9 +269,6 @@ namespace Abhyanvaya.Infrastructure.Persistence
             SeedPermissionsAndRoles(builder);
             SeedStaffLookupDefaults(builder);
 
-            // Apply configurations
-            builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
-
             // Global Tenant Filter
             foreach (var entityType in builder.Model.GetEntityTypes())
             {
@@ -282,8 +280,24 @@ namespace Abhyanvaya.Infrastructure.Persistence
 
                     method?.Invoke(this, new object[] { builder });
                 }
+                else if (typeof(ITenantScoped).IsAssignableFrom(entityType.ClrType))
+                {
+                    var method = typeof(ApplicationDbContext)
+                        .GetMethod(nameof(SetTenantScopedFilter), BindingFlags.NonPublic | BindingFlags.Instance)
+                        ?.MakeGenericMethod(entityType.ClrType);
+
+                    method?.Invoke(this, new object[] { builder });
+                }
             }
         }
+        private void SetTenantScopedFilter<TEntity>(ModelBuilder builder) where TEntity : class, ITenantScoped
+        {
+            builder.Entity<TEntity>().HasQueryFilter(e =>
+                _currentUserService == null
+                || IsSuperAdminCrossTenant()
+                || e.TenantId == _currentUserService.TenantId);
+        }
+
         private void SetTenantFilter<TEntity>(ModelBuilder builder) where TEntity : BaseEntity
         {
             builder.Entity<TEntity>().HasQueryFilter(e =>
@@ -304,6 +318,44 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var currentUserId = _currentUserService?.UserId ?? 0;
+
+            foreach (var entry in ChangeTracker.Entries<AttendanceSession>())
+            {
+                if (entry.State == EntityState.Added)
+                {
+                    if (entry.Entity.RowVersion == null || entry.Entity.RowVersion.Length == 0)
+                    {
+                        entry.Entity.RowVersion = CreateInitialRowVersion();
+                        entry.Property(x => x.RowVersion).IsModified = true;
+                    }
+
+                    _logger?.LogInformation(
+                        "Attendance session created. AttendanceSessionId={AttendanceSessionId} TenantId={TenantId} Status={Status}",
+                        entry.Entity.Id,
+                        entry.Entity.TenantId,
+                        entry.Entity.Status);
+                }
+                else if (entry.State == EntityState.Modified)
+                {
+                    entry.Entity.RowVersion = CreateInitialRowVersion();
+                    entry.Property(x => x.RowVersion).IsModified = true;
+                }
+            }
+
+            foreach (var entry in ChangeTracker.Entries<AttendanceRecognition>())
+            {
+                if (entry.State == EntityState.Added
+                    && (entry.Entity.RowVersion == null || entry.Entity.RowVersion.Length == 0))
+                {
+                    entry.Entity.RowVersion = CreateInitialRowVersion();
+                    entry.Property(x => x.RowVersion).IsModified = true;
+                }
+                else if (entry.State == EntityState.Modified)
+                {
+                    entry.Entity.RowVersion = CreateInitialRowVersion();
+                    entry.Property(x => x.RowVersion).IsModified = true;
+                }
+            }
 
             foreach (var entry in ChangeTracker.Entries<BaseEntity>())
             {
@@ -327,6 +379,10 @@ namespace Abhyanvaya.Infrastructure.Persistence
 
             return await base.SaveChangesAsync(cancellationToken);
         }
+
+        private static byte[] CreateInitialRowVersion() =>
+            Guid.NewGuid().ToByteArray();
+
         public async Task AddAsync<T>(T entity) where T : class
         {
             await Set<T>().AddAsync(entity);
@@ -342,7 +398,6 @@ namespace Abhyanvaya.Infrastructure.Persistence
             await Set<T>().AddRangeAsync(entities);
         }
     }
-   
 }
 
 

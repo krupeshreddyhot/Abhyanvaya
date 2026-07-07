@@ -1,4 +1,6 @@
 ﻿using Abhyanvaya.API.Common;
+using Abhyanvaya.API.Diagnostics;
+using Abhyanvaya.API.ExceptionHandling;
 using Abhyanvaya.API.Media;
 using Abhyanvaya.API.Services;
 using Abhyanvaya.API.Common.Auth.Handlers;
@@ -7,12 +9,17 @@ using Abhyanvaya.Application;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Mappings;
 using Abhyanvaya.Infrastructure;
+using Abhyanvaya.Infrastructure.BackgroundWorkers;
+using Abhyanvaya.Infrastructure.InsightFace;
+using Abhyanvaya.Infrastructure.Persistence;
 using Abhyanvaya.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Security.Claims;
@@ -34,6 +41,8 @@ var jwtAudience = jwtSettings["Audience"] ?? throw new InvalidOperationException
 var jwtKey = jwtSettings["Key"] ?? throw new InvalidOperationException("Jwt:Key is required. Set via user-secrets or environment variable Jwt__Key.");
 
 // Add services
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -64,6 +73,16 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+// Background worker failure policy: Development favors developer productivity (keep the host
+// alive so a single bad job doesn't kill the debug session); Production favors fail-fast so an
+// orchestrator (IIS / Kubernetes / Docker / Azure App Service) can detect and restart the process.
+builder.Services.Configure<HostOptions>(options =>
+{
+    options.BackgroundServiceExceptionBehavior = builder.Environment.IsDevelopment()
+        ? BackgroundServiceExceptionBehavior.Ignore
+        : BackgroundServiceExceptionBehavior.StopHost;
+});
+
 // Add Infrastructure
 builder.Services.AddInfrastructure(builder.Configuration);
 
@@ -71,6 +90,8 @@ builder.Services.AddApplication();
 builder.Services.AddAutoMapper(typeof(StudentMappingProfile).Assembly);
 builder.Services.AddMediaStorage();
 builder.Services.AddStudentPhotoServices();
+builder.Services.AddScoped<Abhyanvaya.Application.Common.Interfaces.IMediaStorageService, ApplicationMediaStorageService>();
+builder.Services.AddScoped<IMediaObjectReader, MediaObjectReader>();
 builder.Services.AddScoped<CollegeBrandingService>();
 
 builder.Services.AddAuthentication(options =>
@@ -320,6 +341,8 @@ if (!string.IsNullOrEmpty(portEnv))
 
 var app = builder.Build();
 
+app.UseExceptionHandler();
+
 app.UseCors("AllowReact");
 
 var brandingProvider = BrandingSettingsResolver.Get(app.Configuration, "Branding:Provider") ?? "local";
@@ -389,4 +412,402 @@ app.UseStaticFiles(new StaticFileOptions
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.Run();
+
+MapPlatformHealthEndpoints(app);
+
+// AI12.OBS.1: hosted background workers are started by the Generic Host inside StartAsync(), which
+// app.Run() would otherwise call internally right before blocking. Splitting StartAsync() out lets
+// the startup summary (logged immediately after) inspect each worker's *actual* running state
+// (BackgroundService.ExecuteTask) instead of a pre-start snapshot. This is not a behavior change —
+// app.Run() itself performs the exact same StartAsync() + WaitForShutdownAsync() sequence internally.
+await app.StartAsync();
+LogStartupConfigurationSummary(app);
+await app.WaitForShutdownAsync();
+
+// AI11.HARDENING.1-3 / AI12.OBS.1-5: emits a single structured startup summary, executed once
+// after all hosted services (including the recognition/embedding background workers) have started
+// but before the summary log call returns control to WaitForShutdownAsync(). Values are pulled
+// live from DI/configuration/the running host — nothing here is hardcoded except field labels.
+static void LogStartupConfigurationSummary(WebApplication app)
+{
+    var logger = app.Logger;
+    var configuredHostOptions = app.Services.GetRequiredService<IOptions<HostOptions>>().Value;
+    var backgroundServiceExceptionBehavior = configuredHostOptions.BackgroundServiceExceptionBehavior switch
+    {
+        BackgroundServiceExceptionBehavior.StopHost => "StopHost",
+        _ => "Ignore",
+    };
+    var backgroundServiceExceptionBehaviorReason = backgroundServiceExceptionBehavior == "StopHost"
+        ? "Production Fail-Fast"
+        : "Development Environment";
+
+    // AI12.OBS.1: derived from the actual IHostedService singleton + its own BackgroundService.ExecuteTask —
+    // no polling loop or separate tracking service, just a point-in-time read of the running host.
+    var recognitionWorkerStatus = BackgroundWorkerInspector.Inspect(app.Services, typeof(ClassroomRecognitionBackgroundService));
+    var embeddingWorkerStatus = BackgroundWorkerInspector.Inspect(app.Services, typeof(StudentFaceEmbeddingBackgroundService));
+
+    using var scope = app.Services.CreateScope();
+
+    // AI12.OBS.2: no switch statement — the active IStorageProvider exposes its own display metadata.
+    var storageProvider = scope.ServiceProvider.GetRequiredService<IStorageProviderFactory>().GetActiveProvider();
+
+    var recognitionEngineName = scope.ServiceProvider.GetRequiredService<IFaceDetectionService>().ProviderName;
+    var insightFaceOptions = app.Services.GetRequiredService<IOptions<InsightFaceOptions>>().Value;
+    var recognitionPipelineVersion = insightFaceOptions.PipelineVersion;
+
+    // AI12.OBS.3: no hardcoded "Cosine Similarity" string — metadata comes from IFaceMatcher itself.
+    var faceMatcher = scope.ServiceProvider.GetRequiredService<IFaceMatcher>();
+
+    // AI11.HARDENING.3 / AI12.OBS.5 / AI12.OBS.10: read-only presence + size check
+    // (File.Exists/FileInfo.Length only) against the ContentRootPath-resolved directory.
+    // Models are never loaded here, so a missing model cannot affect or delay startup.
+    var modelReport = ModelAvailabilityChecker.Check(insightFaceOptions, app.Environment);
+
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var dbProviderDisplayName = StartupDiagnostics.DescribeDatabaseProvider(dbContext.Database.ProviderName);
+
+    var applicationVersion = StartupDiagnostics.ResolveApplicationVersion();
+
+    // AI12.OBS.4: SaaS deployment metadata, all read from actual configuration (no hardcoding).
+    var tenancyModeRaw = app.Configuration["Tenancy:Mode"];
+    var tenantModeDisplay = string.Equals(tenancyModeRaw, "SingleTenant", StringComparison.OrdinalIgnoreCase)
+        ? "Single Tenant"
+        : "Multi Tenant";
+    var useRedis = app.Configuration.GetValue<bool>("UseRedis");
+    var cacheProviderDisplay = useRedis ? "Redis" : "Memory";
+    var recognitionQueueDisplay = StartupDiagnostics.DescribeQueueImplementation(
+        scope.ServiceProvider.GetRequiredService<IClassroomPhotoQueue>());
+
+    logger.LogInformation("==========================================================");
+    logger.LogInformation("Abhyanvaya AI Attendance Startup");
+    logger.LogInformation("==========================================================");
+    logger.LogInformation("Application Environment             : {Environment}", app.Environment.EnvironmentName);
+    logger.LogInformation("Application Version                 : {Version}", applicationVersion);
+    logger.LogInformation("BackgroundServiceExceptionBehavior  : {Behavior}", backgroundServiceExceptionBehavior);
+    logger.LogInformation("  Reason                             : {Reason}", backgroundServiceExceptionBehaviorReason);
+
+    LogWorkerStatus(logger, "Recognition Worker", recognitionWorkerStatus);
+    LogWorkerStatus(logger, "Embedding Worker", embeddingWorkerStatus);
+
+    logger.LogInformation("Media Provider                      : {DisplayName}", storageProvider.DisplayName);
+    logger.LogInformation("Recognition Engine                  : {RecognitionEngine}", recognitionEngineName);
+    logger.LogInformation("Recognition Pipeline Version        : {PipelineVersion}", recognitionPipelineVersion);
+    logger.LogInformation("Face Matching Engine                : {FaceMatchingEngine}", faceMatcher.Name);
+    logger.LogInformation("  Algorithm                          : {Algorithm}", faceMatcher.Algorithm);
+    logger.LogInformation("  Matcher Version                    : {MatcherVersion}", faceMatcher.Version);
+
+    // AI12.OBS.10: log both the raw configured value and the ContentRootPath-resolved absolute
+    // path so operators can see exactly which directory was actually checked on disk.
+    logger.LogInformation("Configured Model Directory           : {ConfiguredModelDirectory}", modelReport.ConfiguredModelDirectory);
+    if (modelReport.ModelDirectoryExists)
+    {
+        logger.LogInformation("Resolved Model Directory             : {ResolvedModelDirectory}", modelReport.ResolvedModelDirectory);
+    }
+    else
+    {
+        logger.LogWarning("Resolved Model Directory             : {ResolvedModelDirectory} (MISSING)", modelReport.ResolvedModelDirectory);
+    }
+
+    LogModelFileStatus(logger, "Detection Model", modelReport.Detection);
+    LogModelFileStatus(logger, "Embedding Model", modelReport.Embedding);
+
+    logger.LogInformation("Tenant Mode                         : {TenantMode}", tenantModeDisplay);
+    logger.LogInformation("Deployment                          : {Deployment}", app.Environment.EnvironmentName);
+    logger.LogInformation("Database Provider                   : {DatabaseProvider}", dbProviderDisplayName);
+    logger.LogInformation("Cache Provider                      : {CacheProvider}", cacheProviderDisplay);
+    logger.LogInformation("Recognition Queue                   : {RecognitionQueue}", recognitionQueueDisplay);
+    logger.LogInformation("Started At UTC                      : {StartedAtUtc:yyyy-MM-dd HH:mm:ss} UTC", DateTime.UtcNow);
+    logger.LogInformation("==========================================================");
+
+    // AI12.OBS.7-9: soft, advisory configuration validation — every finding is only ever logged
+    // (at a level derived from its severity), never thrown, and never blocks startup. See
+    // ConfigurationValidator for the full rationale on why these checks are additive to (not a
+    // replacement for) the existing hard fail-fast checks above.
+    var configurationIssues = ConfigurationValidator.Validate(app, modelReport);
+    LogConfigurationIssues(logger, configurationIssues);
+}
+
+static void LogConfigurationIssues(ILogger logger, IReadOnlyList<ConfigurationIssue> issues)
+{
+    logger.LogInformation("----------------------------------------------------------");
+    logger.LogInformation("Startup Configuration Validation");
+    logger.LogInformation("----------------------------------------------------------");
+
+    if (issues.Count == 0)
+    {
+        logger.LogInformation("All startup configuration checks passed. No issues detected.");
+    }
+    else
+    {
+        foreach (var issue in issues)
+        {
+            // Severity only ever selects the *log level* used to report the finding — it never
+            // throws and never influences whether startup continues (AI12.OBS.8).
+            var logLevel = issue.Severity switch
+            {
+                ConfigurationSeverity.Critical => LogLevel.Error,
+                ConfigurationSeverity.Warning => LogLevel.Warning,
+                _ => LogLevel.Information,
+            };
+
+            logger.Log(logLevel, "[{Severity}]", issue.Severity);
+            logger.Log(logLevel, "  Category           : {Category}", issue.Category);
+            logger.Log(logLevel, "  Configuration Key  : {ConfigurationKey}", issue.ConfigurationKey);
+            logger.Log(logLevel, "  Message            : {Message}", issue.Message);
+            logger.Log(logLevel, "  Suggested Fix      : {SuggestedFix}", issue.SuggestedFix);
+        }
+
+        var criticalCount = issues.Count(i => i.Severity == ConfigurationSeverity.Critical);
+        var warningCount = issues.Count(i => i.Severity == ConfigurationSeverity.Warning);
+        var informationCount = issues.Count(i => i.Severity == ConfigurationSeverity.Information);
+        logger.LogInformation(
+            "{Count} configuration issue(s) detected ({Critical} Critical, {Warning} Warning, {Information} Information). Startup is continuing normally — these are advisory only.",
+            issues.Count,
+            criticalCount,
+            warningCount,
+            informationCount);
+    }
+
+    logger.LogInformation("----------------------------------------------------------");
+}
+
+static void LogWorkerStatus(ILogger logger, string workerLabel, BackgroundWorkerStatus status)
+{
+    logger.LogInformation("{WorkerLabel}", workerLabel);
+    logger.LogInformation("  Registered                         : {Registered}", status.Registered ? "Yes" : "No");
+    logger.LogInformation("  Running                             : {Running}", status.Running ? "Yes" : "No");
+    logger.LogInformation("  Startup Status                      : {StartupStatus}", status.StartupStatus);
+
+    if (status.Health == "Healthy")
+    {
+        logger.LogInformation("  Health                              : {Health}", status.Health);
+    }
+    else
+    {
+        logger.LogWarning("  Health                              : {Health}", status.Health);
+    }
+}
+
+static void LogModelFileStatus(ILogger logger, string modelLabel, ModelFileStatus status)
+{
+    if (status.Found)
+    {
+        logger.LogInformation(
+            "{ModelLabel} ({FileName})           : Found ({SizeMB} MB)",
+            modelLabel,
+            status.FileName,
+            status.SizeMegabytes);
+    }
+    else
+    {
+        logger.LogWarning(
+            "{ModelLabel} ({FileName})           : Missing (0 MB)",
+            modelLabel,
+            status.FileName);
+    }
+}
+
+// AI12.OBS.6: lightweight, read-only platform health endpoints (minimal API — not controllers).
+// None of these execute recognition or load ONNX models; they only perform File.Exists/FileInfo
+// checks, a DB "SELECT 1"-equivalent (Database.CanConnectAsync), and the storage provider's own
+// existing CheckHealthAsync probe (already used by MediaStorageService). Bodies are RFC7807
+// ProblemDetails ("application/problem+json") with the diagnostic snapshot as an extension member.
+static void MapPlatformHealthEndpoints(WebApplication app)
+{
+    app.MapGet("/health/live", () =>
+    {
+        var problem = new ProblemDetails
+        {
+            Type = "https://abhyanvaya.app/health/live",
+            Title = "Live",
+            Status = StatusCodes.Status200OK,
+            Detail = "The Abhyanvaya API process is running.",
+        };
+        return Results.Json(problem, statusCode: problem.Status, contentType: "application/problem+json");
+    });
+
+    app.MapGet("/health/ready", async (HttpContext httpContext, CancellationToken cancellationToken) =>
+    {
+        var services = httpContext.RequestServices;
+        using var scope = services.CreateScope();
+
+        var databaseReachable = await IsDatabaseReachableAsync(scope.ServiceProvider, cancellationToken);
+        var storageReachable = await IsStorageReachableAsync(scope.ServiceProvider, cancellationToken);
+
+        var insightFaceOptions = services.GetRequiredService<IOptions<InsightFaceOptions>>().Value;
+        var modelReport = ModelAvailabilityChecker.Check(insightFaceOptions, app.Environment);
+
+        var recognitionWorker = BackgroundWorkerInspector.Inspect(services, typeof(ClassroomRecognitionBackgroundService));
+        var embeddingWorker = BackgroundWorkerInspector.Inspect(services, typeof(StudentFaceEmbeddingBackgroundService));
+
+        var queueAvailable = IsRecognitionQueueAvailable(scope.ServiceProvider);
+
+        var isReady = databaseReachable && storageReachable && modelReport.AllModelsPresent
+            && recognitionWorker.Running && embeddingWorker.Running && queueAvailable;
+
+        // AI12.OBS.8/9: configuration issues are exposed as metadata only — they do not factor
+        // into `isReady` (readiness semantics are unchanged from AI12.OBS.6).
+        var configurationIssues = ConfigurationValidator.Validate(app, modelReport);
+
+        var problem = new ProblemDetails
+        {
+            Type = "https://abhyanvaya.app/health/ready",
+            Title = isReady ? "Ready" : "NotReady",
+            Status = isReady ? StatusCodes.Status200OK : StatusCodes.Status503ServiceUnavailable,
+            Detail = isReady
+                ? "All readiness checks passed."
+                : "One or more readiness checks failed; see the 'checks' extension for details.",
+        };
+        problem.Extensions["checks"] = new Dictionary<string, object?>
+        {
+            ["database"] = databaseReachable ? "Reachable" : "Unreachable",
+            ["storage"] = storageReachable ? "Reachable" : "Unreachable",
+            ["modelsPresent"] = modelReport.AllModelsPresent,
+            ["recognitionWorkerStarted"] = recognitionWorker.Running,
+            ["embeddingWorkerStarted"] = embeddingWorker.Running,
+            ["queueAvailable"] = queueAvailable,
+            ["configurationIssues"] = ToConfigurationIssueSummaries(configurationIssues),
+        };
+
+        return Results.Json(problem, statusCode: problem.Status, contentType: "application/problem+json");
+    });
+
+    app.MapGet("/health", async (HttpContext httpContext, CancellationToken cancellationToken) =>
+    {
+        var services = httpContext.RequestServices;
+        using var scope = services.CreateScope();
+
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var databaseReachable = await IsDatabaseReachableAsync(scope.ServiceProvider, cancellationToken);
+        var dbProviderDisplayName = StartupDiagnostics.DescribeDatabaseProvider(dbContext.Database.ProviderName);
+
+        var storageProvider = scope.ServiceProvider.GetRequiredService<IStorageProviderFactory>().GetActiveProvider();
+        var storageReachable = await IsStorageReachableAsync(scope.ServiceProvider, cancellationToken);
+
+        var recognitionEngineName = scope.ServiceProvider.GetRequiredService<IFaceDetectionService>().ProviderName;
+        var insightFaceOptions = services.GetRequiredService<IOptions<InsightFaceOptions>>().Value;
+        var modelReport = ModelAvailabilityChecker.Check(insightFaceOptions, app.Environment);
+
+        var recognitionWorker = BackgroundWorkerInspector.Inspect(services, typeof(ClassroomRecognitionBackgroundService));
+        var embeddingWorker = BackgroundWorkerInspector.Inspect(services, typeof(StudentFaceEmbeddingBackgroundService));
+
+        var classroomQueue = scope.ServiceProvider.GetRequiredService<IClassroomPhotoQueue>();
+        var embeddingQueue = scope.ServiceProvider.GetRequiredService<IStudentPhotoEmbeddingQueue>();
+
+        var useRedis = app.Configuration.GetValue<bool>("UseRedis");
+        var cacheProviderDisplay = useRedis ? "Redis" : "Memory";
+
+        var overallHealthy = databaseReachable && storageReachable && modelReport.AllModelsPresent
+            && recognitionWorker.Health == "Healthy" && embeddingWorker.Health == "Healthy";
+
+        // AI12.OBS.8/9: configuration issues are exposed as metadata only — they do not factor
+        // into `overallStatus` (health semantics are unchanged from AI12.OBS.6).
+        var configurationIssues = ConfigurationValidator.Validate(app, modelReport);
+
+        var snapshot = new
+        {
+            environment = app.Environment.EnvironmentName,
+            version = StartupDiagnostics.ResolveApplicationVersion(),
+            database = new { provider = dbProviderDisplayName, status = databaseReachable ? "Healthy" : "Unhealthy" },
+            storage = new { provider = storageProvider.DisplayName, status = storageReachable ? "Healthy" : "Unhealthy" },
+            recognitionEngine = recognitionEngineName,
+            modelDirectory = new
+            {
+                configured = modelReport.ConfiguredModelDirectory,
+                resolved = modelReport.ResolvedModelDirectory,
+                exists = modelReport.ModelDirectoryExists,
+            },
+            detectionModel = new
+            {
+                fileName = modelReport.Detection.FileName,
+                status = modelReport.Detection.Found ? "Found" : "Missing",
+                sizeMB = modelReport.Detection.SizeMegabytes,
+            },
+            embeddingModel = new
+            {
+                fileName = modelReport.Embedding.FileName,
+                status = modelReport.Embedding.Found ? "Found" : "Missing",
+                sizeMB = modelReport.Embedding.SizeMegabytes,
+            },
+            recognitionWorker = new { status = recognitionWorker.Health, running = recognitionWorker.Running },
+            embeddingWorker = new { status = embeddingWorker.Health, running = embeddingWorker.Running },
+            backgroundQueue = new
+            {
+                classroomPhotoQueueDepth = classroomQueue.Count,
+                embeddingQueueDepth = embeddingQueue.Count,
+            },
+            cache = new { provider = cacheProviderDisplay },
+            overallStatus = overallHealthy ? "Healthy" : "Degraded",
+            configurationIssues = ToConfigurationIssueSummaries(configurationIssues),
+        };
+
+        var problem = new ProblemDetails
+        {
+            Type = "https://abhyanvaya.app/health",
+            Title = snapshot.overallStatus,
+            Status = StatusCodes.Status200OK,
+            Detail = "Abhyanvaya platform health snapshot.",
+        };
+        problem.Extensions["health"] = snapshot;
+
+        return Results.Json(problem, statusCode: problem.Status, contentType: "application/problem+json");
+    });
+}
+
+static async Task<bool> IsDatabaseReachableAsync(IServiceProvider services, CancellationToken cancellationToken)
+{
+    try
+    {
+        var dbContext = services.GetRequiredService<ApplicationDbContext>();
+        return await dbContext.Database.CanConnectAsync(cancellationToken);
+    }
+    catch
+    {
+        return false;
+    }
+}
+
+static async Task<bool> IsStorageReachableAsync(IServiceProvider services, CancellationToken cancellationToken)
+{
+    try
+    {
+        var provider = services.GetRequiredService<IStorageProviderFactory>().GetActiveProvider();
+        var result = await provider.CheckHealthAsync(cancellationToken);
+        return result.Ok;
+    }
+    catch
+    {
+        return false;
+    }
+}
+
+// AI12.OBS.8/9: shared JSON projection of ConfigurationIssue for both /health and /health/ready,
+// so severity + category are exposed identically wherever configuration issues are surfaced.
+static object ToConfigurationIssueSummaries(IReadOnlyList<ConfigurationIssue> issues) => new
+{
+    critical = issues.Count(i => i.Severity == ConfigurationSeverity.Critical),
+    warning = issues.Count(i => i.Severity == ConfigurationSeverity.Warning),
+    information = issues.Count(i => i.Severity == ConfigurationSeverity.Information),
+    items = issues.Select(i => new
+    {
+        severity = i.Severity.ToString(),
+        category = i.Category.ToString(),
+        configurationKey = i.ConfigurationKey,
+        message = i.Message,
+        suggestedFix = i.SuggestedFix,
+    }),
+};
+
+static bool IsRecognitionQueueAvailable(IServiceProvider services)
+{
+    try
+    {
+        _ = services.GetRequiredService<IClassroomPhotoQueue>().Count;
+        _ = services.GetRequiredService<IStudentPhotoEmbeddingQueue>().Count;
+        return true;
+    }
+    catch
+    {
+        return false;
+    }
+}

@@ -21,5 +21,5 @@ public sealed class StorageProviderFactory : IStorageProviderFactory
     public string GetActiveProviderName() => _mediaOptions.GetActiveProviderName();
 
     public IStorageProvider GetActiveProvider() =>
-        GetActiveProviderName() == S3StorageProvider.ProviderName ? _s3 : _local;
+        GetActiveProviderName() == S3StorageProvider.Id ? _s3 : _local;
 }
