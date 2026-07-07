@@ -11,6 +11,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Abhyanvaya.Domain", "Abhyan
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Abhyanvaya.Infrastructure", "Abhyanvaya.Infrastructure\Abhyanvaya.Infrastructure.csproj", "{5DD60003-D222-432C-A9E3-50D9045F5625}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Abhyanvaya.IntegrationTests", "Abhyanvaya.IntegrationTests\Abhyanvaya.IntegrationTests.csproj", "{12082C04-6D1D-4043-B77F-FEA79746E3DC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{5DD60003-D222-432C-A9E3-50D9045F5625}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5DD60003-D222-432C-A9E3-50D9045F5625}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5DD60003-D222-432C-A9E3-50D9045F5625}.Release|Any CPU.Build.0 = Release|Any CPU
+		{12082C04-6D1D-4043-B77F-FEA79746E3DC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{12082C04-6D1D-4043-B77F-FEA79746E3DC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{12082C04-6D1D-4043-B77F-FEA79746E3DC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{12082C04-6D1D-4043-B77F-FEA79746E3DC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

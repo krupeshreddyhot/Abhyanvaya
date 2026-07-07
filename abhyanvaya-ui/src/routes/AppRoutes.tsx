@@ -6,6 +6,7 @@ import ProtectedRoute from "./ProtectedRoute";
 import MainLayout from "../layouts/MainLayout";
 import OrganizationPage from "../pages/OrganizationPage";
 import AttendanceMarking from "../pages/AttendanceMarking";
+import AttendanceRecognitionReviewPage from "../pages/AttendanceRecognitionReviewPage";
 import StudentsPage from "../pages/StudentsPage";
 import SetupHub from "../pages/setup/SetupHub";
 import CoursesPage from "../pages/setup/CoursesPage";
@@ -207,6 +208,15 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute anyPermission={[PermissionKeys.AttendanceManage]}>
                 <AttendanceMarking />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="attendance/sessions/:sessionId/review"
+            element={
+              <ProtectedRoute anyPermission={[PermissionKeys.AttendanceManage]}>
+                <AttendanceRecognitionReviewPage />
               </ProtectedRoute>
             }
           />

@@ -48,7 +48,7 @@ import {
   updateStudent,
 } from "../services/studentsService";
 import { PhotoCard } from "../components/media";
-import { StudentProfileHeader } from "../components/students";
+import { StudentEmbeddingPanel, StudentProfileHeader } from "../components/students";
 import { mediaAssetUrl } from "../utils/mediaAssetUrl";
 
 type StudentForm = {
@@ -328,28 +328,37 @@ const StudentsPage = () => {
     }
 
     return (
-      <PhotoCard
-        title="Student Photo"
-        photoUrl={studentPhotoPreviewUrl}
-        verified={studentPhoto?.photoVerified ?? false}
-        uploadedUtc={studentPhoto?.photoUploadedUtc ?? null}
-        uploading={photoUploading}
-        uploadProgress={photoUploadProgress}
-        deleting={photoDeleting}
-        error={photoError}
-        disabled={saving}
-        previewAlt={`${form.name || "Student"} photo`}
-        helperText="Saved when you upload here — not with Update Student."
-        allowDelete={studentPhoto?.hasPhoto === true}
-        allowReplace
-        deleteDialogTitle="Delete Student Photo"
-        deleteDialogMessage="Are you sure you want to permanently remove this photo?"
-        replaceDialogTitle="Replace Student Photo?"
-        replaceDialogMessage="Existing photo will be overwritten."
-        onUpload={handlePhotoUpload}
-        onReplace={handlePhotoUpload}
-        onDelete={handlePhotoDelete}
-      />
+      <Stack spacing={2}>
+        <PhotoCard
+          title="Student Photo"
+          photoUrl={studentPhotoPreviewUrl}
+          verified={studentPhoto?.photoVerified ?? false}
+          uploadedUtc={studentPhoto?.photoUploadedUtc ?? null}
+          uploading={photoUploading}
+          uploadProgress={photoUploadProgress}
+          deleting={photoDeleting}
+          error={photoError}
+          disabled={saving}
+          previewAlt={`${form.name || "Student"} photo`}
+          helperText="Saved when you upload here — not with Update Student."
+          allowDelete={studentPhoto?.hasPhoto === true}
+          allowReplace
+          deleteDialogTitle="Delete Student Photo"
+          deleteDialogMessage="Are you sure you want to permanently remove this photo?"
+          replaceDialogTitle="Replace Student Photo?"
+          replaceDialogMessage="Existing photo will be overwritten."
+          onUpload={handlePhotoUpload}
+          onReplace={handlePhotoUpload}
+          onDelete={handlePhotoDelete}
+        />
+        <StudentEmbeddingPanel
+          key={`${form.id}-${studentPhoto?.photoUploadedUtc ?? "none"}`}
+          studentId={form.id}
+          photoUrl={studentPhotoPreviewUrl}
+          photoAlt={`${form.name || "Student"} photo`}
+          disabled={saving || photoUploading}
+        />
+      </Stack>
     );
   };
 

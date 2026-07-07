@@ -25,21 +25,24 @@ public sealed class StudentPhotoService : IStudentPhotoService
 
     private readonly IApplicationDbContext _context;
     private readonly IStudentRepository _studentRepository;
-    private readonly IMediaStorageService _mediaStorage;
+    private readonly Abhyanvaya.API.Media.IMediaStorageService _mediaStorage;
     private readonly IOptions<MediaOptions> _mediaOptions;
+    private readonly IStudentPhotoEmbeddingQueue _embeddingQueue;
     private readonly ILogger<StudentPhotoService> _logger;
 
     public StudentPhotoService(
         IApplicationDbContext context,
         IStudentRepository studentRepository,
-        IMediaStorageService mediaStorage,
+        Abhyanvaya.API.Media.IMediaStorageService mediaStorage,
         IOptions<MediaOptions> mediaOptions,
+        IStudentPhotoEmbeddingQueue embeddingQueue,
         ILogger<StudentPhotoService> logger)
     {
         _context = context;
         _studentRepository = studentRepository;
         _mediaStorage = mediaStorage;
         _mediaOptions = mediaOptions;
+        _embeddingQueue = embeddingQueue;
         _logger = logger;
     }
 
@@ -72,6 +75,21 @@ public sealed class StudentPhotoService : IStudentPhotoService
             student.PhotoVerified = false;
             student.UpdatedDate = uploadedUtc;
             await _context.SaveChangesAsync(cancellationToken);
+
+            await _embeddingQueue.EnqueueAsync(
+                new StudentPhotoUploadedMessage(
+                    tenantId,
+                    studentId,
+                    storagePath,
+                    null,
+                    uploadedUtc,
+                    Regenerate: true),
+                cancellationToken);
+
+            _logger.LogInformation(
+                "Student photo uploaded; embedding job enqueued. StudentId={StudentId} TenantId={TenantId}",
+                studentId,
+                tenantId);
 
             var publicBaseUrl = _mediaOptions.Value.PublicBaseUrl;
             var result = new StudentPhotoUploadResult

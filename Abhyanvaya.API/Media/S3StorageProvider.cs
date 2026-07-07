@@ -9,7 +9,8 @@ namespace Abhyanvaya.API.Media;
 
 public sealed class S3StorageProvider : IStorageProvider
 {
-    public const string ProviderName = "s3";
+    /// <summary>Machine-readable id used in <c>Media:Provider</c> configuration and provider lookups.</summary>
+    public const string Id = "s3";
 
     private readonly MediaOptions _mediaOptions;
     private readonly ILogger<S3StorageProvider> _logger;
@@ -20,7 +21,11 @@ public sealed class S3StorageProvider : IStorageProvider
         _logger = logger;
     }
 
-    public string Name => ProviderName;
+    public string ProviderName => Id;
+
+    public string DisplayName => "Amazon S3";
+
+    public string ProviderType => "Cloud Storage";
 
     public async Task WriteObjectAsync(
         string relativeKey,
