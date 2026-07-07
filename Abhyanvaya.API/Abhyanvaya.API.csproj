@@ -26,4 +26,12 @@
     <ProjectReference Include="..\Abhyanvaya.Infrastructure\Abhyanvaya.Infrastructure.csproj" />
   </ItemGroup>
 
+  <!-- InsightFace ONNX models must ship with the API publish output (Cloudflare Pages hosts UI only). -->
+  <ItemGroup>
+    <Content Include="models\**\*.onnx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
