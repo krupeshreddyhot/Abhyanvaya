@@ -5,6 +5,7 @@ using Abhyanvaya.Infrastructure.InsightFace;
 using Abhyanvaya.Infrastructure.Recognition;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Abhyanvaya.Infrastructure.Audit;
 using Abhyanvaya.Infrastructure.DomainEvents;
 using Abhyanvaya.Infrastructure.DomainEvents.Handlers;
@@ -39,7 +40,18 @@ namespace Abhyanvaya.Infrastructure
             services.AddSingleton<IAttendanceCalendar, AttendanceCalendar>();
 
             services.AddOptions<InsightFaceOptions>()
-                .Bind(configuration.GetSection(InsightFaceOptions.SectionName));
+                .Bind(configuration.GetSection(InsightFaceOptions.SectionName))
+                .PostConfigure<IHostEnvironment>((options, environment) =>
+                {
+                    // Anchor relative ModelDirectory to ContentRootPath so model loading works under IIS,
+                    // Docker, Windows Services, and cloud hosts — not only under `dotnet run` (AI12.OBS.10).
+                    if (string.IsNullOrWhiteSpace(options.ModelDirectory) || Path.IsPathRooted(options.ModelDirectory))
+                    {
+                        return;
+                    }
+
+                    options.ModelDirectory = Path.Combine(environment.ContentRootPath, options.ModelDirectory);
+                });
 
             services.AddSingleton<InsightFaceOnnxModelHost>();
             services.AddSingleton<IEmbeddingGenerationMetrics, EmbeddingGenerationMetrics>();
