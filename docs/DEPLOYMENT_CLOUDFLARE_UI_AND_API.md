@@ -52,11 +52,12 @@ They are tracked with **Git LFS** (see `.gitattributes`: `*.onnx filter=lfs`).
 
 If your API deployment checkout does **not** run LFS, you get tiny pointer files (~130 bytes) instead of real ONNX — recognition will fail.
 
-### Before building/publishing the API
+### Building/publishing the API directly on a machine with Git (no Docker)
 
 ```bash
 git lfs install
 git lfs pull
+dotnet publish Abhyanvaya.API/Abhyanvaya.API.csproj -c Release -o ./publish
 ```
 
 Verify file sizes (not ~130 bytes):
@@ -65,13 +66,17 @@ Verify file sizes (not ~130 bytes):
 ls -lh Abhyanvaya.API/models/insightface/
 ```
 
-### CI/CD (GitHub Actions example)
+`Abhyanvaya.API.csproj` includes a publish-time MSBuild validation target
+(`ValidateInsightFaceModelsBeforePublish`) that fails the build with a clear error if either model
+is missing or still LFS-pointer-sized, so a bad publish can never silently ship.
 
-```yaml
-- uses: actions/checkout@v4
-  with:
-    lfs: true
-```
+### Docker builds (AI13.DEPLOY.1)
+
+The `Dockerfile` at the repo root never runs Git or Git LFS. It pulls the already-materialized
+models as a small OCI image built by `.github/workflows/build-models-image.yml`
+(the only place `git lfs pull` runs in the whole pipeline). See
+[`docs/AI13_DEPLOY1_CICD_MODEL_MATERIALIZATION.md`](./AI13_DEPLOY1_CICD_MODEL_MATERIALIZATION.md)
+for the full architecture.
 
 ---
 
@@ -81,8 +86,9 @@ The API project copies ONNX files into publish output:
 
 ```xml
 <!-- Abhyanvaya.API.csproj -->
-<Content Include="models\**\*.onnx">
-  <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+<Content Include="models\insightface\**\*">
+  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  <CopyToPublishDirectory>Always</CopyToPublishDirectory>
 </Content>
 ```
 
