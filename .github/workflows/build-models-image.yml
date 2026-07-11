@@ -1,0 +1,85 @@
+# AI13.DEPLOY.1 — Git LFS Materialization CI job.
+#
+# This is the ONLY workflow in the repository that runs `git lfs pull`. It exists precisely so that
+# Docker (both the models asset image below and the main Abhyanvaya.API Dockerfile that consumes it)
+# never has to. It checks out the repository with Git LFS enabled, verifies the ONNX files are real
+# binaries (not pointer stubs), builds the tiny `docker/models.Dockerfile` asset image, and publishes
+# it to GitHub Container Registry (GHCR).
+#
+# The main application build (Render, Docker Desktop, Azure, Kubernetes, ...) pulls this image as an
+# ordinary Docker build-time dependency (see Dockerfile `ARG MODELS_IMAGE`) — it never talks to GitHub,
+# Git, or Git LFS directly. Render's existing GitHub -> automatic Docker build/deploy trigger is
+# completely unmodified by this workflow.
+#
+# Bootstrap note: the very first run must complete (and the resulting GHCR package must be public,
+# or Render must be given a registry credential) before the main Dockerfile can build successfully.
+# See docs/AI13_DEPLOY1_CICD_MODEL_MATERIALIZATION.md for the one-time setup checklist.
+
+name: Build InsightFace Models Image
+
+on:
+  push:
+    branches:
+      - master
+      - main
+      - AI-attandance-feature
+      - Deployment-Changes
+    paths:
+      - "Abhyanvaya.API/models/insightface/**"
+      - "docker/models.Dockerfile"
+      - ".github/workflows/build-models-image.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/abhyanvaya-insightface-models
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with Git LFS materialization)
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Verify Git LFS materialized real ONNX files
+        run: |
+          set -euo pipefail
+          MODEL_DIR="Abhyanvaya.API/models/insightface"
+          for f in det_10g.onnx w600k_r50.onnx; do
+            path="${MODEL_DIR}/${f}"
+            if [[ ! -f "$path" ]]; then
+              echo "ERROR: Required AI model missing: ${path}. Deployment aborted."
+              exit 1
+            fi
+            size=$(stat -c%s "$path")
+            if [[ "$size" -lt 1000000 ]]; then
+              echo "ERROR: ${path} is only ${size} bytes — Git LFS did not materialize the real file (still a pointer stub). Deployment aborted."
+              exit 1
+            fi
+            echo "OK: ${path} (${size} bytes)"
+          done
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push models image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/models.Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}

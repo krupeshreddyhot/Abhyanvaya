@@ -10,70 +10,48 @@ Your setup:
 
 The InsightFace ONNX models **must be present on Render**, not on Cloudflare Pages.
 
----
-
-## Root cause of `det_10g.onnx not found` on Render
-
-Render clones your Git repo but **does not download Git LFS objects by default**. You get ~130-byte **pointer files** instead of the real ~16 MB / ~166 MB ONNX files.
-
-**Fix:** run `git lfs pull` in the **Render build command** before `dotnet publish`.
-
-This repo includes `scripts/render-build.sh` which:
-
-1. Installs `git-lfs` if missing  
-2. Runs `git lfs pull`  
-3. Verifies both ONNX files are > 1 MB  
-4. Runs `dotnet publish` (models copied via `Abhyanvaya.API.csproj`)
+Render deploys this API using **Docker** (`runtime: docker` in `render.yaml`) — Render has no native
+.NET runtime, so this is the only supported Render deployment mode for this repo (see
+[Render FAQ](https://render.com/docs/faq)).
 
 ---
 
-## Option A — Update existing Render Web Service (recommended)
+## AI13.DEPLOY.1 — Architecture: Docker is Git-independent
 
-Check your service **Runtime** in Render Dashboard:
+As of AI13.DEPLOY.1, the `Dockerfile` at the repo root **never runs `git` or `git lfs`**, and never
+downloads anything at container runtime. The two ONNX models are baked into the image at build time
+by copying them in from a small, separately-published **models asset image**
+(`ghcr.io/<owner>/abhyanvaya-insightface-models`), which is built by
+`.github/workflows/build-models-image.yml` — the only place `git lfs pull` runs in this pipeline.
 
-### If Runtime = **Docker**
+Render's Docker build simply pulls that models image as an ordinary build stage (`ARG MODELS_IMAGE`
+in the `Dockerfile`) — no Render-specific configuration is required for this to work, and Render's
+**GitHub → automatic Docker build/deploy** trigger is completely unchanged.
 
-Push the updated `Dockerfile` (it runs `git lfs pull` during the image build). Trigger **Manual Deploy → Clear build cache & deploy**.
+Full rationale, sequence diagrams, and the alternatives considered (including why Render's git-backed
+Docker build cannot run a pre-build CI step directly) are documented in
+[`docs/AI13_DEPLOY1_CICD_MODEL_MATERIALIZATION.md`](./AI13_DEPLOY1_CICD_MODEL_MATERIALIZATION.md).
 
-No custom build command needed — Render uses the Dockerfile.
+### One-time bootstrap (only needed once, before the first deploy after this change)
 
-### If Runtime = **Native / Shell** (custom build, not Docker)
+1. Push this branch so `.github/workflows/build-models-image.yml` runs at least once and publishes
+   `ghcr.io/<owner>/abhyanvaya-insightface-models:latest`.
+2. In GitHub → **Packages** → `abhyanvaya-insightface-models` → **Package settings**, set visibility
+   to **Public** (simplest — no Render registry credential needed), or keep it **Private** and add a
+   matching **Registry Credential** in the Render service's Docker settings.
+3. Trigger a normal Render deploy (push to the branch Render watches, or **Manual Deploy**).
 
-In **Render Dashboard → your API service → Settings**:
+No manual model download/copy/upload is ever required by a developer — the GitHub Actions workflow
+is the only thing that touches Git LFS.
 
-#### Build Command
+### If your service still shows an older Runtime = **Native / Shell**
 
-```bash
-bash scripts/render-build.sh
-```
-
-(Or inline:)
-
-```bash
-git lfs install && git lfs pull && dotnet publish Abhyanvaya.API/Abhyanvaya.API.csproj -c Release -o ./publish && ls -lh ./publish/models/insightface/
-```
-
-### Start Command
-
-```bash
-cd ./publish && dotnet Abhyanvaya.API.dll
-```
-
-### Root Directory
-
-Leave **empty** (repository root), unless you use a monorepo filter.
-
-### Health Check Path
-
-```
-/health/ready
-```
-
-Should return models as found after a good deploy.
+That mode never worked for this project (Render doesn't support .NET natively) and is not part of
+this architecture. Switch the service **Runtime** to **Docker** in Render Dashboard → Settings.
 
 ---
 
-## Option B — Render Blueprint
+## Render Blueprint
 
 Commit `render.yaml` and deploy via **New → Blueprint** in Render. Adjust `branch`, `region`, and `plan` as needed.
 
@@ -103,42 +81,51 @@ Replace `<your-render-service>` with your actual hostname (e.g. `abhyanvaya-api.
 
 ---
 
-## Render + Git LFS note
+## Render + Git LFS note (AI13.DEPLOY.1)
 
-Render's default `git clone` does **not** download LFS objects. Without `git lfs pull`:
+Render's `git clone` (used to fetch your Dockerfile/source before invoking `docker build`) does
+**not** download Git LFS objects — this is a
+[known Render limitation](https://feedback.render.com/features/p/ignore-lfs-during-git-clone-step)
+with no built-in workaround, and Render's Docker build step **cannot run a custom command before
+`docker build`**, so `git lfs pull` cannot run "just before" the build even if we wanted it to.
 
-- Local/dev: models work after `git lfs pull`
-- Render build: only pointer files → **RecognitionError**
+That's exactly why LFS materialization was moved out of Render entirely:
 
-Both fixes in this repo address that:
+| Component | Role |
+|-----------|------|
+| `.github/workflows/build-models-image.yml` | The only place `git lfs pull` runs. Publishes real ONNX bytes as `ghcr.io/<owner>/abhyanvaya-insightface-models`. |
+| `Dockerfile` (repo root) | Pulls that models image as a normal build stage. Never runs git. |
+| Render | Unchanged — still does `git clone` + `docker build` on push, same as before. The pointer stubs Render's clone produces are simply never used; they're overwritten by the real bytes copied in from the models image. |
 
-| Deploy type | Fix |
-|-------------|-----|
-| **Docker** (Render) | Updated `Dockerfile` runs `git lfs pull` during build |
-| **Shell build** | `scripts/render-build.sh` runs `git lfs pull` before `dotnet publish` |
+See [`docs/AI13_DEPLOY1_CICD_MODEL_MATERIALIZATION.md`](./AI13_DEPLOY1_CICD_MODEL_MATERIALIZATION.md)
+for the full architecture, the alternatives considered, and why this preserves the existing
+GitHub → Render automatic deployment workflow unchanged.
 
 ---
 
 ## After deploy — verify
 
-1. **Build logs** on Render should show:
+1. **GitHub Actions** run for `build-models-image.yml` should show:
    ```
    OK: Abhyanvaya.API/models/insightface/det_10g.onnx (16923827 bytes)
    OK: Abhyanvaya.API/models/insightface/w600k_r50.onnx (...)
    ```
-2. Open: `https://<your-api>.onrender.com/health/ready`  
+2. **Render build logs** should show a normal multi-stage `docker build` with no `git`/`git-lfs`
+   commands at all.
+3. Open: `https://<your-api>.onrender.com/health/ready`  
    Models should report **Found: true** with sizes in MB.
-3. From Cloudflare UI, run AI photo attendance again.
+4. From Cloudflare UI, run AI photo attendance again.
 
 ---
 
 ## Git LFS bandwidth / billing
 
-GitHub LFS has storage and bandwidth limits. Render pulls LFS on **every build**. If builds fail with LFS errors:
+GitHub LFS has storage and bandwidth limits. With AI13.DEPLOY.1, LFS is only pulled by
+`build-models-image.yml`, and only when `Abhyanvaya.API/models/insightface/**` actually changes —
+not on every Render build. If that workflow fails with LFS errors:
 
 - Confirm LFS objects are pushed: `git lfs ls-files`
 - Check GitHub LFS quota
-- Consider caching models on Render disk or hosting ONNX on S3/R2 (future optimization)
 
 ---
 
