@@ -59,6 +59,10 @@ namespace Abhyanvaya.Infrastructure
             services.AddSingleton<IStudentPhotoEmbeddingQueue, InMemoryStudentPhotoEmbeddingQueue>();
             services.AddSingleton<IClassroomPhotoQueue, InMemoryClassroomPhotoQueue>();
 
+            services.AddOptions<AttendanceSessionRecoveryOptions>()
+                .Bind(configuration.GetSection(AttendanceSessionRecoveryOptions.SectionName));
+            services.AddSingleton<IAttendanceSessionRecoveryMetrics, AttendanceSessionRecoveryMetrics>();
+
             services.AddScoped<InsightFaceEngine>();
             services.AddScoped<IFaceDetectionService, InsightFaceDetectionService>();
             services.AddScoped<IEmbeddingGenerator, InsightFaceEmbeddingGenerator>();
@@ -72,6 +76,7 @@ namespace Abhyanvaya.Infrastructure
 
             services.AddHostedService<StudentFaceEmbeddingBackgroundService>();
             services.AddHostedService<ClassroomRecognitionBackgroundService>();
+            services.AddHostedService<StuckAttendanceSessionRecoveryService>();
 
             services.AddScoped<IJwtService, JwtService>();
             services.AddHttpContextAccessor();
