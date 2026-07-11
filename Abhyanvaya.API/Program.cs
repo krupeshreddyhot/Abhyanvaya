@@ -478,6 +478,10 @@ static void LogStartupConfigurationSummary(WebApplication app)
     var recognitionQueueDisplay = StartupDiagnostics.DescribeQueueImplementation(
         scope.ServiceProvider.GetRequiredService<IClassroomPhotoQueue>());
 
+    // AI14.RUNTIME.4: reuses the same IOptions<AttendanceSessionRecoveryOptions> instance the
+    // background service itself binds — no separate/duplicate configuration read.
+    var recoveryOptions = app.Services.GetRequiredService<IOptions<AttendanceSessionRecoveryOptions>>().Value;
+
     logger.LogInformation("==========================================================");
     logger.LogInformation("Abhyanvaya AI Attendance Startup");
     logger.LogInformation("==========================================================");
@@ -511,11 +515,21 @@ static void LogStartupConfigurationSummary(WebApplication app)
     LogModelFileStatus(logger, "Detection Model", modelReport.Detection);
     LogModelFileStatus(logger, "Embedding Model", modelReport.Embedding);
 
+    // AI14.RUNTIME.1: report the actual ONNX Runtime thread configuration that
+    // InsightFaceOnnxModelHost passes into SessionOptions when it loads each model. Values are read
+    // from the same IOptions<InsightFaceOptions> instance used everywhere else in this method
+    // (no duplicate configuration reads) — never hardcoded, and this log call cannot change or
+    // influence session/thread behavior, it only reports it.
+    LogOnnxRuntimeThreadConfiguration(logger, app.Configuration, insightFaceOptions);
+
     logger.LogInformation("Tenant Mode                         : {TenantMode}", tenantModeDisplay);
     logger.LogInformation("Deployment                          : {Deployment}", app.Environment.EnvironmentName);
     logger.LogInformation("Database Provider                   : {DatabaseProvider}", dbProviderDisplayName);
     logger.LogInformation("Cache Provider                      : {CacheProvider}", cacheProviderDisplay);
     logger.LogInformation("Recognition Queue                   : {RecognitionQueue}", recognitionQueueDisplay);
+
+    LogRecoveryServiceConfiguration(logger, recoveryOptions);
+
     logger.LogInformation("Started At UTC                      : {StartedAtUtc:yyyy-MM-dd HH:mm:ss} UTC", DateTime.UtcNow);
     logger.LogInformation("==========================================================");
 
@@ -607,6 +621,45 @@ static void LogModelFileStatus(ILogger logger, string modelLabel, ModelFileStatu
     }
 }
 
+// AI14.RUNTIME.1: reports the ONNX Runtime thread configuration InsightFaceOnnxModelHost actually
+// applies to SessionOptions when it loads the detection/embedding models. Values always come from
+// the bound InsightFaceOptions instance (backed by its own C# default of 1/1 when a key is absent
+// from configuration) — this method never hardcodes a thread count, it only formats what IOptions
+// already resolved. When a key is missing from configuration, that is called out explicitly so
+// operators know the value shown is the built-in default rather than something set in appsettings.
+static void LogOnnxRuntimeThreadConfiguration(ILogger logger, IConfiguration configuration, InsightFaceOptions insightFaceOptions)
+{
+    var intraOpConfigured = !string.IsNullOrWhiteSpace(configuration[$"{InsightFaceOptions.SectionName}:IntraOpNumThreads"]);
+    var interOpConfigured = !string.IsNullOrWhiteSpace(configuration[$"{InsightFaceOptions.SectionName}:InterOpNumThreads"]);
+
+    logger.LogInformation("ONNX Runtime");
+    LogOnnxThreadSetting(logger, "IntraOp Threads", insightFaceOptions.IntraOpNumThreads, intraOpConfigured);
+    LogOnnxThreadSetting(logger, "InterOp Threads", insightFaceOptions.InterOpNumThreads, interOpConfigured);
+}
+
+static void LogOnnxThreadSetting(ILogger logger, string label, int threadCount, bool explicitlyConfigured)
+{
+    if (explicitlyConfigured)
+    {
+        logger.LogInformation("  {Label}                     : {ThreadCount}", label, threadCount);
+    }
+    else
+    {
+        logger.LogInformation("  {Label}                     : {ThreadCount} (default — not set in configuration)", label, threadCount);
+    }
+}
+
+// AI14.RUNTIME.4: startup visibility into the recovery sweep's own configuration — every value comes
+// straight from the bound AttendanceSessionRecoveryOptions (AI14.RUNTIME.2), never hardcoded here.
+static void LogRecoveryServiceConfiguration(ILogger logger, AttendanceSessionRecoveryOptions recoveryOptions)
+{
+    logger.LogInformation("Recovery Service");
+    logger.LogInformation("  Enabled                             : {Enabled}", recoveryOptions.Enabled ? "Yes" : "No");
+    logger.LogInformation("  Scan Interval                       : {ScanIntervalSeconds} seconds", recoveryOptions.ScanIntervalSeconds);
+    logger.LogInformation("  Recovery Timeout                    : {TimeoutMinutes} minutes", recoveryOptions.TimeoutMinutes);
+    logger.LogInformation("  Maximum Recoveries                  : {MaxRecoveriesPerRun}", recoveryOptions.MaxRecoveriesPerRun);
+}
+
 // AI12.OBS.6: lightweight, read-only platform health endpoints (minimal API — not controllers).
 // None of these execute recognition or load ONNX models; they only perform File.Exists/FileInfo
 // checks, a DB "SELECT 1"-equivalent (Database.CanConnectAsync), and the storage provider's own
@@ -642,11 +695,18 @@ static void MapPlatformHealthEndpoints(WebApplication app)
 
         var queueAvailable = IsRecognitionQueueAvailable(scope.ServiceProvider);
 
+        // AI14.RUNTIME.4: runtime-only recovery sweep counters — no persistence, no new endpoint;
+        // read from the same singleton the background service itself writes to.
+        var recoveryOptions = services.GetRequiredService<IOptions<AttendanceSessionRecoveryOptions>>().Value;
+        var recoveryMetrics = scope.ServiceProvider.GetRequiredService<IAttendanceSessionRecoveryMetrics>().GetSnapshot();
+        var recovery = BuildRecoverySnapshot(recoveryOptions, recoveryMetrics);
+
         var isReady = databaseReachable && storageReachable && modelReport.AllModelsPresent
             && recognitionWorker.Running && embeddingWorker.Running && queueAvailable;
 
         // AI12.OBS.8/9: configuration issues are exposed as metadata only — they do not factor
-        // into `isReady` (readiness semantics are unchanged from AI12.OBS.6).
+        // into `isReady` (readiness semantics are unchanged from AI12.OBS.6). Recovery sweep health
+        // (AI14.RUNTIME.4) is likewise metadata-only and does not affect readiness.
         var configurationIssues = ConfigurationValidator.Validate(app, modelReport);
 
         var problem = new ProblemDetails
@@ -667,6 +727,7 @@ static void MapPlatformHealthEndpoints(WebApplication app)
             ["embeddingWorkerStarted"] = embeddingWorker.Running,
             ["queueAvailable"] = queueAvailable,
             ["configurationIssues"] = ToConfigurationIssueSummaries(configurationIssues),
+            ["recovery"] = recovery,
         };
 
         return Results.Json(problem, statusCode: problem.Status, contentType: "application/problem+json");
@@ -696,6 +757,12 @@ static void MapPlatformHealthEndpoints(WebApplication app)
 
         var useRedis = app.Configuration.GetValue<bool>("UseRedis");
         var cacheProviderDisplay = useRedis ? "Redis" : "Memory";
+
+        // AI14.RUNTIME.4: runtime-only recovery sweep counters — no persistence, no new endpoint;
+        // read from the same singleton the background service itself writes to.
+        var recoveryOptions = services.GetRequiredService<IOptions<AttendanceSessionRecoveryOptions>>().Value;
+        var recoveryMetrics = scope.ServiceProvider.GetRequiredService<IAttendanceSessionRecoveryMetrics>().GetSnapshot();
+        var recovery = BuildRecoverySnapshot(recoveryOptions, recoveryMetrics);
 
         var overallHealthy = databaseReachable && storageReachable && modelReport.AllModelsPresent
             && recognitionWorker.Health == "Healthy" && embeddingWorker.Health == "Healthy";
@@ -737,6 +804,7 @@ static void MapPlatformHealthEndpoints(WebApplication app)
                 embeddingQueueDepth = embeddingQueue.Count,
             },
             cache = new { provider = cacheProviderDisplay },
+            recovery,
             overallStatus = overallHealthy ? "Healthy" : "Degraded",
             configurationIssues = ToConfigurationIssueSummaries(configurationIssues),
         };
@@ -779,6 +847,31 @@ static async Task<bool> IsStorageReachableAsync(IServiceProvider services, Cance
     {
         return false;
     }
+}
+
+// AI14.RUNTIME.4: shared JSON projection of the recovery sweep's runtime counters for both /health
+// and /health/ready, so both surfaces report identical values from the same
+// IAttendanceSessionRecoveryMetrics singleton instead of duplicating the derivation logic.
+// Status is metadata-only — it never factors into /health's overallStatus or /health/ready's isReady.
+static object BuildRecoverySnapshot(
+    AttendanceSessionRecoveryOptions recoveryOptions,
+    AttendanceSessionRecoveryMetricsSnapshot metrics)
+{
+    var status = !recoveryOptions.Enabled
+        ? "Disabled"
+        : metrics.PendingRecoveries > 0
+            ? "Degraded"
+            : "Healthy";
+
+    return new
+    {
+        status,
+        runs = metrics.RecoveryRuns,
+        recoveredSessions = metrics.RecoveredSessions,
+        lastRecoveryUtc = metrics.LastRecoveryUtc,
+        lastDurationMs = metrics.LastRecoveryDurationMs,
+        pendingRecoveries = metrics.PendingRecoveries,
+    };
 }
 
 // AI12.OBS.8/9: shared JSON projection of ConfigurationIssue for both /health and /health/ready,
