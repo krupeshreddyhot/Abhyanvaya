@@ -62,4 +62,9 @@ public sealed record RecognitionDiagnosticsSummary(
     string PeakStage,
     int? PeakFace,
     DateTime PeakTimestampUtc,
-    IReadOnlyDictionary<string, long> StageTotalDurationsMs);
+    IReadOnlyDictionary<string, long> StageTotalDurationsMs,
+    // AI15.DIAGNOSTICS.2B/2C: sourced from the already-bound InsightFaceOptions.PipelineVersion and
+    // the per-job IRecognitionExecutionContext — never hardcoded, never re-read from configuration.
+    string PipelineVersion,
+    string ExecutionTraceId,
+    int RecognitionAttempt);

@@ -916,6 +916,12 @@ static object BuildRecognitionDiagnosticsSnapshot(RecognitionDiagnosticsSummary?
             recognitionDurationMs = summary.DurationMs,
             completed = summary.Completed,
             failed = summary.Failed,
+            // AI15.DIAGNOSTICS.2B/2C: sourced from InsightFaceOptions.PipelineVersion (via the
+            // per-job RecognitionDiagnosticsSummary, never re-read/hardcoded here) and the scoped
+            // IRecognitionExecutionContext that was active for that job.
+            pipelineVersion = summary.PipelineVersion,
+            executionTraceId = summary.ExecutionTraceId,
+            recognitionAttempt = summary.RecognitionAttempt,
         },
     };
 }
