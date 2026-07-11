@@ -48,8 +48,23 @@ public sealed class InsightFaceOnnxModelHost : IDisposable
             var path = Path.Combine(_options.ModelDirectory, modelFile);
             EnsureModelFilePresent(path, label);
 
-            session = new InferenceSession(path);
-            _logger.LogInformation("InsightFace {Label} ONNX model loaded from {Path}", label, path);
+            // Explicit, bounded thread counts (see InsightFaceOptions.IntraOpNumThreads) instead of
+            // ONNX Runtime's default of "one thread per detected logical core" — on memory-constrained
+            // hosts (e.g. Render Starter: 512 MB / 0.5 vCPU) unconstrained thread/arena allocation has
+            // contributed to the process exceeding its memory limit under load.
+            var sessionOptions = new SessionOptions
+            {
+                IntraOpNumThreads = _options.IntraOpNumThreads,
+                InterOpNumThreads = _options.InterOpNumThreads,
+            };
+
+            session = new InferenceSession(path, sessionOptions);
+            _logger.LogInformation(
+                "InsightFace {Label} ONNX model loaded from {Path} (IntraOpNumThreads={IntraOpNumThreads}, InterOpNumThreads={InterOpNumThreads})",
+                label,
+                path,
+                _options.IntraOpNumThreads,
+                _options.InterOpNumThreads);
         }
     }
 

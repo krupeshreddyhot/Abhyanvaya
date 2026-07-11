@@ -22,4 +22,16 @@ public sealed class InsightFaceOptions
     public int ExpectedEmbeddingDimension { get; set; } = 512;
 
     public string PipelineVersion { get; set; } = "InsightFace-1.0";
+
+    /// <summary>
+    /// ONNX Runtime intra-op thread count per session. Defaults to 1 because Render's Starter/Free
+    /// instances only grant 0.5 vCPU; letting ONNX Runtime auto-detect logical cores can spin up more
+    /// worker threads (and per-thread allocator arenas) than the container can actually use, wasting
+    /// memory that is already under pressure from the two resident models. Raise this only on
+    /// instances with real spare CPU headroom.
+    /// </summary>
+    public int IntraOpNumThreads { get; set; } = 1;
+
+    /// <summary>ONNX Runtime inter-op thread count per session. See <see cref="IntraOpNumThreads"/>.</summary>
+    public int InterOpNumThreads { get; set; } = 1;
 }
