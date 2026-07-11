@@ -69,6 +69,10 @@ namespace Abhyanvaya.Infrastructure
             services.AddSingleton<IRecognitionDiagnosticsStore, RecognitionDiagnosticsStore>();
             services.AddScoped<IRecognitionPipelineDiagnostics, RecognitionPipelineDiagnostics>();
 
+            // AI15.DIAGNOSTICS.2A: Scoped (not AsyncLocal/ThreadStatic/Singleton) per-job execution
+            // context — one instance per DI scope, exactly like ITenantContextAccessor below.
+            services.AddScoped<IRecognitionExecutionContext, RecognitionExecutionContext>();
+
             services.AddScoped<InsightFaceEngine>();
             services.AddScoped<IFaceDetectionService, InsightFaceDetectionService>();
             services.AddScoped<IEmbeddingGenerator, InsightFaceEmbeddingGenerator>();

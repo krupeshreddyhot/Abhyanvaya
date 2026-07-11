@@ -4,6 +4,7 @@ using Abhyanvaya.Application.DTOs.Recognition;
 using Abhyanvaya.Application.Internal;
 using Abhyanvaya.Domain.Entities;
 using Abhyanvaya.Domain.Enums;
+using Abhyanvaya.Domain.Constants;
 using Abhyanvaya.Infrastructure.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -25,6 +26,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
     private readonly IClassroomPhotoQueue _queue;
     private readonly InsightFace.InsightFaceOptions _insightFaceOptions;
     private readonly IRecognitionPipelineDiagnostics _diagnostics;
+    private readonly IRecognitionExecutionContext _executionContext;
     private readonly ILogger<ClassroomRecognitionPipeline> _logger;
 
     public ClassroomRecognitionPipeline(
@@ -37,6 +39,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
         IClassroomPhotoQueue queue,
         IOptions<InsightFace.InsightFaceOptions> insightFaceOptions,
         IRecognitionPipelineDiagnostics diagnostics,
+        IRecognitionExecutionContext executionContext,
         ILogger<ClassroomRecognitionPipeline> logger)
     {
         _context = context;
@@ -48,12 +51,21 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
         _queue = queue;
         _insightFaceOptions = insightFaceOptions.Value;
         _diagnostics = diagnostics;
+        _executionContext = executionContext;
         _logger = logger;
     }
 
     public async Task ProcessAsync(ClassroomPhotoMessage message, CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
+
+        // AI15.DIAGNOSTICS.2A/2B/2C: diagnostics-only — logs the moment ProcessAsync begins, before
+        // the session even loads, so a death during the DB fetch itself is still visible in logs.
+        // MarkPipelineStarted() only records a timestamp on the scoped execution context; it does not
+        // participate in any recognition/matching/persistence decision.
+        _executionContext.MarkPipelineStarted();
+        LogPipelineEntry(message);
+
         var session = await _context.AttendanceSessions
             .FirstOrDefaultAsync(s => s.Id == message.AttendanceSessionId && s.TenantId == message.TenantId, cancellationToken)
             ?? throw new KeyNotFoundException($"Attendance session '{message.AttendanceSessionId}' was not found.");
@@ -172,6 +184,36 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
             await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
             _queue.MarkCompleted(session.Id);
             throw;
+        }
+    }
+
+    // AI15.DIAGNOSTICS.2A/2B/2C: pipeline-entry checkpoint — read-only snapshot + logging, no
+    // influence on message/session data or control flow.
+    private void LogPipelineEntry(ClassroomPhotoMessage message)
+    {
+        try
+        {
+            var snapshot = RecognitionMemorySnapshot.Capture();
+
+            _logger.LogInformation("====================================================");
+            _logger.LogInformation("PIPELINE ENTRY");
+            _logger.LogInformation("  Attendance Session Id              : {AttendanceSessionId}", message.AttendanceSessionId);
+            _logger.LogInformation("  Tenant Id                          : {TenantId}", message.TenantId);
+            _logger.LogInformation("  Storage Key                        : {StorageKey}", message.ImageStorageKey);
+            _logger.LogInformation("  Current UTC                        : {CurrentUtc:O}", snapshot.TimestampUtc);
+            _logger.LogInformation("  Managed Heap                       : {ManagedHeapMB} MB", snapshot.ManagedHeapMegabytes);
+            _logger.LogInformation("  Working Set                        : {WorkingSetMB} MB", snapshot.WorkingSetMegabytes);
+            _logger.LogInformation("  Private Memory                     : {PrivateMemoryMB} MB", snapshot.PrivateMegabytes);
+            _logger.LogInformation("  Current Thread                     : {ThreadId}", snapshot.ThreadId);
+            _logger.LogInformation("  Current Task Id                    : {TaskId}", Task.CurrentId);
+            _logger.LogInformation("====================================================");
+
+            ExecutionTraceLog.LogBlock(_logger, _executionContext, _insightFaceOptions.PipelineVersion, EmbeddingProviders.InsightFace);
+        }
+        catch (Exception ex)
+        {
+            // Diagnostics-only: a logging failure here must never prevent the pipeline from running.
+            _logger.LogWarning(ex, "Pipeline entry diagnostics logging failed; continuing without it.");
         }
     }
 
