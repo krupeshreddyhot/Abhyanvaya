@@ -1,4 +1,7 @@
 using System.Diagnostics;
+using Abhyanvaya.Application.Common.Interfaces;
+using Abhyanvaya.Domain.Constants;
+using Abhyanvaya.Infrastructure.InsightFace;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -28,6 +31,8 @@ public sealed class RecognitionPipelineDiagnostics : IRecognitionPipelineDiagnos
 
     private readonly RecognitionDiagnosticsOptions _options;
     private readonly IRecognitionDiagnosticsStore _store;
+    private readonly IRecognitionExecutionContext _executionContext;
+    private readonly string _pipelineVersion;
     private readonly ILogger<RecognitionPipelineDiagnostics> _logger;
 
     private bool _active;
@@ -51,11 +56,17 @@ public sealed class RecognitionPipelineDiagnostics : IRecognitionPipelineDiagnos
 
     public RecognitionPipelineDiagnostics(
         IOptions<RecognitionDiagnosticsOptions> options,
+        IOptions<InsightFaceOptions> insightFaceOptions,
         IRecognitionDiagnosticsStore store,
+        IRecognitionExecutionContext executionContext,
         ILogger<RecognitionPipelineDiagnostics> logger)
     {
         _options = options.Value;
+        // AI15.DIAGNOSTICS.2B: reuse the existing InsightFaceOptions.PipelineVersion binding — never
+        // re-read the "InsightFace" configuration section, never hardcode the version string.
+        _pipelineVersion = insightFaceOptions.Value.PipelineVersion;
         _store = store;
+        _executionContext = executionContext;
         _logger = logger;
     }
 
@@ -78,6 +89,7 @@ public sealed class RecognitionPipelineDiagnostics : IRecognitionPipelineDiagnos
             _active = true;
 
             RecordSnapshotAndLog("Recognition Started", faceNumber: null, faceCount: null, stageDurationMs: null, timingCategory: null);
+            LogExecutionTraceBlock();
         }
         catch (Exception ex)
         {
@@ -209,6 +221,7 @@ public sealed class RecognitionPipelineDiagnostics : IRecognitionPipelineDiagnos
                 ToMb(_peakPrivateBytes),
                 _stopwatch.ElapsedMilliseconds,
                 exception.StackTrace ?? "(no stack trace)");
+            LogExecutionTraceBlock();
 
             _store.RecordCompleted(BuildSummary(completed: false, failed: true, lastSnapshotForCurrentStage: snapshot));
             _active = false;
@@ -229,7 +242,9 @@ public sealed class RecognitionPipelineDiagnostics : IRecognitionPipelineDiagnos
         try
         {
             RecordSnapshotAndLog("Recognition Completed", faceNumber: null, faceCount: null, stageDurationMs: null, timingCategory: null);
+            LogExecutionTraceBlock();
             LogMemorySummary();
+            LogExecutionTraceBlock();
             LogTimingSummary();
 
             _store.RecordCompleted(BuildSummary(completed: true, failed: false, lastSnapshotForCurrentStage: null));
@@ -321,6 +336,12 @@ public sealed class RecognitionPipelineDiagnostics : IRecognitionPipelineDiagnos
         _logger.LogInformation("====================================================");
     }
 
+    // AI15.DIAGNOSTICS.2B/2C: appended after the small set of per-job summary logs (Recognition
+    // Started/Completed, Recognition Memory Summary, Failure Diagnostics) — never after the
+    // high-frequency per-stage/per-face boxes, which keep their AI15.DIAGNOSTICS.1 format unchanged.
+    private void LogExecutionTraceBlock() =>
+        ExecutionTraceLog.LogBlock(_logger, _executionContext, _pipelineVersion, EmbeddingProviders.InsightFace);
+
     private void LogMemorySummary()
     {
         _logger.LogInformation("----------------------------------------------------------");
@@ -370,7 +391,10 @@ public sealed class RecognitionPipelineDiagnostics : IRecognitionPipelineDiagnos
             PeakStage: _peakStage ?? "(none)",
             PeakFace: _peakFace,
             PeakTimestampUtc: _peakTimestampUtc,
-            StageTotalDurationsMs: new Dictionary<string, long>(_stageTotalsMs));
+            StageTotalDurationsMs: new Dictionary<string, long>(_stageTotalsMs),
+            PipelineVersion: _pipelineVersion,
+            ExecutionTraceId: ExecutionTraceLog.FormatTraceId(_executionContext),
+            RecognitionAttempt: _executionContext.RecognitionAttempt);
     }
 
     private static string BuildLabel(string stageName, int? faceNumber, string boundary)
