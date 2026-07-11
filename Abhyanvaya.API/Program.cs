@@ -10,6 +10,7 @@ using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Mappings;
 using Abhyanvaya.Infrastructure;
 using Abhyanvaya.Infrastructure.BackgroundWorkers;
+using Abhyanvaya.Infrastructure.Diagnostics;
 using Abhyanvaya.Infrastructure.InsightFace;
 using Abhyanvaya.Infrastructure.Persistence;
 using Abhyanvaya.Infrastructure.Services;
@@ -701,12 +702,17 @@ static void MapPlatformHealthEndpoints(WebApplication app)
         var recoveryMetrics = scope.ServiceProvider.GetRequiredService<IAttendanceSessionRecoveryMetrics>().GetSnapshot();
         var recovery = BuildRecoverySnapshot(recoveryOptions, recoveryMetrics);
 
+        // AI15.DIAGNOSTICS.1 Task 9: metadata-only recognition pipeline memory forensics.
+        var recognitionDiagnosticsSummary = scope.ServiceProvider.GetRequiredService<IRecognitionDiagnosticsStore>().GetLast();
+        var recognitionDiagnostics = BuildRecognitionDiagnosticsSnapshot(recognitionDiagnosticsSummary);
+
         var isReady = databaseReachable && storageReachable && modelReport.AllModelsPresent
             && recognitionWorker.Running && embeddingWorker.Running && queueAvailable;
 
         // AI12.OBS.8/9: configuration issues are exposed as metadata only — they do not factor
         // into `isReady` (readiness semantics are unchanged from AI12.OBS.6). Recovery sweep health
-        // (AI14.RUNTIME.4) is likewise metadata-only and does not affect readiness.
+        // (AI14.RUNTIME.4) and recognition memory diagnostics (AI15.DIAGNOSTICS.1) are likewise
+        // metadata-only and do not affect readiness.
         var configurationIssues = ConfigurationValidator.Validate(app, modelReport);
 
         var problem = new ProblemDetails
@@ -728,6 +734,7 @@ static void MapPlatformHealthEndpoints(WebApplication app)
             ["queueAvailable"] = queueAvailable,
             ["configurationIssues"] = ToConfigurationIssueSummaries(configurationIssues),
             ["recovery"] = recovery,
+            ["recognitionDiagnostics"] = recognitionDiagnostics,
         };
 
         return Results.Json(problem, statusCode: problem.Status, contentType: "application/problem+json");
@@ -763,6 +770,10 @@ static void MapPlatformHealthEndpoints(WebApplication app)
         var recoveryOptions = services.GetRequiredService<IOptions<AttendanceSessionRecoveryOptions>>().Value;
         var recoveryMetrics = scope.ServiceProvider.GetRequiredService<IAttendanceSessionRecoveryMetrics>().GetSnapshot();
         var recovery = BuildRecoverySnapshot(recoveryOptions, recoveryMetrics);
+
+        // AI15.DIAGNOSTICS.1 Task 9: metadata-only recognition pipeline memory forensics.
+        var recognitionDiagnosticsSummary = scope.ServiceProvider.GetRequiredService<IRecognitionDiagnosticsStore>().GetLast();
+        var recognitionDiagnostics = BuildRecognitionDiagnosticsSnapshot(recognitionDiagnosticsSummary);
 
         var overallHealthy = databaseReachable && storageReachable && modelReport.AllModelsPresent
             && recognitionWorker.Health == "Healthy" && embeddingWorker.Health == "Healthy";
@@ -805,6 +816,7 @@ static void MapPlatformHealthEndpoints(WebApplication app)
             },
             cache = new { provider = cacheProviderDisplay },
             recovery,
+            recognitionDiagnostics,
             overallStatus = overallHealthy ? "Healthy" : "Degraded",
             configurationIssues = ToConfigurationIssueSummaries(configurationIssues),
         };
@@ -871,6 +883,40 @@ static object BuildRecoverySnapshot(
         lastRecoveryUtc = metrics.LastRecoveryUtc,
         lastDurationMs = metrics.LastRecoveryDurationMs,
         pendingRecoveries = metrics.PendingRecoveries,
+    };
+}
+
+// AI15.DIAGNOSTICS.1 Task 9: shared JSON projection of the last completed/failed classroom
+// recognition job's memory forensics summary, for both /health and /health/ready. Metadata only —
+// it never factors into /health's overallStatus or /health/ready's isReady, and reading it can never
+// throw or fail health (IRecognitionDiagnosticsStore.GetLast() is a simple in-memory read, returning
+// null until the first classroom recognition job completes since process start).
+static object BuildRecognitionDiagnosticsSnapshot(RecognitionDiagnosticsSummary? summary)
+{
+    if (summary is null)
+    {
+        return new { status = "NoDataYet", lastRecognition = (object?)null };
+    }
+
+    return new
+    {
+        status = summary.Failed ? "LastRunFailed" : "Healthy",
+        lastRecognition = new
+        {
+            attendanceSessionId = summary.AttendanceSessionId,
+            startedUtc = summary.StartedUtc,
+            completedUtc = summary.CompletedUtc,
+            peakWorkingSetMB = Math.Round(summary.PeakWorkingSetBytes / (1024d * 1024d), 1),
+            peakManagedHeapMB = Math.Round(summary.PeakManagedHeapBytes / (1024d * 1024d), 1),
+            peakPrivateMemoryMB = Math.Round(summary.PeakPrivateBytes / (1024d * 1024d), 1),
+            peakStage = summary.PeakStage,
+            peakFace = summary.PeakFace,
+            lastStage = summary.LastStage,
+            lastFace = summary.LastFace,
+            recognitionDurationMs = summary.DurationMs,
+            completed = summary.Completed,
+            failed = summary.Failed,
+        },
     };
 }
 
