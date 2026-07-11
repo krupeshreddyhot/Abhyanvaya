@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
-# Render.com build script for Abhyanvaya.API
+# AI13.DEPLOY.1 — Native (non-container) build script for Abhyanvaya.API.
+#
+# NOT used by Render or by the Docker image build. Render has no native .NET runtime, so the
+# Render deployment in this repo always uses the Dockerfile (runtime: docker in render.yaml), and
+# that Dockerfile is Git-independent by design (see Dockerfile header comment and
+# docs/AI13_DEPLOY1_CICD_MODEL_MATERIALIZATION.md). Git LFS materialization for the Docker path is
+# performed by .github/workflows/build-models-image.yml, not by this script.
+#
+# This script remains for genuinely non-containerized deployments (e.g. a bare VM or on-prem host
+# with `git` and the .NET SDK installed directly) where the full working tree — including `.git` —
+# is naturally available, so running `git lfs pull` in the build step is legitimate and simple.
 # Ensures Git LFS ONNX models are real files before dotnet publish.
 set -euo pipefail
 

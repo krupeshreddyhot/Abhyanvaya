@@ -26,12 +26,77 @@
     <ProjectReference Include="..\Abhyanvaya.Infrastructure\Abhyanvaya.Infrastructure.csproj" />
   </ItemGroup>
 
-  <!-- InsightFace ONNX models must ship with the API publish output (Cloudflare Pages hosts UI only). -->
+  <!--
+    InsightFace ONNX models must ship with the API publish output (Cloudflare Pages hosts UI only).
+    These files are materialized (real bytes, not Git LFS pointers) by the CI/CD build environment
+    before `dotnet publish` runs — see docs/AI13_DEPLOY1_CICD_MODEL_MATERIALIZATION.md. This ItemGroup
+    only describes how the *already-materialized* directory is packaged; it performs no Git/LFS work.
+  -->
   <ItemGroup>
-    <Content Include="models\**\*.onnx">
+    <Content Include="models\insightface\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
+
+  <!--
+    AI13.DEPLOY.1 — Publish-time deployment gate (not a runtime check; see Diagnostics/ModelAvailabilityChecker
+    for the runtime/health-endpoint equivalent, which is unchanged by this target).
+
+    Fails `dotnet publish` if either required InsightFace ONNX model is missing or is clearly a Git LFS
+    pointer stub rather than the real binary (real files are multi-MB; LFS pointers are ~130 bytes).
+    This guarantees a broken/un-materialized model directory can never reach a publish output or Docker
+    image — it fails fast, in the build, with an actionable error instead of at runtime.
+
+    Intentionally scoped to BeforeTargets="Publish" (not "Build"), so everyday local `dotnet build`/`dotnet run`
+    on a developer machine that has not yet run `git lfs pull` still works for non-AI development.
+  -->
+  <UsingTask TaskName="ValidateRequiredModelFile" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <FilePath ParameterType="System.String" Required="true" />
+      <MinimumBytes ParameterType="System.Int64" Required="true" />
+      <ErrorMessage ParameterType="System.String" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Code Type="Fragment" Language="cs">
+<![CDATA[
+if (!File.Exists(FilePath))
+{
+    ErrorMessage = "Required AI model missing: " + FilePath + ". Deployment aborted. " +
+        "Ensure Git LFS materialization ran before publish (see docs/AI13_DEPLOY1_CICD_MODEL_MATERIALIZATION.md).";
+}
+else
+{
+    var actualBytes = new FileInfo(FilePath).Length;
+    if (actualBytes < MinimumBytes)
+    {
+        ErrorMessage = "Required AI model at " + FilePath + " is only " + actualBytes +
+            " bytes (expected at least " + MinimumBytes + "). This looks like an unmaterialized " +
+            "Git LFS pointer file, not the real ONNX model. Deployment aborted. " +
+            "Ensure Git LFS materialization ran before publish (see docs/AI13_DEPLOY1_CICD_MODEL_MATERIALIZATION.md).";
+    }
+}
+]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="ValidateInsightFaceModelsBeforePublish" BeforeTargets="Publish">
+    <PropertyGroup>
+      <InsightFaceModelDir>$(MSBuildProjectDirectory)\models\insightface</InsightFaceModelDir>
+    </PropertyGroup>
+
+    <ValidateRequiredModelFile FilePath="$(InsightFaceModelDir)\det_10g.onnx" MinimumBytes="1000000">
+      <Output TaskParameter="ErrorMessage" PropertyName="DetectionModelError" />
+    </ValidateRequiredModelFile>
+
+    <ValidateRequiredModelFile FilePath="$(InsightFaceModelDir)\w600k_r50.onnx" MinimumBytes="1000000">
+      <Output TaskParameter="ErrorMessage" PropertyName="EmbeddingModelError" />
+    </ValidateRequiredModelFile>
+
+    <Error Condition="'$(DetectionModelError)' != ''" Text="$(DetectionModelError)" />
+    <Error Condition="'$(EmbeddingModelError)' != ''" Text="$(EmbeddingModelError)" />
+  </Target>
 
 </Project>
