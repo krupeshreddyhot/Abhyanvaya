@@ -4,6 +4,7 @@ using Abhyanvaya.Application.DTOs.Recognition;
 using Abhyanvaya.Application.Internal;
 using Abhyanvaya.Domain.Entities;
 using Abhyanvaya.Domain.Enums;
+using Abhyanvaya.Infrastructure.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -23,6 +24,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
     private readonly IAttendanceSessionSummaryService _summaryService;
     private readonly IClassroomPhotoQueue _queue;
     private readonly InsightFace.InsightFaceOptions _insightFaceOptions;
+    private readonly IRecognitionPipelineDiagnostics _diagnostics;
     private readonly ILogger<ClassroomRecognitionPipeline> _logger;
 
     public ClassroomRecognitionPipeline(
@@ -34,6 +36,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
         IAttendanceSessionSummaryService summaryService,
         IClassroomPhotoQueue queue,
         IOptions<InsightFace.InsightFaceOptions> insightFaceOptions,
+        IRecognitionPipelineDiagnostics diagnostics,
         ILogger<ClassroomRecognitionPipeline> logger)
     {
         _context = context;
@@ -44,6 +47,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
         _summaryService = summaryService;
         _queue = queue;
         _insightFaceOptions = insightFaceOptions.Value;
+        _diagnostics = diagnostics;
         _logger = logger;
     }
 
@@ -53,6 +57,10 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
         var session = await _context.AttendanceSessions
             .FirstOrDefaultAsync(s => s.Id == message.AttendanceSessionId && s.TenantId == message.TenantId, cancellationToken)
             ?? throw new KeyNotFoundException($"Attendance session '{message.AttendanceSessionId}' was not found.");
+
+        // AI15.DIAGNOSTICS.1: diagnostics-only instrumentation (memory/timing snapshots + logging).
+        // None of the calls below change any value used by the recognition/matching/persistence logic.
+        _diagnostics.Begin(session.Id, session.TenantId);
 
         try
         {
@@ -68,9 +76,12 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
             session.RecognitionPipelineVersion = _insightFaceOptions.PipelineVersion;
             await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
 
+            var loadImageStage = _diagnostics.StageStart("Load Image");
             var imageBytes = message.ImageStorageKey.Contains('.', StringComparison.Ordinal)
                 ? await _mediaReader.ReadObjectAsync(message.ImageStorageKey, cancellationToken)
                 : await _mediaReader.ReadVariantAsync(message.ImageStorageKey, "original", cancellationToken);
+            _diagnostics.StageEnd(loadImageStage);
+
             var detection = await _faceDetectionService.DetectAsync(new FaceDetectionRequest(imageBytes), cancellationToken);
 
             session.SetImageDimensions(detection.ImageWidth, detection.ImageHeight);
@@ -81,7 +92,17 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
                 .Select(f => new DetectedFaceMatchInput(f.FaceIndex, f.Embedding))
                 .ToList();
 
+            var matchingStage = _diagnostics.StageStart("Matching");
             var matches = _faceMatcher.Match(matchInputs, studentEmbeddings);
+            _diagnostics.StageEnd(matchingStage);
+
+            // Per-face matching visibility (Task 3): the matcher itself is called once for the whole
+            // batch above and is completely untouched — this loop only reports, per face, the result
+            // that batched call already computed, without altering matching logic in any way.
+            foreach (var match in matches)
+            {
+                _diagnostics.FaceEvent("Matching", match.FaceIndex, matches.Count);
+            }
 
             var existingRecognitions = await _context.AttendanceRecognitions
                 .Where(r => r.AttendanceSessionId == session.Id)
@@ -125,8 +146,13 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
 
             await _summaryService.SyncSessionSummaryAsync(session.Id, cancellationToken);
             session.MoveToAwaitingReview();
+
+            var saveStage = _diagnostics.StageStart("Database Save");
             await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
+            _diagnostics.StageEnd(saveStage);
+
             _queue.MarkCompleted(session.Id);
+            _diagnostics.Complete();
 
             _logger.LogInformation(
                 "Classroom recognition completed. SessionId={SessionId} DetectedFaces={DetectedFaces} Recognized={Recognized} DurationMs={DurationMs}",
@@ -137,6 +163,8 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
         }
         catch (Exception ex)
         {
+            _diagnostics.Fail(ex);
+
             session.ProcessingError = ex.Message;
             session.CompletedUtc = DateTime.UtcNow;
             session.ProcessingMilliseconds = (int)stopwatch.ElapsedMilliseconds;

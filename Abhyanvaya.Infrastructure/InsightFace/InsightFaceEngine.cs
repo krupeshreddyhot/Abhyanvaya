@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Abhyanvaya.Application.DTOs.Recognition;
 using Abhyanvaya.Domain.Constants;
+using Abhyanvaya.Infrastructure.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.ML.OnnxRuntime;
@@ -18,15 +19,18 @@ public sealed class InsightFaceEngine
 {
     private readonly InsightFaceOnnxModelHost _modelHost;
     private readonly InsightFaceOptions _options;
+    private readonly IRecognitionPipelineDiagnostics _diagnostics;
     private readonly ILogger<InsightFaceEngine> _logger;
 
     public InsightFaceEngine(
         InsightFaceOnnxModelHost modelHost,
         IOptions<InsightFaceOptions> options,
+        IRecognitionPipelineDiagnostics diagnostics,
         ILogger<InsightFaceEngine> logger)
     {
         _modelHost = modelHost;
         _options = options.Value;
+        _diagnostics = diagnostics;
         _logger = logger;
     }
 
@@ -35,27 +39,49 @@ public sealed class InsightFaceEngine
         CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
+
+        // AI15.DIAGNOSTICS.1: diagnostics calls only read process/GC state and log — they never
+        // influence the detection/alignment/embedding logic below, which is byte-for-byte unchanged.
+        var decodeStage = _diagnostics.StageStart("Decode Image");
         using var image = Image.Load<Rgb24>(request.ImageBytes);
+        _diagnostics.StageEnd(decodeStage);
+        _diagnostics.ObjectCreated("ImageSharp Image", "source image");
+
+        var detectionStage = _diagnostics.StageStart("Face Detection");
         var candidates = DetectFaces(image);
+        _diagnostics.StageEnd(detectionStage);
+
         var maxFaces = request.MaxFaces ?? int.MaxValue;
+        var selectedCandidates = candidates.Take(maxFaces).ToList();
+        var faceCount = selectedCandidates.Count;
 
         var faces = new List<DetectedFaceDto>();
         var faceIndex = 1;
 
-        foreach (var candidate in candidates.Take(maxFaces))
+        foreach (var candidate in selectedCandidates)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var currentFace = faceIndex;
 
+            var croppingStage = _diagnostics.StageStart("Face Cropping", currentFace, faceCount);
             using var aligned = InsightFaceImageMath.AlignFace(image, candidate.Landmarks, _options.RecognitionInputSize);
+            _diagnostics.StageEnd(croppingStage);
+            _diagnostics.ObjectCreated("ImageSharp Image", $"aligned face {currentFace}");
+
+            var embeddingStage = _diagnostics.StageStart("Embedding Generation", currentFace, faceCount);
             var embedding = ExtractEmbedding(aligned);
+            _diagnostics.StageEnd(embeddingStage);
+
             var bbox = InsightFaceImageMath.ToBoundingBox(candidate);
 
             byte[]? alignedBytes = null;
+            _diagnostics.ObjectCreated("MemoryStream", $"face {currentFace} webp buffer");
             await using (var ms = new MemoryStream())
             {
                 await aligned.SaveAsWebpAsync(ms, cancellationToken);
                 alignedBytes = ms.ToArray();
             }
+            _diagnostics.ObjectDisposed("MemoryStream", $"face {currentFace} webp buffer");
 
             faces.Add(new DetectedFaceDto
             {
@@ -70,7 +96,14 @@ public sealed class InsightFaceEngine
                 EmbeddingDimension = embedding.Length,
                 AlignedFaceBytes = alignedBytes
             });
+
+            // `aligned` is disposed immediately after this point by the `using var` above (its scope
+            // is the remainder of this loop iteration) — logged just before that implicit dispose runs.
+            _diagnostics.ObjectDisposed("ImageSharp Image", $"aligned face {currentFace}");
+            _diagnostics.FaceEvent("Dispose Complete", currentFace, faceCount);
         }
+
+        _diagnostics.ObjectDisposed("ImageSharp Image", "source image");
 
         stopwatch.Stop();
 
@@ -105,25 +138,39 @@ public sealed class InsightFaceEngine
         var session = _modelHost.GetDetectionSession();
         var inputSize = _options.DetectionInputSize;
         var inputTensor = InsightFaceImageMath.BuildDetectionInput(image, inputSize, out var scale, out var padX, out var padY);
+        _diagnostics.ObjectCreated("DenseTensor<float>", "detection input");
         var inputName = session.InputMetadata.Keys.First();
 
         var inputs = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor(inputName, inputTensor) };
+        _diagnostics.ObjectCreated("NamedOnnxValue", "detection input");
         using var outputs = session.Run(inputs);
+        _diagnostics.ObjectCreated("DisposableNamedOnnxValue collection", "detection outputs");
 
         var candidates = ParseDetectionOutputs(outputs, inputSize, scale, padX, padY, image.Width, image.Height);
-        return InsightFaceImageMath.ApplyNms(candidates, _options.NmsThreshold);
+        var result = InsightFaceImageMath.ApplyNms(candidates, _options.NmsThreshold);
+
+        // `outputs` is disposed immediately after this method returns by the `using` above.
+        _diagnostics.ObjectDisposed("DisposableNamedOnnxValue collection", "detection outputs");
+        return result;
     }
 
     private float[] ExtractEmbedding(Image<Rgb24> alignedFace)
     {
         var session = _modelHost.GetRecognitionSession();
         var inputTensor = InsightFaceImageMath.BuildRecognitionInput(alignedFace);
+        _diagnostics.ObjectCreated("DenseTensor<float>", "recognition input");
         var inputName = session.InputMetadata.Keys.First();
 
         var inputs = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor(inputName, inputTensor) };
+        _diagnostics.ObjectCreated("NamedOnnxValue", "recognition input");
         using var outputs = session.Run(inputs);
+        _diagnostics.ObjectCreated("DisposableNamedOnnxValue collection", "recognition outputs");
         var embedding = outputs.First().AsEnumerable<float>().ToArray();
-        return InsightFaceImageMath.L2Normalize(embedding);
+        var normalized = InsightFaceImageMath.L2Normalize(embedding);
+
+        // `outputs` is disposed immediately after this method returns by the `using` above.
+        _diagnostics.ObjectDisposed("DisposableNamedOnnxValue collection", "recognition outputs");
+        return normalized;
     }
 
     private List<InsightFaceImageMath.FaceCandidate> ParseDetectionOutputs(

@@ -1,5 +1,6 @@
 ﻿using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Infrastructure.BackgroundWorkers;
+using Abhyanvaya.Infrastructure.Diagnostics;
 using Abhyanvaya.Infrastructure.Embedding;
 using Abhyanvaya.Infrastructure.InsightFace;
 using Abhyanvaya.Infrastructure.Recognition;
@@ -62,6 +63,11 @@ namespace Abhyanvaya.Infrastructure
             services.AddOptions<AttendanceSessionRecoveryOptions>()
                 .Bind(configuration.GetSection(AttendanceSessionRecoveryOptions.SectionName));
             services.AddSingleton<IAttendanceSessionRecoveryMetrics, AttendanceSessionRecoveryMetrics>();
+
+            services.AddOptions<RecognitionDiagnosticsOptions>()
+                .Bind(configuration.GetSection(RecognitionDiagnosticsOptions.SectionName));
+            services.AddSingleton<IRecognitionDiagnosticsStore, RecognitionDiagnosticsStore>();
+            services.AddScoped<IRecognitionPipelineDiagnostics, RecognitionPipelineDiagnostics>();
 
             services.AddScoped<InsightFaceEngine>();
             services.AddScoped<IFaceDetectionService, InsightFaceDetectionService>();
