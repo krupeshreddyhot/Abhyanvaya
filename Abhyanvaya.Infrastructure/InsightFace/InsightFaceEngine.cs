@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics;
 using Abhyanvaya.Application.DTOs.Recognition;
 using Abhyanvaya.Domain.Constants;
@@ -76,7 +77,10 @@ public sealed class InsightFaceEngine
 
             byte[]? alignedBytes = null;
             _diagnostics.ObjectCreated("MemoryStream", $"face {currentFace} webp buffer");
-            await using (var ms = new MemoryStream())
+            // AI16.RUNTIME.2: a small starting capacity avoids a few of MemoryStream's
+            // doubling-and-copying reallocations while the WebP encoder writes a small aligned-face
+            // crop — output bytes are unaffected either way.
+            await using (var ms = new MemoryStream(8192))
             {
                 await aligned.SaveAsWebpAsync(ms, cancellationToken);
                 alignedBytes = ms.ToArray();
@@ -143,7 +147,13 @@ public sealed class InsightFaceEngine
 
         var inputs = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor(inputName, inputTensor) };
         _diagnostics.ObjectCreated("NamedOnnxValue", "detection input");
+
+        // AI16.RUNTIME.4: a dedicated "before inference"/"after inference" checkpoint, narrower than
+        // the surrounding "Face Detection" stage (which also covers tensor building and output
+        // parsing) — isolates the native ONNX Runtime Run() call's own memory footprint.
+        var inferenceStage = _diagnostics.StageStart("ONNX Inference (Detection)");
         using var outputs = session.Run(inputs);
+        _diagnostics.StageEnd(inferenceStage);
         _diagnostics.ObjectCreated("DisposableNamedOnnxValue collection", "detection outputs");
 
         var candidates = ParseDetectionOutputs(outputs, inputSize, scale, padX, padY, image.Width, image.Height);
@@ -157,20 +167,45 @@ public sealed class InsightFaceEngine
     private float[] ExtractEmbedding(Image<Rgb24> alignedFace)
     {
         var session = _modelHost.GetRecognitionSession();
-        var inputTensor = InsightFaceImageMath.BuildRecognitionInput(alignedFace);
-        _diagnostics.ObjectCreated("DenseTensor<float>", "recognition input");
-        var inputName = session.InputMetadata.Keys.First();
+        var size = alignedFace.Width;
+        var length = 3 * size * size;
 
-        var inputs = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor(inputName, inputTensor) };
-        _diagnostics.ObjectCreated("NamedOnnxValue", "recognition input");
-        using var outputs = session.Run(inputs);
-        _diagnostics.ObjectCreated("DisposableNamedOnnxValue collection", "recognition outputs");
-        var embedding = outputs.First().AsEnumerable<float>().ToArray();
-        var normalized = InsightFaceImageMath.L2Normalize(embedding);
+        // AI16.RUNTIME.3: rent the tensor's backing array from the shared pool instead of allocating
+        // a fresh float[] per face — ExtractEmbedding runs once per detected face, sequentially,
+        // within one classroom photo. Every element of this buffer is overwritten by
+        // BuildRecognitionInput before it is read (see that method's remarks), so a possibly "dirty"
+        // rented array never leaks stale data into the model input — output is identical to the
+        // unpooled path. The rented array is only needed until session.Run(...) returns below, so it
+        // is safe to return it immediately afterwards; `finally` guarantees the return even on
+        // exception (no growth in outstanding rentals under repeated failures).
+        var rented = ArrayPool<float>.Shared.Rent(length);
+        try
+        {
+            var inputTensor = InsightFaceImageMath.BuildRecognitionInput(alignedFace, rented.AsMemory(0, length));
+            _diagnostics.ObjectCreated("DenseTensor<float>", "recognition input (pooled)");
+            var inputName = session.InputMetadata.Keys.First();
 
-        // `outputs` is disposed immediately after this method returns by the `using` above.
-        _diagnostics.ObjectDisposed("DisposableNamedOnnxValue collection", "recognition outputs");
-        return normalized;
+            var inputs = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor(inputName, inputTensor) };
+            _diagnostics.ObjectCreated("NamedOnnxValue", "recognition input");
+
+            // AI16.RUNTIME.4: see the matching comment in DetectFaces — isolates the native ONNX
+            // Runtime Run() call's own memory footprint from the broader "Embedding Generation" stage.
+            var inferenceStage = _diagnostics.StageStart("ONNX Inference (Embedding)");
+            using var outputs = session.Run(inputs);
+            _diagnostics.StageEnd(inferenceStage);
+            _diagnostics.ObjectCreated("DisposableNamedOnnxValue collection", "recognition outputs");
+            var embedding = outputs.First().AsEnumerable<float>().ToArray();
+            var normalized = InsightFaceImageMath.L2Normalize(embedding);
+
+            // `outputs` is disposed immediately after this method returns by the `using` above.
+            _diagnostics.ObjectDisposed("DisposableNamedOnnxValue collection", "recognition outputs");
+            return normalized;
+        }
+        finally
+        {
+            ArrayPool<float>.Shared.Return(rented);
+            _diagnostics.ObjectDisposed("DenseTensor<float>", "recognition input (pooled, returned)");
+        }
     }
 
     private List<InsightFaceImageMath.FaceCandidate> ParseDetectionOutputs(

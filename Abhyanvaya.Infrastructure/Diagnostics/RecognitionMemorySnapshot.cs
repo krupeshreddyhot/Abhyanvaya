@@ -45,4 +45,18 @@ public readonly record struct RecognitionMemorySnapshot(
     public double ManagedHeapMegabytes => Math.Round(ManagedHeapBytes / (1024d * 1024d), 1);
     public double WorkingSetMegabytes => Math.Round(WorkingSetBytes / (1024d * 1024d), 1);
     public double PrivateMegabytes => Math.Round(PrivateBytes / (1024d * 1024d), 1);
+
+    /// <summary>
+    /// AI16.RUNTIME.4 — a rough estimate of *native/unmanaged* memory: Private Bytes minus the
+    /// managed heap. Private Bytes already includes the managed heap (the CLR's segments are part of
+    /// the process's committed private memory), so subtracting it leaves everything else the managed
+    /// heap doesn't account for: the ONNX Runtime native allocator/arena, ImageSharp's native
+    /// interop (if any), thread stacks, the JIT, loaded native libraries, etc. This is an estimate,
+    /// not an exact figure — Private Bytes and <see cref="GC.GetTotalMemory"/> are sampled from two
+    /// different subsystems (OS process accounting vs. the GC) a few instructions apart, so minor
+    /// skew is expected. Clamped to 0 so a moment of sampling skew never logs as a negative number.
+    /// </summary>
+    public long NativeEstimateBytes => Math.Max(0, PrivateBytes - ManagedHeapBytes);
+
+    public double NativeEstimateMegabytes => Math.Round(NativeEstimateBytes / (1024d * 1024d), 1);
 }
