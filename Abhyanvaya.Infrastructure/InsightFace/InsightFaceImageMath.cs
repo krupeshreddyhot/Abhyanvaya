@@ -1,3 +1,4 @@
+using Abhyanvaya.Infrastructure.Diagnostics;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -24,7 +25,13 @@ internal static class InsightFaceImageMath
         (70.7299f, 92.2041f)
     ];
 
-    public static DenseTensor<float> BuildDetectionInput(Image<Rgb24> image, int inputSize, out float scale, out int padX, out int padY)
+    public static DenseTensor<float> BuildDetectionInput(
+        Image<Rgb24> image,
+        int inputSize,
+        out float scale,
+        out int padX,
+        out int padY,
+        IRecognitionForensicsAudit? forensics = null)
     {
         scale = Math.Min((float)inputSize / image.Width, (float)inputSize / image.Height);
         var resizedWidth = (int)Math.Round(image.Width * scale);
@@ -33,6 +40,9 @@ internal static class InsightFaceImageMath
         padY = (inputSize - resizedHeight) / 2;
 
         using var working = image.Clone();
+        // AI17.RUNTIME.2/.4: diagnostics-only object-lifetime tracking for the resize clone —
+        // `forensics` only reads/logs and never influences the resize/crop below.
+        forensics?.ObjectCreated("ImageSharp Clone", "detection-resize clone", resizedWidth, resizedHeight, "Rgb24");
         working.Mutate(ctx => ctx.Resize(resizedWidth, resizedHeight));
         var tensor = new DenseTensor<float>(new[] { 1, 3, inputSize, inputSize });
 
@@ -54,6 +64,7 @@ internal static class InsightFaceImageMath
             }
         }
 
+        forensics?.ObjectDisposed("ImageSharp Clone", "detection-resize clone");
         return tensor;
     }
 

@@ -73,6 +73,10 @@ namespace Abhyanvaya.Infrastructure
             // context — one instance per DI scope, exactly like ITenantContextAccessor below.
             services.AddScoped<IRecognitionExecutionContext, RecognitionExecutionContext>();
 
+            // AI17.RUNTIME: a separate Scoped forensics service from IRecognitionPipelineDiagnostics
+            // above — see IRecognitionForensicsAudit's remarks for why. Same lifetime/pattern.
+            services.AddScoped<IRecognitionForensicsAudit, RecognitionForensicsAudit>();
+
             services.AddScoped<InsightFaceEngine>();
             services.AddScoped<IFaceDetectionService, InsightFaceDetectionService>();
             services.AddScoped<IEmbeddingGenerator, InsightFaceEmbeddingGenerator>();
