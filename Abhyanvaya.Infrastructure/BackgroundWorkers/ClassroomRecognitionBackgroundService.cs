@@ -71,6 +71,13 @@ public sealed class ClassroomRecognitionBackgroundService : BackgroundService
 
                 LogQueueTrace(message, elapsedSinceWaitingMs, executionContext);
 
+                // AI17.RUNTIME.1: first required stage checkpoint — fires here, before the pipeline
+                // (and therefore before IRecognitionPipelineDiagnostics.Begin) even starts, which is
+                // exactly why this checkpoint lives on the separate IRecognitionForensicsAudit service
+                // rather than the Begin()-gated IRecognitionPipelineDiagnostics.
+                var forensics = scope.ServiceProvider.GetRequiredService<IRecognitionForensicsAudit>();
+                forensics.Checkpoint("Queue Received");
+
                 try
                 {
                     var pipeline = scope.ServiceProvider.GetRequiredService<IClassroomRecognitionPipeline>();

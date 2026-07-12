@@ -21,17 +21,20 @@ public sealed class InsightFaceEngine
     private readonly InsightFaceOnnxModelHost _modelHost;
     private readonly InsightFaceOptions _options;
     private readonly IRecognitionPipelineDiagnostics _diagnostics;
+    private readonly IRecognitionForensicsAudit _forensics;
     private readonly ILogger<InsightFaceEngine> _logger;
 
     public InsightFaceEngine(
         InsightFaceOnnxModelHost modelHost,
         IOptions<InsightFaceOptions> options,
         IRecognitionPipelineDiagnostics diagnostics,
+        IRecognitionForensicsAudit forensics,
         ILogger<InsightFaceEngine> logger)
     {
         _modelHost = modelHost;
         _options = options.Value;
         _diagnostics = diagnostics;
+        _forensics = forensics;
         _logger = logger;
     }
 
@@ -44,13 +47,18 @@ public sealed class InsightFaceEngine
         // AI15.DIAGNOSTICS.1: diagnostics calls only read process/GC state and log — they never
         // influence the detection/alignment/embedding logic below, which is byte-for-byte unchanged.
         var decodeStage = _diagnostics.StageStart("Decode Image");
+        _forensics.Checkpoint("Image Decode Started");
         using var image = Image.Load<Rgb24>(request.ImageBytes);
         _diagnostics.StageEnd(decodeStage);
+        _forensics.Checkpoint("Image Decode Finished");
         _diagnostics.ObjectCreated("ImageSharp Image", "source image");
+        _forensics.ObjectCreated("ImageSharp Image", "source image", image.Width, image.Height, "Rgb24", (long)image.Width * image.Height * 3);
 
         var detectionStage = _diagnostics.StageStart("Face Detection");
+        _forensics.Checkpoint("Face Detection Started");
         var candidates = DetectFaces(image);
         _diagnostics.StageEnd(detectionStage);
+        _forensics.Checkpoint("Face Detection Finished");
 
         var maxFaces = request.MaxFaces ?? int.MaxValue;
         var selectedCandidates = candidates.Take(maxFaces).ToList();
@@ -59,19 +67,27 @@ public sealed class InsightFaceEngine
         var faces = new List<DetectedFaceDto>();
         var faceIndex = 1;
 
+        _forensics.Checkpoint("Face Crop Loop Begin");
+
         foreach (var candidate in selectedCandidates)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var currentFace = faceIndex;
 
             var croppingStage = _diagnostics.StageStart("Face Cropping", currentFace, faceCount);
+            _forensics.Checkpoint("Before Face Crop", currentFace);
             using var aligned = InsightFaceImageMath.AlignFace(image, candidate.Landmarks, _options.RecognitionInputSize);
             _diagnostics.StageEnd(croppingStage);
+            _forensics.Checkpoint("After Face Crop", currentFace);
             _diagnostics.ObjectCreated("ImageSharp Image", $"aligned face {currentFace}");
+            _forensics.ObjectCreated("ImageSharp Image", $"aligned face {currentFace}", aligned.Width, aligned.Height, "Rgb24", (long)aligned.Width * aligned.Height * 3);
 
             var embeddingStage = _diagnostics.StageStart("Embedding Generation", currentFace, faceCount);
+            _forensics.Checkpoint("Before Embedding Generation", currentFace);
             var embedding = ExtractEmbedding(aligned);
             _diagnostics.StageEnd(embeddingStage);
+            _forensics.Checkpoint("After Embedding Generation", currentFace);
+            _forensics.CheckFaceCropRetainedAfterEmbedding($"aligned face {currentFace}");
 
             var bbox = InsightFaceImageMath.ToBoundingBox(candidate);
 
@@ -104,10 +120,12 @@ public sealed class InsightFaceEngine
             // `aligned` is disposed immediately after this point by the `using var` above (its scope
             // is the remainder of this loop iteration) — logged just before that implicit dispose runs.
             _diagnostics.ObjectDisposed("ImageSharp Image", $"aligned face {currentFace}");
+            _forensics.ObjectDisposed("ImageSharp Image", $"aligned face {currentFace}");
             _diagnostics.FaceEvent("Dispose Complete", currentFace, faceCount);
         }
 
         _diagnostics.ObjectDisposed("ImageSharp Image", "source image");
+        _forensics.ObjectDisposed("ImageSharp Image", "source image");
 
         stopwatch.Stop();
 
@@ -141,26 +159,52 @@ public sealed class InsightFaceEngine
     {
         var session = _modelHost.GetDetectionSession();
         var inputSize = _options.DetectionInputSize;
-        var inputTensor = InsightFaceImageMath.BuildDetectionInput(image, inputSize, out var scale, out var padX, out var padY);
+        var inputTensor = InsightFaceImageMath.BuildDetectionInput(image, inputSize, out var scale, out var padX, out var padY, _forensics);
         _diagnostics.ObjectCreated("DenseTensor<float>", "detection input");
+        _forensics.ObjectCreated("DenseTensor<float>", "detection input");
         var inputName = session.InputMetadata.Keys.First();
 
         var inputs = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor(inputName, inputTensor) };
         _diagnostics.ObjectCreated("NamedOnnxValue", "detection input");
+        _forensics.ObjectCreated("NamedOnnxValue", "detection input");
 
         // AI16.RUNTIME.4: a dedicated "before inference"/"after inference" checkpoint, narrower than
         // the surrounding "Face Detection" stage (which also covers tensor building and output
         // parsing) — isolates the native ONNX Runtime Run() call's own memory footprint.
         var inferenceStage = _diagnostics.StageStart("ONNX Inference (Detection)");
+        var onnxInferenceStopwatch = Stopwatch.StartNew();
+        var beforeDetectionInference = RecognitionMemorySnapshot.Capture();
         using var outputs = session.Run(inputs);
+        var afterDetectionInference = RecognitionMemorySnapshot.Capture();
+        onnxInferenceStopwatch.Stop();
         _diagnostics.StageEnd(inferenceStage);
+        _forensics.ObjectDisposed("NamedOnnxValue", "detection input");
+        _forensics.ObjectDisposed("DenseTensor<float>", "detection input");
         _diagnostics.ObjectCreated("DisposableNamedOnnxValue collection", "detection outputs");
+        _forensics.ObjectCreated("DisposableNamedOnnxValue collection", "detection outputs");
 
         var candidates = ParseDetectionOutputs(outputs, inputSize, scale, padX, padY, image.Width, image.Height);
         var result = InsightFaceImageMath.ApplyNms(candidates, _options.NmsThreshold);
 
         // `outputs` is disposed immediately after this method returns by the `using` above.
         _diagnostics.ObjectDisposed("DisposableNamedOnnxValue collection", "detection outputs");
+        _forensics.ObjectDisposed("DisposableNamedOnnxValue collection", "detection outputs");
+        // AI17.RUNTIME.5: recorded after `outputs` is logically done (disposal happens via the
+        // `using` above when this method returns) — "Inference Session Reused"=true because
+        // InsightFaceOnnxModelHost lazily creates the detection InferenceSession once and caches it
+        // for the lifetime of the host; "Tensor Reused"=false because BuildDetectionInput allocates a
+        // fresh DenseTensor per call (see AI16.RUNTIME.3 — only the recognition/embedding tensor below
+        // uses a pooled buffer, not detection).
+        _forensics.RecordOnnxInference(
+            model: _options.DetectionModelFile,
+            inputTensorShape: $"[{string.Join('x', inputTensor.Dimensions.ToArray())}]",
+            outputTensorShape: $"{outputs.Count} tensors",
+            inferenceDurationMs: onnxInferenceStopwatch.ElapsedMilliseconds,
+            before: beforeDetectionInference,
+            after: afterDetectionInference,
+            inferenceSessionReused: true,
+            tensorReused: false,
+            disposableOutputCount: outputs.Count);
         return result;
     }
 
@@ -183,28 +227,52 @@ public sealed class InsightFaceEngine
         {
             var inputTensor = InsightFaceImageMath.BuildRecognitionInput(alignedFace, rented.AsMemory(0, length));
             _diagnostics.ObjectCreated("DenseTensor<float>", "recognition input (pooled)");
+            _forensics.ObjectCreated("DenseTensor<float>", "recognition input (pooled)");
             var inputName = session.InputMetadata.Keys.First();
 
             var inputs = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor(inputName, inputTensor) };
             _diagnostics.ObjectCreated("NamedOnnxValue", "recognition input");
+            _forensics.ObjectCreated("NamedOnnxValue", "recognition input");
 
             // AI16.RUNTIME.4: see the matching comment in DetectFaces — isolates the native ONNX
             // Runtime Run() call's own memory footprint from the broader "Embedding Generation" stage.
             var inferenceStage = _diagnostics.StageStart("ONNX Inference (Embedding)");
+            var onnxInferenceStopwatch = Stopwatch.StartNew();
+            var beforeEmbeddingInference = RecognitionMemorySnapshot.Capture();
             using var outputs = session.Run(inputs);
+            var afterEmbeddingInference = RecognitionMemorySnapshot.Capture();
+            onnxInferenceStopwatch.Stop();
             _diagnostics.StageEnd(inferenceStage);
+            _forensics.ObjectDisposed("NamedOnnxValue", "recognition input");
             _diagnostics.ObjectCreated("DisposableNamedOnnxValue collection", "recognition outputs");
+            _forensics.ObjectCreated("DisposableNamedOnnxValue collection", "recognition outputs");
             var embedding = outputs.First().AsEnumerable<float>().ToArray();
             var normalized = InsightFaceImageMath.L2Normalize(embedding);
 
             // `outputs` is disposed immediately after this method returns by the `using` above.
             _diagnostics.ObjectDisposed("DisposableNamedOnnxValue collection", "recognition outputs");
+            _forensics.ObjectDisposed("DisposableNamedOnnxValue collection", "recognition outputs");
+            // AI17.RUNTIME.5: "Inference Session Reused"=true (same cached-once host session as
+            // detection above); "Tensor Reused"=true — this is precisely the AI16.RUNTIME.3 pooled
+            // DenseTensor<float> backing buffer (rented from ArrayPool<float>.Shared), unlike the
+            // detection tensor above.
+            _forensics.RecordOnnxInference(
+                model: _options.RecognitionModelFile,
+                inputTensorShape: $"[{string.Join('x', inputTensor.Dimensions.ToArray())}]",
+                outputTensorShape: $"{outputs.Count} tensors",
+                inferenceDurationMs: onnxInferenceStopwatch.ElapsedMilliseconds,
+                before: beforeEmbeddingInference,
+                after: afterEmbeddingInference,
+                inferenceSessionReused: true,
+                tensorReused: true,
+                disposableOutputCount: outputs.Count);
             return normalized;
         }
         finally
         {
             ArrayPool<float>.Shared.Return(rented);
             _diagnostics.ObjectDisposed("DenseTensor<float>", "recognition input (pooled, returned)");
+            _forensics.ObjectDisposed("DenseTensor<float>", "recognition input (pooled)");
         }
     }
 

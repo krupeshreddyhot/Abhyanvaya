@@ -16,7 +16,8 @@ public readonly record struct RecognitionMemorySnapshot(
     int Gen0Collections,
     int Gen1Collections,
     int Gen2Collections,
-    int ThreadId)
+    int ThreadId,
+    int ProcessThreadCount)
 {
     public static RecognitionMemorySnapshot Capture()
     {
@@ -26,9 +27,15 @@ public readonly record struct RecognitionMemorySnapshot(
         var workingSetBytes = Environment.WorkingSet;
 
         long privateBytes;
+        int processThreadCount;
         using (var process = Process.GetCurrentProcess())
         {
             privateBytes = process.PrivateMemorySize64;
+            // AI17.RUNTIME.1: total OS-level thread count for the process (not to be confused with
+            // ThreadId below, which is the *current managed* thread executing this capture). Read
+            // from the same already-open Process handle used for PrivateBytes above — no extra
+            // process-table lookup.
+            processThreadCount = process.Threads.Count;
         }
 
         return new RecognitionMemorySnapshot(
@@ -39,7 +46,8 @@ public readonly record struct RecognitionMemorySnapshot(
             Gen0Collections: GC.CollectionCount(0),
             Gen1Collections: GC.CollectionCount(1),
             Gen2Collections: GC.CollectionCount(2),
-            ThreadId: Environment.CurrentManagedThreadId);
+            ThreadId: Environment.CurrentManagedThreadId,
+            ProcessThreadCount: processThreadCount);
     }
 
     public double ManagedHeapMegabytes => Math.Round(ManagedHeapBytes / (1024d * 1024d), 1);

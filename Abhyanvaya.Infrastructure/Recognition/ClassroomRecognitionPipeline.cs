@@ -27,6 +27,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
     private readonly InsightFace.InsightFaceOptions _insightFaceOptions;
     private readonly IRecognitionPipelineDiagnostics _diagnostics;
     private readonly IRecognitionExecutionContext _executionContext;
+    private readonly IRecognitionForensicsAudit _forensics;
     private readonly ILogger<ClassroomRecognitionPipeline> _logger;
 
     public ClassroomRecognitionPipeline(
@@ -40,6 +41,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
         IOptions<InsightFace.InsightFaceOptions> insightFaceOptions,
         IRecognitionPipelineDiagnostics diagnostics,
         IRecognitionExecutionContext executionContext,
+        IRecognitionForensicsAudit forensics,
         ILogger<ClassroomRecognitionPipeline> logger)
     {
         _context = context;
@@ -52,6 +54,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
         _insightFaceOptions = insightFaceOptions.Value;
         _diagnostics = diagnostics;
         _executionContext = executionContext;
+        _forensics = forensics;
         _logger = logger;
     }
 
@@ -89,23 +92,32 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
             await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
 
             var loadImageStage = _diagnostics.StageStart("Load Image");
+            _forensics.Checkpoint("Image Download Started");
             var imageBytes = message.ImageStorageKey.Contains('.', StringComparison.Ordinal)
                 ? await _mediaReader.ReadObjectAsync(message.ImageStorageKey, cancellationToken)
                 : await _mediaReader.ReadVariantAsync(message.ImageStorageKey, "original", cancellationToken);
             _diagnostics.StageEnd(loadImageStage);
+            _forensics.Checkpoint("Image Download Finished");
 
             var detection = await _faceDetectionService.DetectAsync(new FaceDetectionRequest(imageBytes), cancellationToken);
 
             session.SetImageDimensions(detection.ImageWidth, detection.ImageHeight);
             session.DetectedFaces = detection.Faces.Count;
 
+            _forensics.Checkpoint("Before Student Embedding Load");
             var studentEmbeddings = await LoadStudentEmbeddingsAsync(session, cancellationToken);
+            _forensics.Checkpoint("After Student Embedding Load");
             var matchInputs = detection.Faces
                 .Select(f => new DetectedFaceMatchInput(f.FaceIndex, f.Embedding))
                 .ToList();
 
             var matchingStage = _diagnostics.StageStart("Matching");
+            _forensics.Checkpoint("Before Matching");
+            var beforeMatchingSnapshot = RecognitionMemorySnapshot.Capture();
             var matches = _faceMatcher.Match(matchInputs, studentEmbeddings);
+            var afterMatchingSnapshot = RecognitionMemorySnapshot.Capture();
+            _forensics.Checkpoint("After Matching");
+            _forensics.RecordMatching(matchInputs.Count, studentEmbeddings.Count, beforeMatchingSnapshot, afterMatchingSnapshot);
             _diagnostics.StageEnd(matchingStage);
 
             // Per-face matching visibility (Task 3): the matcher itself is called once for the whole
@@ -160,11 +172,15 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
             session.MoveToAwaitingReview();
 
             var saveStage = _diagnostics.StageStart("Database Save");
+            _forensics.Checkpoint("Before Database Save");
             await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
+            _forensics.Checkpoint("After Database Save");
             _diagnostics.StageEnd(saveStage);
 
             _queue.MarkCompleted(session.Id);
             _diagnostics.Complete();
+            _forensics.Checkpoint("Completed");
+            _forensics.FinalizeAudit();
 
             _logger.LogInformation(
                 "Classroom recognition completed. SessionId={SessionId} DetectedFaces={DetectedFaces} Recognized={Recognized} DurationMs={DurationMs}",
@@ -176,6 +192,8 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
         catch (Exception ex)
         {
             _diagnostics.Fail(ex);
+            _forensics.Checkpoint("Completed (Failed)");
+            _forensics.FinalizeAudit();
 
             session.ProcessingError = ex.Message;
             session.CompletedUtc = DateTime.UtcNow;
@@ -238,9 +256,23 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
                         && e.EmbeddingVector.Length > 0)
             .ToListAsync(cancellationToken);
 
-        return embeddings
+        var result = embeddings
             .Select(e => new StudentEmbeddingMatchInput(e.StudentId, e.Id, e.EmbeddingVector, e.PhotoVersion))
             .ToList();
+
+        // AI17.RUNTIME.3: diagnostics-only — reports the query shape exactly as written above
+        // (AsNoTracking, no .Include(), no lazy-loading proxies registered in this DbContext); does
+        // not change the query itself.
+        var totalEmbeddingFloats = embeddings.Sum(e => e.EmbeddingVector.Length);
+        _forensics.RecordStudentEmbeddingLoad(
+            studentCount: studentIds.Count,
+            embeddingCount: embeddings.Count,
+            totalEmbeddingFloats: totalEmbeddingFloats,
+            asNoTracking: true,
+            navigationPropertiesLoaded: "None",
+            lazyLoadingEnabled: false);
+
+        return result;
     }
 
     private static string BuildFaceImageKey(AttendanceSession session, int faceNumber) =>
