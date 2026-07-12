@@ -34,4 +34,24 @@ public sealed class InsightFaceOptions
 
     /// <summary>ONNX Runtime inter-op thread count per session. See <see cref="IntraOpNumThreads"/>.</summary>
     public int InterOpNumThreads { get; set; } = 1;
+
+    /// <summary>
+    /// ONNX Runtime CPU memory arena (AI16.RUNTIME.1). The arena pre-allocates and retains large
+    /// blocks for reuse across inference calls, which lowers allocation overhead but means the
+    /// process holds onto that reserved memory even when a session is idle. Defaults to
+    /// <see langword="false"/> — Microsoft's own documented recommendation for memory-constrained CPU
+    /// inference — since Render's Starter plan (512 MB) is memory-, not CPU-, constrained. Purely an
+    /// allocator strategy: identical inference outputs either way.
+    /// </summary>
+    public bool EnableCpuMemArena { get; set; } = false;
+
+    /// <summary>
+    /// ONNX Runtime memory-pattern optimization (AI16.RUNTIME.1): traces allocation shapes from the
+    /// first <c>Run()</c> and reuses one pre-planned allocation for subsequent runs with the same
+    /// input shape. Paired with <see cref="EnableCpuMemArena"/> in Microsoft's low-memory guidance —
+    /// the pattern planner is designed to work with the arena, so the two are disabled together.
+    /// Defaults to <see langword="false"/>. Purely an allocator strategy: identical inference outputs
+    /// either way.
+    /// </summary>
+    public bool EnableMemoryPattern { get; set; } = false;
 }

@@ -78,7 +78,22 @@ internal static class InsightFaceImageMath
     public static DenseTensor<float> BuildRecognitionInput(Image<Rgb24> alignedFace)
     {
         var size = alignedFace.Width;
-        var tensor = new DenseTensor<float>(new[] { 1, 3, size, size });
+        return BuildRecognitionInput(alignedFace, new float[3 * size * size]);
+    }
+
+    /// <summary>
+    /// Same fill logic as <see cref="BuildRecognitionInput(Image{Rgb24})"/>, but writes into a
+    /// caller-supplied buffer instead of allocating a fresh <c>float[]</c> (AI16.RUNTIME.3 — lets
+    /// <c>InsightFaceEngine.ExtractEmbedding</c> reuse an <see cref="System.Buffers.ArrayPool{T}"/>
+    /// rental across faces in the same classroom photo). Safe to pool because every element of
+    /// <paramref name="buffer"/> is written unconditionally below — unlike
+    /// <see cref="BuildDetectionInput"/>, there is no padding region left at its prior (possibly
+    /// stale, if pooled) value, so recognition output is identical to the non-pooled overload.
+    /// </summary>
+    public static DenseTensor<float> BuildRecognitionInput(Image<Rgb24> alignedFace, Memory<float> buffer)
+    {
+        var size = alignedFace.Width;
+        var tensor = new DenseTensor<float>(buffer, new[] { 1, 3, size, size });
         alignedFace.ProcessPixelRows(accessor =>
         {
             for (var y = 0; y < accessor.Height; y++)

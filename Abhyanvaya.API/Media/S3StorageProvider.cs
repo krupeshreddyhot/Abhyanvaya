@@ -88,7 +88,13 @@ public sealed class S3StorageProvider : IStorageProvider
                 Key = keyPath,
             }, cancellationToken).ConfigureAwait(false);
 
-            var buffer = new MemoryStream();
+            // AI16.RUNTIME.2: pre-size using the response's known Content-Length so the growable
+            // MemoryStream doesn't repeatedly double-and-copy its internal buffer while filling for a
+            // multi-MB object — same bytes, fewer intermediate array allocations. Falls back to the
+            // parameterless constructor if the length is ever not (yet) known.
+            var buffer = response.ContentLength > 0
+                ? new MemoryStream(checked((int)response.ContentLength))
+                : new MemoryStream();
             await response.ResponseStream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
             buffer.Position = 0;
             return buffer;

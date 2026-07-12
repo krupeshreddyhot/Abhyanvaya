@@ -67,4 +67,8 @@ public sealed record RecognitionDiagnosticsSummary(
     // the per-job IRecognitionExecutionContext — never hardcoded, never re-read from configuration.
     string PipelineVersion,
     string ExecutionTraceId,
-    int RecognitionAttempt);
+    int RecognitionAttempt,
+    // AI16.RUNTIME.4: native-memory estimate and largest single-step Working Set jump observed
+    // during this job — see RecognitionMemorySnapshot.NativeEstimateBytes for the estimation method.
+    long PeakNativeEstimateBytes,
+    long PeakWorkingSetDeltaBytes);
