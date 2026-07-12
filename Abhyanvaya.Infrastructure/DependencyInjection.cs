@@ -86,6 +86,12 @@ namespace Abhyanvaya.Infrastructure
             services.AddScoped<IEmbeddingStorage, EmbeddingStorage>();
             services.AddScoped<IEmbeddingPipeline, EmbeddingPipeline>();
             services.AddScoped<IClassroomImageValidator, Validation.ClassroomImageValidator>();
+
+            // AI18.REVIEW.2: dedicated recognition-thumbnail persistence seam between the pipeline
+            // and the existing IMediaStorageService abstraction (implemented in the API layer as
+            // ApplicationMediaStorageService, registered in Program.cs). The AI engine
+            // (InsightFaceEngine) never sees this interface.
+            services.AddScoped<IRecognitionMediaService, RecognitionMediaService>();
             services.AddScoped<IClassroomRecognitionPipeline, ClassroomRecognitionPipeline>();
 
             services.AddHostedService<StudentFaceEmbeddingBackgroundService>();
