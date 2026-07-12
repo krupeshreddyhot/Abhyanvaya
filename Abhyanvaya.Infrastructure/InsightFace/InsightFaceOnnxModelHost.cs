@@ -52,19 +52,29 @@ public sealed class InsightFaceOnnxModelHost : IDisposable
             // ONNX Runtime's default of "one thread per detected logical core" — on memory-constrained
             // hosts (e.g. Render Starter: 512 MB / 0.5 vCPU) unconstrained thread/arena allocation has
             // contributed to the process exceeding its memory limit under load.
+            //
+            // AI16.RUNTIME.1: EnableCpuMemArena/EnableMemoryPattern are also explicitly set (rather
+            // than left at their ORT defaults of `true`/`true`) per Microsoft's documented low-memory
+            // CPU inference guidance. See docs/AI16_RUNTIME1_ONNX_MEMORY_OPTIMIZATION.md — both are
+            // pure allocator-strategy switches with no effect on inference math, so detection/embedding
+            // outputs are byte-for-byte identical regardless of these settings.
             var sessionOptions = new SessionOptions
             {
                 IntraOpNumThreads = _options.IntraOpNumThreads,
                 InterOpNumThreads = _options.InterOpNumThreads,
+                EnableCpuMemArena = _options.EnableCpuMemArena,
+                EnableMemoryPattern = _options.EnableMemoryPattern,
             };
 
             session = new InferenceSession(path, sessionOptions);
             _logger.LogInformation(
-                "InsightFace {Label} ONNX model loaded from {Path} (IntraOpNumThreads={IntraOpNumThreads}, InterOpNumThreads={InterOpNumThreads})",
+                "InsightFace {Label} ONNX model loaded from {Path} (IntraOpNumThreads={IntraOpNumThreads}, InterOpNumThreads={InterOpNumThreads}, EnableCpuMemArena={EnableCpuMemArena}, EnableMemoryPattern={EnableMemoryPattern})",
                 label,
                 path,
                 _options.IntraOpNumThreads,
-                _options.InterOpNumThreads);
+                _options.InterOpNumThreads,
+                _options.EnableCpuMemArena,
+                _options.EnableMemoryPattern);
         }
     }
 

@@ -636,6 +636,14 @@ static void LogOnnxRuntimeThreadConfiguration(ILogger logger, IConfiguration con
     logger.LogInformation("ONNX Runtime");
     LogOnnxThreadSetting(logger, "IntraOp Threads", insightFaceOptions.IntraOpNumThreads, intraOpConfigured);
     LogOnnxThreadSetting(logger, "InterOp Threads", insightFaceOptions.InterOpNumThreads, interOpConfigured);
+
+    // AI16.RUNTIME.1: surfaces the two memory-allocator SessionOptions this milestone made
+    // configurable (see docs/AI16_RUNTIME1_ONNX_MEMORY_OPTIMIZATION.md). Read only — never rebinds
+    // InsightFaceOptions a second time.
+    var cpuMemArenaConfigured = !string.IsNullOrWhiteSpace(configuration[$"{InsightFaceOptions.SectionName}:EnableCpuMemArena"]);
+    var memPatternConfigured = !string.IsNullOrWhiteSpace(configuration[$"{InsightFaceOptions.SectionName}:EnableMemoryPattern"]);
+    LogOnnxBoolSetting(logger, "CPU Mem Arena", insightFaceOptions.EnableCpuMemArena, cpuMemArenaConfigured);
+    LogOnnxBoolSetting(logger, "Memory Pattern", insightFaceOptions.EnableMemoryPattern, memPatternConfigured);
 }
 
 static void LogOnnxThreadSetting(ILogger logger, string label, int threadCount, bool explicitlyConfigured)
@@ -647,6 +655,18 @@ static void LogOnnxThreadSetting(ILogger logger, string label, int threadCount, 
     else
     {
         logger.LogInformation("  {Label}                     : {ThreadCount} (default — not set in configuration)", label, threadCount);
+    }
+}
+
+static void LogOnnxBoolSetting(ILogger logger, string label, bool value, bool explicitlyConfigured)
+{
+    if (explicitlyConfigured)
+    {
+        logger.LogInformation("  {Label}                    : {Value}", label, value);
+    }
+    else
+    {
+        logger.LogInformation("  {Label}                    : {Value} (default — not set in configuration)", label, value);
     }
 }
 
@@ -922,6 +942,10 @@ static object BuildRecognitionDiagnosticsSnapshot(RecognitionDiagnosticsSummary?
             pipelineVersion = summary.PipelineVersion,
             executionTraceId = summary.ExecutionTraceId,
             recognitionAttempt = summary.RecognitionAttempt,
+            // AI16.RUNTIME.4: native-memory estimate and largest single-step Working Set jump — see
+            // RecognitionMemorySnapshot.NativeEstimateBytes for the estimation method. Metadata only.
+            peakNativeEstimateMB = Math.Round(summary.PeakNativeEstimateBytes / (1024d * 1024d), 1),
+            peakWorkingSetDeltaMB = Math.Round(summary.PeakWorkingSetDeltaBytes / (1024d * 1024d), 1),
         },
     };
 }

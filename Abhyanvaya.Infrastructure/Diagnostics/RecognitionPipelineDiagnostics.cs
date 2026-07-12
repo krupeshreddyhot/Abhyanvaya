@@ -52,6 +52,13 @@ public sealed class RecognitionPipelineDiagnostics : IRecognitionPipelineDiagnos
     private int? _peakFace;
     private DateTime _peakTimestampUtc;
 
+    // AI16.RUNTIME.4: tracked independently of the Working-Set-driven peak fields above — native
+    // memory (Private minus Managed Heap) and a single Working-Set jump can each peak at a different
+    // stage than the overall Working Set does.
+    private long _peakNativeEstimateBytes;
+    private long _peakWorkingSetDeltaBytes;
+    private string? _peakWorkingSetDeltaStage;
+
     private readonly Dictionary<string, long> _stageTotalsMs = new();
 
     public RecognitionPipelineDiagnostics(
@@ -246,6 +253,7 @@ public sealed class RecognitionPipelineDiagnostics : IRecognitionPipelineDiagnos
             LogMemorySummary();
             LogExecutionTraceBlock();
             LogTimingSummary();
+            LogForcedGcValidation(); // AI16.RUNTIME.5 — no-ops unless explicitly enabled.
 
             _store.RecordCompleted(BuildSummary(completed: true, failed: false, lastSnapshotForCurrentStage: null));
             _active = false;
@@ -282,6 +290,19 @@ public sealed class RecognitionPipelineDiagnostics : IRecognitionPipelineDiagnos
             _peakStage = stageLabel;
             _peakFace = faceNumber;
             _peakTimestampUtc = snapshot.TimestampUtc;
+        }
+
+        // AI16.RUNTIME.4: independent peaks — the largest native estimate or single-step Working Set
+        // jump does not necessarily land on the same stage as the overall Working Set peak above.
+        if (snapshot.NativeEstimateBytes > _peakNativeEstimateBytes)
+        {
+            _peakNativeEstimateBytes = snapshot.NativeEstimateBytes;
+        }
+
+        if (deltaWorkingSetBytes > _peakWorkingSetDeltaBytes)
+        {
+            _peakWorkingSetDeltaBytes = deltaWorkingSetBytes;
+            _peakWorkingSetDeltaStage = stageLabel;
         }
 
         if (stageDurationMs.HasValue && timingCategory is not null)
@@ -350,10 +371,57 @@ public sealed class RecognitionPipelineDiagnostics : IRecognitionPipelineDiagnos
         _logger.LogInformation("  Peak Managed Heap                   : {PeakManagedHeapMB} MB", ToMb(_peakManagedHeapBytes));
         _logger.LogInformation("  Peak Working Set                    : {PeakWorkingSetMB} MB", ToMb(_peakWorkingSetBytes));
         _logger.LogInformation("  Peak Private Memory                 : {PeakPrivateMB} MB", ToMb(_peakPrivateBytes));
+        // AI16.RUNTIME.4: finer visibility beyond the three peaks above (native/unmanaged estimate,
+        // and the single largest Working Set jump between two consecutive stage boundaries).
+        _logger.LogInformation("  Peak Native Estimate                : {PeakNativeEstimateMB} MB", ToMb(_peakNativeEstimateBytes));
+        _logger.LogInformation("  Peak Working Set Delta              : {PeakWorkingSetDeltaMB} MB (at {PeakDeltaStage})", ToMb(_peakWorkingSetDeltaBytes), _peakWorkingSetDeltaStage ?? "(none)");
         _logger.LogInformation("  Highest Memory Stage                : {PeakStage}", _peakStage ?? "(none)");
         _logger.LogInformation("  Highest Memory Face                 : {PeakFace}", _peakFace);
         _logger.LogInformation("  Recognition Duration                : {DurationMs} ms", _stopwatch.ElapsedMilliseconds);
         _logger.LogInformation("----------------------------------------------------------");
+    }
+
+    // AI16.RUNTIME.5: diagnostics-only, gated behind RecognitionDiagnosticsOptions.ForceGcValidation
+    // (default false). Never called from anywhere except Complete() below, and only when that flag is
+    // explicitly enabled — a full blocking GC pass on every job is not something this method will
+    // ever do unless an operator has deliberately turned it on to investigate memory behavior.
+    private void LogForcedGcValidation()
+    {
+        if (!_options.ForceGcValidation)
+        {
+            return;
+        }
+
+        try
+        {
+            var before = RecognitionMemorySnapshot.Capture();
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            var after = RecognitionMemorySnapshot.Capture();
+
+            _logger.LogInformation("----------------------------------------------------------");
+            _logger.LogInformation("Forced GC Validation (diagnostics only — RecognitionDiagnostics:ForceGcValidation)");
+            _logger.LogInformation("----------------------------------------------------------");
+            _logger.LogInformation("  Managed Heap Before                 : {BeforeMB} MB", before.ManagedHeapMegabytes);
+            _logger.LogInformation("  Managed Heap After                  : {AfterMB} MB", after.ManagedHeapMegabytes);
+            _logger.LogInformation("  Managed Heap Reclaimed               : {ReclaimedMB} MB", ToMb(before.ManagedHeapBytes - after.ManagedHeapBytes));
+            _logger.LogInformation("  Working Set Before                  : {BeforeMB} MB", before.WorkingSetMegabytes);
+            _logger.LogInformation("  Working Set After                   : {AfterMB} MB", after.WorkingSetMegabytes);
+            _logger.LogInformation("  Working Set Reclaimed                : {ReclaimedMB} MB", ToMb(before.WorkingSetBytes - after.WorkingSetBytes));
+            _logger.LogInformation("  Private Memory Before               : {BeforeMB} MB", before.PrivateMegabytes);
+            _logger.LogInformation("  Private Memory After                : {AfterMB} MB", after.PrivateMegabytes);
+            _logger.LogInformation("  Private Memory Reclaimed             : {ReclaimedMB} MB", ToMb(before.PrivateBytes - after.PrivateBytes));
+            _logger.LogInformation(
+                "  Interpretation                      : Working Set/Private drops after a forced GC ⇒ that memory was collectible managed garbage. Memory that stays elevated after this forced GC is native/unmanaged (ONNX Runtime arena, OS-level allocator fragmentation, etc.) and a GC pass cannot reclaim it.");
+            _logger.LogInformation("----------------------------------------------------------");
+        }
+        catch (Exception ex)
+        {
+            SafeLogInternalFailure(ex);
+        }
     }
 
     private void LogTimingSummary()
@@ -394,7 +462,9 @@ public sealed class RecognitionPipelineDiagnostics : IRecognitionPipelineDiagnos
             StageTotalDurationsMs: new Dictionary<string, long>(_stageTotalsMs),
             PipelineVersion: _pipelineVersion,
             ExecutionTraceId: ExecutionTraceLog.FormatTraceId(_executionContext),
-            RecognitionAttempt: _executionContext.RecognitionAttempt);
+            RecognitionAttempt: _executionContext.RecognitionAttempt,
+            PeakNativeEstimateBytes: _peakNativeEstimateBytes,
+            PeakWorkingSetDeltaBytes: _peakWorkingSetDeltaBytes);
     }
 
     private static string BuildLabel(string stageName, int? faceNumber, string boundary)
