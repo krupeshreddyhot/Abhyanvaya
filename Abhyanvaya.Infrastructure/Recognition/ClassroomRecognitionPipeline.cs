@@ -22,6 +22,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
     private readonly IMediaObjectReader _mediaReader;
     private readonly IFaceDetectionService _faceDetectionService;
     private readonly IFaceMatcher _faceMatcher;
+    private readonly IRecognitionMediaService _recognitionMediaService;
     private readonly IAttendanceSessionSummaryService _summaryService;
     private readonly IClassroomPhotoQueue _queue;
     private readonly InsightFace.InsightFaceOptions _insightFaceOptions;
@@ -36,6 +37,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
         IMediaObjectReader mediaReader,
         IFaceDetectionService faceDetectionService,
         IFaceMatcher faceMatcher,
+        IRecognitionMediaService recognitionMediaService,
         IAttendanceSessionSummaryService summaryService,
         IClassroomPhotoQueue queue,
         IOptions<InsightFace.InsightFaceOptions> insightFaceOptions,
@@ -49,6 +51,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
         _mediaReader = mediaReader;
         _faceDetectionService = faceDetectionService;
         _faceMatcher = faceMatcher;
+        _recognitionMediaService = recognitionMediaService;
         _summaryService = summaryService;
         _queue = queue;
         _insightFaceOptions = insightFaceOptions.Value;
@@ -137,10 +140,25 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
                 _context.Remove(existing);
             }
 
+            // AI18.REVIEW.2: thumbnail persistence happens BEFORE the AttendanceRecognition row is
+            // built, and FaceImageKey is only ever set to the key that PersistFaceThumbnailAsync
+            // returns after a successful upload. If the upload throws, this loop throws too, no
+            // AttendanceRecognition row is added for that face, and the outer catch below fails the
+            // whole session — there is never a persisted FaceImageKey with no corresponding object.
+            _forensics.Checkpoint("Before Thumbnail Persistence");
             var recognitions = new List<AttendanceRecognition>();
             foreach (var face in detection.Faces)
             {
                 var match = matches.First(m => m.FaceIndex == face.FaceIndex);
+
+                var faceImageKey = await _recognitionMediaService.PersistFaceThumbnailAsync(
+                    session.TenantId,
+                    session.Id,
+                    face.FaceIndex,
+                    face.AlignedFaceBytes,
+                    _executionContext.ExecutionTraceId,
+                    cancellationToken);
+
                 recognitions.Add(new AttendanceRecognition
                 {
                     Id = Guid.NewGuid(),
@@ -149,7 +167,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
                     StudentId = match.MatchedStudentId,
                     FaceNumber = face.FaceIndex,
                     ImageSequence = 1,
-                    FaceImageKey = BuildFaceImageKey(session, face.FaceIndex),
+                    FaceImageKey = faceImageKey,
                     RecognitionStatus = match.SuggestedStatus,
                     ConfidenceScore = match.Confidence,
                     EmbeddingDistance = match.Distance,
@@ -161,6 +179,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
                     CreatedUtc = DateTime.UtcNow
                 });
             }
+            _forensics.Checkpoint("After Thumbnail Persistence");
 
             await _context.AddRangeAsync(recognitions);
             session.RecognizedFaces = recognitions.Count(r => r.RecognitionStatus == RecognitionStatus.Recognized);
@@ -274,7 +293,4 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
 
         return result;
     }
-
-    private static string BuildFaceImageKey(AttendanceSession session, int faceNumber) =>
-        $"recognitions/{session.TenantId}/{session.Id}/faces/{faceNumber:D5}.webp";
 }
