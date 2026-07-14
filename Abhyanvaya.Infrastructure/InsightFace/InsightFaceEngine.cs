@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Abhyanvaya.Application.DTOs.Recognition;
 using Abhyanvaya.Domain.Constants;
 using Abhyanvaya.Infrastructure.Diagnostics;
+using Abhyanvaya.Infrastructure.Diagnostics.MemoryAudit;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.ML.OnnxRuntime;
@@ -22,6 +23,7 @@ public sealed class InsightFaceEngine
     private readonly InsightFaceOptions _options;
     private readonly IRecognitionPipelineDiagnostics _diagnostics;
     private readonly IRecognitionForensicsAudit _forensics;
+    private readonly IRecognitionMemoryAudit _memoryAudit;
     private readonly ILogger<InsightFaceEngine> _logger;
 
     public InsightFaceEngine(
@@ -29,12 +31,14 @@ public sealed class InsightFaceEngine
         IOptions<InsightFaceOptions> options,
         IRecognitionPipelineDiagnostics diagnostics,
         IRecognitionForensicsAudit forensics,
+        IRecognitionMemoryAudit memoryAudit,
         ILogger<InsightFaceEngine> logger)
     {
         _modelHost = modelHost;
         _options = options.Value;
         _diagnostics = diagnostics;
         _forensics = forensics;
+        _memoryAudit = memoryAudit;
         _logger = logger;
     }
 
@@ -48,17 +52,23 @@ public sealed class InsightFaceEngine
         // influence the detection/alignment/embedding logic below, which is byte-for-byte unchanged.
         var decodeStage = _diagnostics.StageStart("Decode Image");
         _forensics.Checkpoint("Image Decode Started");
+        _memoryAudit.Snapshot("Image Decode Started");
         using var image = Image.Load<Rgb24>(request.ImageBytes);
         _diagnostics.StageEnd(decodeStage);
         _forensics.Checkpoint("Image Decode Finished");
+        _memoryAudit.Snapshot("Image Decode Finished");
         _diagnostics.ObjectCreated("ImageSharp Image", "source image");
         _forensics.ObjectCreated("ImageSharp Image", "source image", image.Width, image.Height, "Rgb24", (long)image.Width * image.Height * 3);
+        var sourceImageBytes = (long)image.Width * image.Height * 3;
+        var sourceImageObjectId = _memoryAudit.RegisterObject("ImageSharp Image", sourceImageBytes, "Image Decode Finished");
 
         var detectionStage = _diagnostics.StageStart("Face Detection");
         _forensics.Checkpoint("Face Detection Started");
+        _memoryAudit.Snapshot("Face Detection Started");
         var candidates = DetectFaces(image);
         _diagnostics.StageEnd(detectionStage);
         _forensics.Checkpoint("Face Detection Finished");
+        _memoryAudit.Snapshot("Face Detection Finished");
 
         var maxFaces = request.MaxFaces ?? int.MaxValue;
         var selectedCandidates = candidates.Take(maxFaces).ToList();
@@ -68,6 +78,7 @@ public sealed class InsightFaceEngine
         var faceIndex = 1;
 
         _forensics.Checkpoint("Face Crop Loop Begin");
+        _memoryAudit.Snapshot("Face Crop Loop Begin");
 
         foreach (var candidate in selectedCandidates)
         {
@@ -76,18 +87,26 @@ public sealed class InsightFaceEngine
 
             var croppingStage = _diagnostics.StageStart("Face Cropping", currentFace, faceCount);
             _forensics.Checkpoint("Before Face Crop", currentFace);
+            _memoryAudit.Snapshot("Before Face Crop", currentFace);
             using var aligned = InsightFaceImageMath.AlignFace(image, candidate.Landmarks, _options.RecognitionInputSize);
             _diagnostics.StageEnd(croppingStage);
             _forensics.Checkpoint("After Face Crop", currentFace);
+            _memoryAudit.Snapshot("After Face Crop", currentFace);
             _diagnostics.ObjectCreated("ImageSharp Image", $"aligned face {currentFace}");
             _forensics.ObjectCreated("ImageSharp Image", $"aligned face {currentFace}", aligned.Width, aligned.Height, "Rgb24", (long)aligned.Width * aligned.Height * 3);
+            var alignedFaceBytesEstimate = (long)aligned.Width * aligned.Height * 3;
+            var alignedFaceObjectId = _memoryAudit.RegisterObject("Face Crop", alignedFaceBytesEstimate, "After Face Crop", currentFace);
 
             var embeddingStage = _diagnostics.StageStart("Embedding Generation", currentFace, faceCount);
             _forensics.Checkpoint("Before Embedding Generation", currentFace);
+            _memoryAudit.Snapshot("Before Embedding Generation", currentFace);
             var embedding = ExtractEmbedding(aligned);
             _diagnostics.StageEnd(embeddingStage);
             _forensics.Checkpoint("After Embedding Generation", currentFace);
+            _memoryAudit.Snapshot("After Embedding Generation", currentFace);
             _forensics.CheckFaceCropRetainedAfterEmbedding($"aligned face {currentFace}");
+            var embeddingObjectId = _memoryAudit.RegisterObject("Embedding Array", embedding.Length * (long)sizeof(float), "After Embedding Generation", currentFace);
+            _memoryAudit.DisposeObject(embeddingObjectId);
 
             var bbox = InsightFaceImageMath.ToBoundingBox(candidate);
 
@@ -96,12 +115,16 @@ public sealed class InsightFaceEngine
             // AI16.RUNTIME.2: a small starting capacity avoids a few of MemoryStream's
             // doubling-and-copying reallocations while the WebP encoder writes a small aligned-face
             // crop — output bytes are unaffected either way.
+            var webpStreamObjectId = _memoryAudit.RegisterObject("MemoryStream", 8192, "After Embedding Generation", currentFace);
             await using (var ms = new MemoryStream(8192))
             {
                 await aligned.SaveAsWebpAsync(ms, cancellationToken);
                 alignedBytes = ms.ToArray();
             }
             _diagnostics.ObjectDisposed("MemoryStream", $"face {currentFace} webp buffer");
+            _memoryAudit.DisposeObject(webpStreamObjectId);
+            var thumbnailByteArrayId = _memoryAudit.RegisterObject("Byte Array", alignedBytes.Length, "After Thumbnail Encode", currentFace);
+            _memoryAudit.Snapshot("After Thumbnail Encode", currentFace);
 
             faces.Add(new DetectedFaceDto
             {
@@ -116,16 +139,25 @@ public sealed class InsightFaceEngine
                 EmbeddingDimension = embedding.Length,
                 AlignedFaceBytes = alignedBytes
             });
+            // The DetectedFaceDto above now owns this byte[] for the remainder of the job (it survives
+            // until ClassroomRecognitionPipeline's thumbnail-persistence loop uploads it) — tracked as
+            // disposed here only in the sense that this method's local `thumbnailByteArrayId`
+            // registration handle is retired; the actual bytes are re-registered/disposed around the
+            // upload call in ClassroomRecognitionPipeline, where their real end-of-life happens.
+            _memoryAudit.DisposeObject(thumbnailByteArrayId);
 
             // `aligned` is disposed immediately after this point by the `using var` above (its scope
             // is the remainder of this loop iteration) — logged just before that implicit dispose runs.
             _diagnostics.ObjectDisposed("ImageSharp Image", $"aligned face {currentFace}");
             _forensics.ObjectDisposed("ImageSharp Image", $"aligned face {currentFace}");
+            _memoryAudit.DisposeObject(alignedFaceObjectId);
+            _memoryAudit.Snapshot("After Dispose", currentFace);
             _diagnostics.FaceEvent("Dispose Complete", currentFace, faceCount);
         }
 
         _diagnostics.ObjectDisposed("ImageSharp Image", "source image");
         _forensics.ObjectDisposed("ImageSharp Image", "source image");
+        _memoryAudit.DisposeObject(sourceImageObjectId);
 
         stopwatch.Stop();
 
@@ -174,8 +206,10 @@ public sealed class InsightFaceEngine
         var inferenceStage = _diagnostics.StageStart("ONNX Inference (Detection)");
         var onnxInferenceStopwatch = Stopwatch.StartNew();
         var beforeDetectionInference = RecognitionMemorySnapshot.Capture();
+        var beforeDetectionInferenceAudit = CaptureRawMemoryAuditSnapshot("Before ONNX Detection Inference");
         using var outputs = session.Run(inputs);
         var afterDetectionInference = RecognitionMemorySnapshot.Capture();
+        var afterDetectionInferenceAudit = CaptureRawMemoryAuditSnapshot("After ONNX Detection Inference");
         onnxInferenceStopwatch.Stop();
         _diagnostics.StageEnd(inferenceStage);
         _forensics.ObjectDisposed("NamedOnnxValue", "detection input");
@@ -205,6 +239,17 @@ public sealed class InsightFaceEngine
             inferenceSessionReused: true,
             tensorReused: false,
             disposableOutputCount: outputs.Count);
+        _memoryAudit.RecordOnnxInference(
+            model: _options.DetectionModelFile,
+            inputTensorShape: $"[{string.Join('x', inputTensor.Dimensions.ToArray())}]",
+            outputTensorShape: $"{outputs.Count} tensors",
+            inputBytesApprox: inputTensor.Length * (long)sizeof(float),
+            outputBytesApprox: outputs.Count * 4096L,
+            before: beforeDetectionInferenceAudit,
+            after: afterDetectionInferenceAudit,
+            inferenceDurationMs: onnxInferenceStopwatch.ElapsedMilliseconds,
+            disposableOutputCount: outputs.Count,
+            outputsDisposed: true);
         return result;
     }
 
@@ -239,8 +284,10 @@ public sealed class InsightFaceEngine
             var inferenceStage = _diagnostics.StageStart("ONNX Inference (Embedding)");
             var onnxInferenceStopwatch = Stopwatch.StartNew();
             var beforeEmbeddingInference = RecognitionMemorySnapshot.Capture();
+            var beforeEmbeddingInferenceAudit = CaptureRawMemoryAuditSnapshot("Before ONNX Embedding Inference");
             using var outputs = session.Run(inputs);
             var afterEmbeddingInference = RecognitionMemorySnapshot.Capture();
+            var afterEmbeddingInferenceAudit = CaptureRawMemoryAuditSnapshot("After ONNX Embedding Inference");
             onnxInferenceStopwatch.Stop();
             _diagnostics.StageEnd(inferenceStage);
             _forensics.ObjectDisposed("NamedOnnxValue", "recognition input");
@@ -266,6 +313,17 @@ public sealed class InsightFaceEngine
                 inferenceSessionReused: true,
                 tensorReused: true,
                 disposableOutputCount: outputs.Count);
+            _memoryAudit.RecordOnnxInference(
+                model: _options.RecognitionModelFile,
+                inputTensorShape: $"[{string.Join('x', inputTensor.Dimensions.ToArray())}]",
+                outputTensorShape: $"{outputs.Count} tensors",
+                inputBytesApprox: length * (long)sizeof(float),
+                outputBytesApprox: embedding.Length * (long)sizeof(float),
+                before: beforeEmbeddingInferenceAudit,
+                after: afterEmbeddingInferenceAudit,
+                inferenceDurationMs: onnxInferenceStopwatch.ElapsedMilliseconds,
+                disposableOutputCount: outputs.Count,
+                outputsDisposed: true);
             return normalized;
         }
         finally
@@ -275,6 +333,18 @@ public sealed class InsightFaceEngine
             _forensics.ObjectDisposed("DenseTensor<float>", "recognition input (pooled)");
         }
     }
+
+    /// <summary>
+    /// AI18.MEMORY.1 — a raw <see cref="MemoryAuditSnapshot"/> capture for ONNX before/after deltas fed
+    /// into <see cref="IRecognitionMemoryAudit.RecordOnnxInference"/>. Trace id/elapsed are left blank
+    /// here (this engine has no <c>IRecognitionExecutionContext</c> dependency and none of its recognition
+    /// logic needs one) — harmless, since <c>RecordOnnxInference</c> only reads the raw
+    /// WorkingSet/NativeEstimate fields from these two snapshots, never their ExecutionTraceId/Elapsed.
+    /// Peaks are seeded at 0 for the same reason <see cref="RecognitionMemoryAudit"/>'s own peak state is
+    /// only ever advanced by <see cref="IRecognitionMemoryAudit.Snapshot"/>.
+    /// </summary>
+    private static MemoryAuditSnapshot CaptureRawMemoryAuditSnapshot(string stage) =>
+        MemoryAuditSnapshot.Capture(string.Empty, stage, 0, 0, 0, 0, 0);
 
     private List<InsightFaceImageMath.FaceCandidate> ParseDetectionOutputs(
         IDisposableReadOnlyCollection<DisposableNamedOnnxValue> outputs,

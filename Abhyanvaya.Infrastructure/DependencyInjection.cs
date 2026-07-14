@@ -1,6 +1,7 @@
 ﻿using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Infrastructure.BackgroundWorkers;
 using Abhyanvaya.Infrastructure.Diagnostics;
+using Abhyanvaya.Infrastructure.Diagnostics.MemoryAudit;
 using Abhyanvaya.Infrastructure.Embedding;
 using Abhyanvaya.Infrastructure.InsightFace;
 using Abhyanvaya.Infrastructure.Recognition;
@@ -76,6 +77,11 @@ namespace Abhyanvaya.Infrastructure
             // AI17.RUNTIME: a separate Scoped forensics service from IRecognitionPipelineDiagnostics
             // above — see IRecognitionForensicsAudit's remarks for why. Same lifetime/pattern.
             services.AddScoped<IRecognitionForensicsAudit, RecognitionForensicsAudit>();
+
+            // AI18.MEMORY.1: a separate Scoped memory-forensics service from IRecognitionForensicsAudit
+            // above — see IRecognitionMemoryAudit's remarks for why. Same lifetime/pattern; gated by the
+            // same RecognitionDiagnosticsOptions.Enabled flag and inert until its own Begin() call.
+            services.AddScoped<IRecognitionMemoryAudit, RecognitionMemoryAudit>();
 
             services.AddScoped<InsightFaceEngine>();
             services.AddScoped<IFaceDetectionService, InsightFaceDetectionService>();
