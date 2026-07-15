@@ -31,6 +31,17 @@ public sealed class MediaObjectReader : IMediaObjectReader
         return await ReadAllBytesAsync(stream, cancellationToken);
     }
 
+    // AI19.MEDIA.3.2: deliberate pass-through, no ReadAllBytesAsync buffering — MediaController hands
+    // this Stream straight to a FileStreamResult so the object is copied to the HTTP response exactly
+    // once (whatever buffering the active IStorageProvider itself already does internally, e.g.
+    // S3StorageProvider's single MemoryStream copy of the R2 response, is unchanged and untouched by
+    // this method). FileNotFoundException from the active provider propagates unmodified.
+    public Task<Stream> OpenReadAsync(string relativeKey, CancellationToken cancellationToken = default)
+    {
+        var provider = _providerFactory.GetActiveProvider();
+        return provider.ReadObjectAsync(relativeKey.Trim('/'), cancellationToken);
+    }
+
     // AI16.RUNTIME.2: both current storage providers (LocalStorageProvider → FileStream,
     // S3StorageProvider → an already-fully-buffered MemoryStream) return a seekable stream with a
     // known Length. The previous implementation always copied that stream into a *second* growable
