@@ -1,4 +1,4 @@
-﻿import { BrowserRouter, Routes, Route } from "react-router-dom";
+﻿import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { PermissionKeys } from "../auth/permissionKeys";
 import Login from "../pages/Login";
 import Dashboard from "../pages/Dashboard";
@@ -32,6 +32,9 @@ const AppRoutes = () => {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Login />} />
+        {/* Alias so bookmarked/typed /login URLs (e.g. /login?superAdmin=1) render the same
+            page as "/" instead of hitting no matching route. */}
+        <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route
@@ -230,6 +233,10 @@ const AppRoutes = () => {
             }
           />
         </Route>
+
+        {/* Catch-all: any unmatched path (typos, stale deep links, refreshes on an unknown
+            route) redirects to the login/dashboard entry point instead of rendering blank. */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
