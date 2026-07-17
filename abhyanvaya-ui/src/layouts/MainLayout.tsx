@@ -11,6 +11,7 @@
   IconButton,
   Button,
   CssBaseline,
+  Collapse,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import DashboardIcon from "@mui/icons-material/Dashboard";
@@ -19,6 +20,12 @@ import EventNoteIcon from "@mui/icons-material/EventNote";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import CategoryIcon from "@mui/icons-material/Category";
 import BusinessIcon from "@mui/icons-material/Business";
+// AI20.UI.1: Psychology is the preferred "AI Center" glyph; AutoAwesome is the documented fallback
+// (see docs/AI20_UI1_VISUAL_IDENTITY_NOTE.md) if a future icon-package downgrade ever removes it.
+import PsychologyIcon from "@mui/icons-material/Psychology";
+import FaceRetouchingNaturalIcon from "@mui/icons-material/FaceRetouchingNatural";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useMemo, useState } from "react";
@@ -31,11 +38,24 @@ import { brandingAssetUrl } from "../utils/brandingUrl";
 
 const drawerWidth = 240;
 
+// AI20.UI.1: AI modules get a distinct violet accent (icon + selected-row background) instead of
+// the operational-module blue, so they are visually recognizable as a different category of
+// capability at a glance — see docs/AI20_UI1_VISUAL_IDENTITY_NOTE.md for the rationale.
+const OPERATIONAL_SELECTED_SX = { backgroundColor: "#e3f2fd", color: "#1976d2" };
+const AI_ACCENT_COLOR = "#6A1B9A";
+const AI_SELECTED_SX = { backgroundColor: "#f3e5f5", color: AI_ACCENT_COLOR };
+
+type MenuVisibilityCtx = { role: string; hasPermission: (k: string) => boolean; hasAnyPermission: (k: string[]) => boolean };
+
 type MenuItem = {
   text: string;
   icon: React.ReactNode;
   path: string;
-  visible: (ctx: { role: string; hasPermission: (k: string) => boolean; hasAnyPermission: (k: string[]) => boolean }) => boolean;
+  visible: (ctx: MenuVisibilityCtx) => boolean;
+  /** Expandable submenu (e.g. AI Center → Student Enrollment). Parent row navigates to `path` and toggles this list. */
+  children?: MenuItem[];
+  /** Marks this item (and any children) as belonging to the AI Center visual family (AI20.UI.1). */
+  accent?: "ai";
 };
 
 const MainLayout = () => {
@@ -97,11 +117,34 @@ const MainLayout = () => {
       path: "/admin-setup",
       visible: ({ role }) => role === "superadmin",
     },
+    {
+      text: "AI Center",
+      icon: <PsychologyIcon />,
+      path: "/ai",
+      visible: ({ role }) => role === "superadmin",
+      accent: "ai",
+      children: [
+        {
+          text: "Student Enrollment",
+          icon: <FaceRetouchingNaturalIcon />,
+          path: "/ai/enrollment",
+          visible: ({ role }) => role === "superadmin",
+          accent: "ai",
+        },
+      ],
+    },
   ];
 
-  const visibleMenuItems = menuItems.filter((item) =>
-    item.visible({ role: userRole, hasPermission, hasAnyPermission }),
-  );
+  const visibilityCtx = { role: userRole, hasPermission, hasAnyPermission };
+  const visibleMenuItems = menuItems
+    .filter((item) => item.visible(visibilityCtx))
+    .map((item) => ({
+      ...item,
+      children: item.children?.filter((child) => child.visible(visibilityCtx)),
+    }));
+
+  const isItemActive = (item: MenuItem) =>
+    location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [header, setHeader] = useState<HeaderInfo | null>(null);
@@ -285,29 +328,72 @@ const MainLayout = () => {
           />
         </Box>
         <List>
-          {visibleMenuItems.map((item) => (
-            <ListItemButton
-              key={item.text}
-              selected={
-                item.path === "/setup"
-                  ? location.pathname === "/setup" || location.pathname.startsWith("/setup/")
-                  : location.pathname === item.path
-              }
-              onClick={() => {
-                navigate(item.path);
-                if (isMobile) setMobileOpen(false);
-              }}
-              sx={{
-                "&.Mui-selected": {
-                  backgroundColor: "#e3f2fd",
-                  color: "#1976d2",
-                },
-              }}
-            >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          ))}
+          {visibleMenuItems.map((item) => {
+            const hasChildren = !!item.children?.length;
+            const parentSelected =
+              item.path === "/setup" || hasChildren
+                ? isItemActive(item)
+                : location.pathname === item.path;
+            const isAiAccent = item.accent === "ai";
+            const selectedSx = isAiAccent ? AI_SELECTED_SX : OPERATIONAL_SELECTED_SX;
+
+            return (
+              <Box key={item.text}>
+                <ListItemButton
+                  selected={parentSelected}
+                  onClick={() => {
+                    navigate(item.path);
+                    if (isMobile && !hasChildren) setMobileOpen(false);
+                  }}
+                  sx={{
+                    // Resting-state icon tint keeps AI Center visually distinct even when not selected.
+                    ...(isAiAccent && { color: AI_ACCENT_COLOR }),
+                    "&.Mui-selected": selectedSx,
+                    "&.Mui-selected:hover": selectedSx,
+                  }}
+                >
+                  <ListItemIcon sx={isAiAccent ? { color: AI_ACCENT_COLOR } : undefined}>
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText primary={item.text} />
+                  {hasChildren && (isItemActive(item) ? <ExpandLessIcon /> : <ExpandMoreIcon />)}
+                </ListItemButton>
+
+                {hasChildren && (
+                  <Collapse in={isItemActive(item)} timeout="auto" unmountOnExit>
+                    <List component="div" disablePadding>
+                      {item.children!.map((child) => {
+                        const childIsAiAccent = child.accent === "ai";
+                        const childSelectedSx = childIsAiAccent ? AI_SELECTED_SX : OPERATIONAL_SELECTED_SX;
+
+                        return (
+                          <ListItemButton
+                            key={child.text}
+                            selected={location.pathname === child.path}
+                            onClick={() => {
+                              navigate(child.path);
+                              if (isMobile) setMobileOpen(false);
+                            }}
+                            sx={{
+                              pl: 4,
+                              ...(childIsAiAccent && { color: AI_ACCENT_COLOR }),
+                              "&.Mui-selected": childSelectedSx,
+                              "&.Mui-selected:hover": childSelectedSx,
+                            }}
+                          >
+                            <ListItemIcon sx={childIsAiAccent ? { color: AI_ACCENT_COLOR } : undefined}>
+                              {child.icon}
+                            </ListItemIcon>
+                            <ListItemText primary={child.text} />
+                          </ListItemButton>
+                        );
+                      })}
+                    </List>
+                  </Collapse>
+                )}
+              </Box>
+            );
+          })}
         </List>
       </Drawer>
 

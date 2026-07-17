@@ -90,6 +90,12 @@ namespace Abhyanvaya.Application.Common.Interfaces
 
         IQueryable<ClassSchedule> ClassSchedules { get; }
 
+        IQueryable<StudentEnrollmentBatch> StudentEnrollmentBatches { get; }
+
+        IQueryable<StudentEnrollmentItem> StudentEnrollmentItems { get; }
+
+        IQueryable<StudentEnrollmentProgressSnapshot> StudentEnrollmentProgressSnapshots { get; }
+
         Task AddAsync<T>(T entity) where T : class;
 
         void Remove<T>(T entity) where T : class;

@@ -2269,6 +2269,276 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.ToTable("Student");
                 });
 
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentEnrollmentBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AcademicYear")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("CancellationRequestedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CancelledCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("CollegeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ConfigurationSnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("CompletedCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("CompletedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.Property<int>("DownloadingCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("EmbeddingCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("FailedCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("PendingCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("PhotoProviderName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("PipelineVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<int>("Priority")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("RetryRequiredCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTime?>("StartedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TotalStudents")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("UniversityId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ValidatingCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CollegeId");
+
+                    b.HasIndex("TenantId", "Status")
+                        .HasDatabaseName("IX_StudentEnrollmentBatch_Tenant_Status");
+
+                    b.HasIndex("UniversityId", "CollegeId", "AcademicYear")
+                        .HasDatabaseName("IX_StudentEnrollmentBatch_University_College_Year");
+
+                    b.ToTable("StudentEnrollmentBatch", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentEnrollmentProgressSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CapturedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId", "CapturedUtc")
+                        .HasDatabaseName("IX_StudentEnrollmentProgressSnapshot_Batch_CapturedUtc");
+
+                    b.ToTable("StudentEnrollmentProgressSnapshot", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentEnrollmentItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("ByteSize")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Checksum")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("CompletedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.Property<DateTime?>("DownloadStartedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DownloadedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("EmbeddingStartedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EmbeddingVersion")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int?>("FailureCategory")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ImageHeight")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ImageWidth")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("LastAttemptUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("PhotoKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<float?>("QualityScore")
+                        .HasColumnType("real");
+
+                    b.Property<int>("RetryCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("SourceUrl")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<Guid?>("StudentFaceEmbeddingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ValidatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ValidationStartedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentFaceEmbeddingId");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("BatchId", "Status")
+                        .HasDatabaseName("IX_StudentEnrollmentItem_Batch_Status");
+
+                    b.HasIndex("BatchId", "StudentId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_StudentEnrollmentItem_Batch_Student");
+
+                    b.HasIndex("Status", "LastAttemptUtc")
+                        .HasDatabaseName("IX_StudentEnrollmentItem_Status_LastAttempt");
+
+                    b.HasIndex("TenantId", "StudentId")
+                        .HasDatabaseName("IX_StudentEnrollmentItem_Tenant_Student");
+
+                    b.ToTable("StudentEnrollmentItem", (string)null);
+                });
+
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentFaceEmbedding", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2619,7 +2889,7 @@ namespace Abhyanvaya.Infrastructure.Migrations
                         {
                             Id = 1,
                             CourseId = 1,
-                            CreatedDate = new DateTime(2026, 7, 5, 14, 3, 46, 17, DateTimeKind.Utc).AddTicks(7044),
+                            CreatedDate = new DateTime(2026, 7, 16, 6, 7, 53, 303, DateTimeKind.Utc).AddTicks(4676),
                             GroupId = 1,
                             IsDeleted = false,
                             MustChangePassword = false,
@@ -3180,6 +3450,62 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.Navigation("Semester");
                 });
 
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentEnrollmentBatch", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.College", "College")
+                        .WithMany()
+                        .HasForeignKey("CollegeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.University", "University")
+                        .WithMany()
+                        .HasForeignKey("UniversityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("College");
+
+                    b.Navigation("University");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentEnrollmentProgressSnapshot", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.StudentEnrollmentBatch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentEnrollmentItem", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.StudentEnrollmentBatch", "Batch")
+                        .WithMany("Items")
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.StudentFaceEmbedding", "StudentFaceEmbedding")
+                        .WithMany()
+                        .HasForeignKey("StudentFaceEmbeddingId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("Student");
+
+                    b.Navigation("StudentFaceEmbedding");
+                });
+
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentFaceEmbedding", b =>
                 {
                     b.HasOne("Abhyanvaya.Domain.Entities.Student", "Student")
@@ -3350,6 +3676,11 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.Navigation("AttendanceRecognitions");
 
                     b.Navigation("FaceEmbeddings");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentEnrollmentBatch", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.User", b =>

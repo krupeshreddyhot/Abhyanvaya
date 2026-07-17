@@ -16,6 +16,16 @@ using Abhyanvaya.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Abhyanvaya.Infrastructure.Persistence.Repositories;
 using Abhyanvaya.Infrastructure.Services;
+using Abhyanvaya.Infrastructure.Enrollment;
+using Abhyanvaya.Infrastructure.Enrollment.Configuration;
+using Abhyanvaya.Infrastructure.Enrollment.Pipeline;
+using Abhyanvaya.Infrastructure.Enrollment.Queue;
+using Abhyanvaya.Infrastructure.Enrollment.Queries;
+using Abhyanvaya.Infrastructure.Enrollment.Validation;
+using Abhyanvaya.Infrastructure.Enrollment.Versioning;
+using Abhyanvaya.Infrastructure.Enrollment.PhotoProviders;
+using Abhyanvaya.Infrastructure.Resilience;
+using Microsoft.Extensions.Options;
 
 namespace Abhyanvaya.Infrastructure
 {
@@ -109,6 +119,45 @@ namespace Abhyanvaya.Infrastructure
             services.AddScoped<ITenantContextAccessor, TenantContextAccessor>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
             services.AddScoped<IStudentRepository, StudentRepository>();
+
+            // AI20.PHASE2.1.1: enrollment batch/item persistence repositories (thin; no orchestration).
+            services.AddScoped<IStudentEnrollmentBatchRepository, StudentEnrollmentBatchRepository>();
+            services.AddScoped<IStudentEnrollmentItemRepository, StudentEnrollmentItemRepository>();
+
+            // AI20.IMPLEMENT.4/5: external photo provider framework. Only ExamBranchPhotoProvider is
+            // registered today; future providers (OU/CSV/GoogleDrive/AzureBlob/OneDrive/ManualUpload —
+            // see Domain.Constants.StudentPhotoProviders) plug in by adding another
+            // AddScoped<IStudentPhotoProvider, TProvider>() line here — no factory or caller changes.
+            services.AddOptions<ExamBranchPhotoProviderOptions>()
+                .Bind(configuration.GetSection(ExamBranchPhotoProviderOptions.SectionName));
+
+            services.AddHttpClient(ExamBranchPhotoProvider.HttpClientName, (provider, client) =>
+            {
+                var options = provider.GetRequiredService<IOptions<ExamBranchPhotoProviderOptions>>().Value;
+                client.Timeout = TimeSpan.FromSeconds(Math.Max(1, options.TimeoutSeconds));
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("Abhyanvaya-AI-Enrollment/1.0");
+            })
+            .AddPolicyHandler(ExternalPhotoImportPolicies.RetryPolicy);
+
+            services.AddScoped<IStudentPhotoProvider, ExamBranchPhotoProvider>();
+            services.AddScoped<IStudentPhotoProviderFactory, StudentPhotoProviderFactory>();
+
+            // AI20.PHASE2.1.2: enrollment batch creation service (create-only scope).
+            services.AddOptions<EnrollmentPipelineOptions>()
+                .Bind(configuration.GetSection(EnrollmentPipelineOptions.SectionName));
+            services.AddSingleton<TimeProvider>(TimeProvider.System);
+            services.AddScoped<IPipelineVersionProvider, ConfigurationPipelineVersionProvider>();
+            services.AddSingleton<IPipelineManifestProvider, ConfigurationPipelineManifestProvider>();
+            services.AddScoped<IEnrollmentConfigurationSnapshotCapture, EnrollmentConfigurationSnapshotCapture>();
+            services.AddScoped<IEnrollmentEligibleStudentQuery, EnrollmentEligibleStudentQuery>();
+            services.AddScoped<IEnrollmentReferenceValidator, EnrollmentReferenceValidator>();
+            services.AddScoped<IEnrollmentBatchService, EnrollmentBatchService>();
+            services.AddSingleton<InMemoryEnrollmentWakeSignal>();
+            services.AddSingleton<IEnrollmentJobQueue>(sp => sp.GetRequiredService<InMemoryEnrollmentWakeSignal>());
+
+            // AI20.PHASE2.1.3: enrollment progress reporter (sole progress/counter writer).
+            services.AddScoped<IEnrollmentProgressSnapshotRepository, EnrollmentProgressSnapshotRepository>();
+            services.AddScoped<IEnrollmentProgressReporter, EnrollmentProgressReporter>();
 
             return services;
         }

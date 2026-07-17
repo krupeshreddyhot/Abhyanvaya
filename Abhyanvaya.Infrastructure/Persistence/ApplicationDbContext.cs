@@ -67,6 +67,10 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<AuditEntry> AuditEntries => Set<AuditEntry>();
         public IQueryable<StudentFaceEmbedding> StudentFaceEmbeddings => Set<StudentFaceEmbedding>();
         public IQueryable<ClassSchedule> ClassSchedules => Set<ClassSchedule>();
+        public IQueryable<StudentEnrollmentBatch> StudentEnrollmentBatches => Set<StudentEnrollmentBatch>();
+        public IQueryable<StudentEnrollmentItem> StudentEnrollmentItems => Set<StudentEnrollmentItem>();
+        public IQueryable<StudentEnrollmentProgressSnapshot> StudentEnrollmentProgressSnapshots =>
+            Set<StudentEnrollmentProgressSnapshot>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -117,6 +121,9 @@ namespace Abhyanvaya.Infrastructure.Persistence
             builder.Entity<AuditEntry>();
             builder.Entity<StudentFaceEmbedding>();
             builder.Entity<ClassSchedule>();
+            builder.Entity<StudentEnrollmentBatch>();
+            builder.Entity<StudentEnrollmentItem>();
+            builder.ApplyConfiguration(new Configurations.StudentEnrollmentProgressSnapshotConfiguration());
 
             builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
 
@@ -343,6 +350,36 @@ namespace Abhyanvaya.Infrastructure.Persistence
             }
 
             foreach (var entry in ChangeTracker.Entries<AttendanceRecognition>())
+            {
+                if (entry.State == EntityState.Added
+                    && (entry.Entity.RowVersion == null || entry.Entity.RowVersion.Length == 0))
+                {
+                    entry.Entity.RowVersion = CreateInitialRowVersion();
+                    entry.Property(x => x.RowVersion).IsModified = true;
+                }
+                else if (entry.State == EntityState.Modified)
+                {
+                    entry.Entity.RowVersion = CreateInitialRowVersion();
+                    entry.Property(x => x.RowVersion).IsModified = true;
+                }
+            }
+
+            foreach (var entry in ChangeTracker.Entries<StudentEnrollmentBatch>())
+            {
+                if (entry.State == EntityState.Added
+                    && (entry.Entity.RowVersion == null || entry.Entity.RowVersion.Length == 0))
+                {
+                    entry.Entity.RowVersion = CreateInitialRowVersion();
+                    entry.Property(x => x.RowVersion).IsModified = true;
+                }
+                else if (entry.State == EntityState.Modified)
+                {
+                    entry.Entity.RowVersion = CreateInitialRowVersion();
+                    entry.Property(x => x.RowVersion).IsModified = true;
+                }
+            }
+
+            foreach (var entry in ChangeTracker.Entries<StudentEnrollmentItem>())
             {
                 if (entry.State == EntityState.Added
                     && (entry.Entity.RowVersion == null || entry.Entity.RowVersion.Length == 0))

@@ -26,6 +26,8 @@ import StaffPage from "../pages/setup/StaffPage";
 import ChangePasswordPage from "../pages/ChangePasswordPage";
 import ForgotPasswordPage from "../pages/ForgotPasswordPage";
 import ResetPasswordPage from "../pages/ResetPasswordPage";
+import AiCenterPage from "../pages/ai/AiCenterPage";
+import StudentEnrollmentPage from "../pages/ai/StudentEnrollmentPage";
 
 const AppRoutes = () => {
   return (
@@ -229,6 +231,24 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute anyPermission={[PermissionKeys.ReportsView]}>
                 <ReportsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="ai"
+            element={
+              <ProtectedRoute allowedRoles={["SuperAdmin"]}>
+                <AiCenterPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="ai/enrollment"
+            element={
+              <ProtectedRoute allowedRoles={["SuperAdmin"]}>
+                <StudentEnrollmentPage />
               </ProtectedRoute>
             }
           />
