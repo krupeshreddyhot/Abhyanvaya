@@ -77,6 +77,12 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<EnrollmentPersistenceAudit> EnrollmentPersistenceAudits => Set<EnrollmentPersistenceAudit>();
         public IQueryable<EnrollmentWorkLease> EnrollmentWorkLeases => Set<EnrollmentWorkLease>();
         public IQueryable<EnrollmentDeadLetterEntry> EnrollmentDeadLetterEntries => Set<EnrollmentDeadLetterEntry>();
+        public IQueryable<AiModelDefinition> AiModelDefinitions => Set<AiModelDefinition>();
+        public IQueryable<AiModelVersion> AiModelVersions => Set<AiModelVersion>();
+        public IQueryable<GoldenDatasetDefinition> GoldenDatasetDefinitions => Set<GoldenDatasetDefinition>();
+        public IQueryable<ModelRolloutPlan> ModelRolloutPlans => Set<ModelRolloutPlan>();
+        public IQueryable<ModelLifecycleAuditEntry> ModelLifecycleAuditEntries => Set<ModelLifecycleAuditEntry>();
+        public IQueryable<RetrainingCandidateEntry> RetrainingCandidateEntries => Set<RetrainingCandidateEntry>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

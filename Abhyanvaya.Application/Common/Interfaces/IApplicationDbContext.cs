@@ -106,6 +106,18 @@ namespace Abhyanvaya.Application.Common.Interfaces
 
         IQueryable<EnrollmentDeadLetterEntry> EnrollmentDeadLetterEntries { get; }
 
+        IQueryable<AiModelDefinition> AiModelDefinitions { get; }
+
+        IQueryable<AiModelVersion> AiModelVersions { get; }
+
+        IQueryable<GoldenDatasetDefinition> GoldenDatasetDefinitions { get; }
+
+        IQueryable<ModelRolloutPlan> ModelRolloutPlans { get; }
+
+        IQueryable<ModelLifecycleAuditEntry> ModelLifecycleAuditEntries { get; }
+
+        IQueryable<RetrainingCandidateEntry> RetrainingCandidateEntries { get; }
+
         Task AddAsync<T>(T entity) where T : class;
 
         void Remove<T>(T entity) where T : class;

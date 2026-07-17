@@ -14,6 +14,8 @@ using Abhyanvaya.Infrastructure.Recognition.Engine;
 using Abhyanvaya.Infrastructure.Recognition.Persistence;
 using Abhyanvaya.Infrastructure.ClassroomAttendance;
 using Abhyanvaya.Infrastructure.ClassroomAttendance.Persistence;
+using Abhyanvaya.Infrastructure.ModelLifecycle;
+using Abhyanvaya.Infrastructure.ModelLifecycle.Persistence;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -173,6 +175,28 @@ namespace Abhyanvaya.Infrastructure
             services.AddScoped<IManualReviewService, ManualReviewService>();
             services.AddScoped<IAttendanceAnalyticsService, AttendanceAnalyticsService>();
             services.AddScoped<IClassroomRecognitionOrchestrator, ClassroomRecognitionOrchestrator>();
+
+            // AI20.PHASE2.5: AI model lifecycle, quality, and governance framework.
+            services.AddOptions<ModelLifecycleOptions>()
+                .Bind(configuration.GetSection(ModelLifecycleOptions.SectionName));
+            services.AddScoped<IModelLifecycleRepository, ModelLifecycleRepository>();
+            services.AddScoped<IModelRegistry, ModelRegistry>();
+            services.AddScoped<IModelVersionManager, ModelVersionManager>();
+            services.AddScoped<IActiveModelProvider, ActiveModelProvider>();
+            services.AddScoped<IEmbeddingCompatibilityService, EmbeddingCompatibilityService>();
+            services.AddScoped<IModelCompatibilityService, ModelCompatibilityService>();
+            services.AddScoped<IGoldenDatasetManager, GoldenDatasetManager>();
+            services.AddScoped<IRecognitionRegressionRunner, RecognitionRegressionRunner>();
+            services.AddScoped<IRecognitionBenchmarkService, RecognitionBenchmarkService>();
+            services.AddScoped<IDriftDetectionService, DriftDetectionService>();
+            services.AddScoped<IModelRolloutPolicy, TenantRolloutPolicy>();
+            services.AddScoped<IModelRolloutPolicy, PercentageRolloutPolicy>();
+            services.AddScoped<IModelRolloutPolicy, CanaryRolloutPolicy>();
+            services.AddScoped<IModelRolloutManager, ModelRolloutManager>();
+            services.AddScoped<IModelRollbackManager, ModelRollbackManager>();
+            services.AddScoped<IRecognitionMetricsService, RecognitionMetricsService>();
+            services.AddScoped<IRecognitionQualityEngine, RecognitionQualityEngine>();
+            services.AddScoped<IContinuousLearningCoordinator, ContinuousLearningCoordinator>();
 
             services.AddHostedService<StudentFaceEmbeddingBackgroundService>();
             services.AddHostedService<ClassroomRecognitionBackgroundService>();
