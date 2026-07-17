@@ -31,6 +31,7 @@ using Abhyanvaya.Infrastructure.Enrollment.Embedding;
 using Abhyanvaya.Infrastructure.Enrollment.Persistence;
 using Abhyanvaya.Infrastructure.Enrollment.Orchestration;
 using Abhyanvaya.Infrastructure.Enrollment.Orchestration.Stages;
+using Abhyanvaya.Infrastructure.Enrollment.Background;
 using Abhyanvaya.Infrastructure.Enrollment.Versioning;
 using Abhyanvaya.Infrastructure.Enrollment.PhotoProviders;
 using Abhyanvaya.Infrastructure.Resilience;
@@ -217,6 +218,27 @@ namespace Abhyanvaya.Infrastructure
             services.AddScoped<IEnrollmentPipelineRegistry, EnrollmentPipelineRegistry>();
             services.AddScoped<IEnrollmentPipelineExecutor, EnrollmentPipelineExecutor>();
             services.AddScoped<IEnrollmentOrchestrator, EnrollmentOrchestrator>();
+
+            // AI20.PHASE2.2: enrollment background processing and distributed worker framework.
+            services.AddOptions<EnrollmentBackgroundOptions>()
+                .Bind(configuration.GetSection(EnrollmentBackgroundOptions.SectionName));
+            services.AddOptions<EnrollmentRecoveryOptions>()
+                .Bind(configuration.GetSection(EnrollmentRecoveryOptions.SectionName));
+            services.AddSingleton<IEnrollmentWorkerMetrics, NoOpEnrollmentWorkerMetrics>();
+            services.AddScoped<IEnrollmentWorkRepository, EnrollmentWorkRepository>();
+            services.AddScoped<IEnrollmentSchedulingPolicy, DefaultEnrollmentSchedulingPolicy>();
+            services.AddScoped<IDistributedLockProvider, PostgreSqlDistributedLockProvider>();
+            services.AddScoped<IEnrollmentDeadLetterService, EnrollmentDeadLetterService>();
+            services.AddScoped<IEnrollmentLeaseManager, EnrollmentLeaseManager>();
+            services.AddScoped<IEnrollmentHeartbeatService, EnrollmentHeartbeatService>();
+            services.AddScoped<IEnrollmentWorkScheduler, EnrollmentWorkScheduler>();
+            services.AddScoped<IEnrollmentWorkQueue, DatabaseEnrollmentWorkQueue>();
+            services.AddScoped<EnrollmentProcessingWorker>();
+            services.AddScoped<IEnrollmentWorker, EnrollmentProcessingWorker>();
+            services.AddScoped<IEnrollmentWorkerHost, EnrollmentWorkerHost>();
+            services.AddScoped<IEnrollmentRecoveryService, EnrollmentRecoveryService>();
+            services.AddHostedService<EnrollmentBackgroundService>();
+            services.AddHostedService<EnrollmentRecoveryBackgroundService>();
 
             return services;
         }

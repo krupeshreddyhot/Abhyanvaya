@@ -54,6 +54,9 @@ public sealed class StudentEnrollmentItemConfiguration : IEntityTypeConfiguratio
         builder.Property(x => x.LastAttemptUtc)
             .HasColumnType("timestamp with time zone");
 
+        builder.Property(x => x.NextAttemptUtc)
+            .HasColumnType("timestamp with time zone");
+
         builder.Property(x => x.CreatedUtc)
             .HasColumnType("timestamp with time zone")
             .HasDefaultValueSql("timezone('utc', now())");
@@ -97,5 +100,8 @@ public sealed class StudentEnrollmentItemConfiguration : IEntityTypeConfiguratio
 
         builder.HasIndex(x => new { x.Status, x.LastAttemptUtc })
             .HasDatabaseName("IX_StudentEnrollmentItem_Status_LastAttempt");
+
+        builder.HasIndex(x => new { x.Status, x.NextAttemptUtc })
+            .HasDatabaseName("IX_StudentEnrollmentItem_Status_NextAttempt");
     }
 }

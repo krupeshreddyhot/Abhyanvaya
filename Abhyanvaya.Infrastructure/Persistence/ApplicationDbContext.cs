@@ -75,6 +75,8 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<EnrollmentEmbeddingVersionSnapshot> EnrollmentEmbeddingVersionSnapshots =>
             Set<EnrollmentEmbeddingVersionSnapshot>();
         public IQueryable<EnrollmentPersistenceAudit> EnrollmentPersistenceAudits => Set<EnrollmentPersistenceAudit>();
+        public IQueryable<EnrollmentWorkLease> EnrollmentWorkLeases => Set<EnrollmentWorkLease>();
+        public IQueryable<EnrollmentDeadLetterEntry> EnrollmentDeadLetterEntries => Set<EnrollmentDeadLetterEntry>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

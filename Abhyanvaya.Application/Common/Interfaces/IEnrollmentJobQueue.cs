@@ -8,5 +8,7 @@ public interface IEnrollmentJobQueue
 {
     void SignalWork();
 
+    ValueTask WaitForSignalAsync(CancellationToken cancellationToken = default);
+
     IAsyncEnumerable<Guid> DequeueClaimedJobIdsAsync(CancellationToken cancellationToken);
 }

@@ -74,6 +74,9 @@ public class StudentEnrollmentItem : ITenantScoped
     /// <summary>Updated on every transition, including retries — drives the stuck-item recovery sweep's staleness check.</summary>
     public DateTime? LastAttemptUtc { get; set; }
 
+    /// <summary>When set, item is not claimable until this UTC time (scheduler-owned retry timing).</summary>
+    public DateTime? NextAttemptUtc { get; set; }
+
     // ---- Stage timestamps (per-student timeline for the Student Detail Screen) ----
 
     public DateTime CreatedUtc { get; set; }

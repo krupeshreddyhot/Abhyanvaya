@@ -24,6 +24,11 @@ public sealed class InMemoryEnrollmentWakeSignal : IEnrollmentJobQueue
         _wake.Writer.TryWrite(0);
     }
 
+    public async ValueTask WaitForSignalAsync(CancellationToken cancellationToken = default)
+    {
+        _ = await _wake.Reader.ReadAsync(cancellationToken);
+    }
+
     public async IAsyncEnumerable<Guid> DequeueClaimedJobIdsAsync(
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
