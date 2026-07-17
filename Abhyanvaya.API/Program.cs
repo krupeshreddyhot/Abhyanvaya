@@ -92,6 +92,7 @@ builder.Services.AddAutoMapper(typeof(StudentMappingProfile).Assembly);
 builder.Services.AddMediaStorage();
 builder.Services.AddStudentPhotoServices();
 builder.Services.AddScoped<Abhyanvaya.Application.Common.Interfaces.IMediaStorageService, ApplicationMediaStorageService>();
+builder.Services.AddScoped<Abhyanvaya.Application.Common.Interfaces.IObjectStorageProvider, ObjectStorageProviderAdapter>();
 builder.Services.AddScoped<IMediaObjectReader, MediaObjectReader>();
 builder.Services.AddScoped<CollegeBrandingService>();
 

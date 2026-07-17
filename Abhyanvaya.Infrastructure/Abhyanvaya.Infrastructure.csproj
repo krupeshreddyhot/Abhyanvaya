@@ -42,4 +42,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Abhyanvaya.Application.UnitTests" />
+  </ItemGroup>
+
 </Project>

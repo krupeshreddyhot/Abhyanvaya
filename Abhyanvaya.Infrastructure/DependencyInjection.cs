@@ -1,4 +1,5 @@
 ﻿using Abhyanvaya.Application.Common.Interfaces;
+using Abhyanvaya.Application.Enrollment.Storage;
 using Abhyanvaya.Infrastructure.BackgroundWorkers;
 using Abhyanvaya.Infrastructure.Diagnostics;
 using Abhyanvaya.Infrastructure.Diagnostics.MemoryAudit;
@@ -22,6 +23,9 @@ using Abhyanvaya.Infrastructure.Enrollment.Pipeline;
 using Abhyanvaya.Infrastructure.Enrollment.Queue;
 using Abhyanvaya.Infrastructure.Enrollment.Queries;
 using Abhyanvaya.Infrastructure.Enrollment.Validation;
+using Abhyanvaya.Infrastructure.Enrollment.Validation.Rules;
+using Abhyanvaya.Infrastructure.Enrollment.Storage;
+using Abhyanvaya.Infrastructure.Enrollment.Storage.ArtifactTypes;
 using Abhyanvaya.Infrastructure.Enrollment.Versioning;
 using Abhyanvaya.Infrastructure.Enrollment.PhotoProviders;
 using Abhyanvaya.Infrastructure.Resilience;
@@ -159,7 +163,47 @@ namespace Abhyanvaya.Infrastructure
             services.AddScoped<IEnrollmentProgressSnapshotRepository, EnrollmentProgressSnapshotRepository>();
             services.AddScoped<IEnrollmentProgressReporter, EnrollmentProgressReporter>();
 
+            // AI20.PHASE2.1.4: enrollment validation service (pure evaluation — no storage/DB).
+            services.AddOptions<EnrollmentValidationOptions>()
+                .Bind(configuration.GetSection(EnrollmentValidationOptions.SectionName));
+            services.AddScoped<IEnrollmentFaceAnalysisService, InsightFaceEnrollmentFaceAnalysisService>();
+            services.AddScoped<IEnrollmentValidationPolicy, DefaultEnrollmentValidationPolicy>();
+            services.AddSingleton<IValidationCache, NoOpValidationCache>();
+            RegisterEnrollmentValidationRules(services);
+            services.AddScoped<IEnrollmentValidationRuleRegistry, EnrollmentValidationRuleRegistry>();
+            services.AddScoped<IEnrollmentValidationService, EnrollmentValidationService>();
+
+            // AI20.PHASE2.1.5: enrollment storage service (sole artifact persistence owner).
+            services.AddScoped<IChecksumService, Sha256ChecksumService>();
+            services.AddSingleton<IEnrollmentArtifactTypeDefinition, AlignedFaceArtifactTypeDefinition>();
+            services.AddSingleton<IEnrollmentArtifactTypeDefinition, ValidationReportArtifactTypeDefinition>();
+            services.AddSingleton<IEnrollmentArtifactTypeRegistry, EnrollmentArtifactTypeRegistry>();
+            services.AddScoped<IEnrollmentStoragePolicy, DefaultEnrollmentStoragePolicy>();
+            services.AddScoped<IEnrollmentStorageRecordRepository, EnrollmentStorageRecordRepository>();
+            services.AddScoped<IEnrollmentStorageService, EnrollmentStorageService>();
+
             return services;
+        }
+
+        private static void RegisterEnrollmentValidationRules(IServiceCollection services)
+        {
+            services.AddScoped<IEnrollmentValidationRule, ImageFormatRule>();
+            services.AddScoped<IEnrollmentValidationRule, CorruptImageRule>();
+            services.AddScoped<IEnrollmentValidationRule, MinimumResolutionRule>();
+            services.AddScoped<IEnrollmentValidationRule, MaximumResolutionRule>();
+            services.AddScoped<IEnrollmentValidationRule, ExactlyOneFaceRule>();
+            services.AddScoped<IEnrollmentValidationRule, FaceConfidenceRule>();
+            services.AddScoped<IEnrollmentValidationRule, MinimumFaceCropResolutionRule>();
+            services.AddScoped<IEnrollmentValidationRule, FaceCoverageRule>();
+            services.AddScoped<IEnrollmentValidationRule, BlurRule>();
+            services.AddScoped<IEnrollmentValidationRule, PoseRule>();
+            services.AddScoped<IEnrollmentValidationRule, BrightnessRule>();
+            services.AddScoped<IEnrollmentValidationRule, ContrastRule>();
+
+            foreach (var futureRule in FutureValidationRuleFactory.CreateRules())
+            {
+                services.AddSingleton<IEnrollmentValidationRule>(futureRule);
+            }
         }
     }
 }
