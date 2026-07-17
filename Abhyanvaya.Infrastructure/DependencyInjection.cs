@@ -16,6 +16,7 @@ using Abhyanvaya.Infrastructure.ClassroomAttendance;
 using Abhyanvaya.Infrastructure.ClassroomAttendance.Persistence;
 using Abhyanvaya.Infrastructure.ModelLifecycle;
 using Abhyanvaya.Infrastructure.ModelLifecycle.Persistence;
+using Abhyanvaya.Infrastructure.Operations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -197,6 +198,9 @@ namespace Abhyanvaya.Infrastructure
             services.AddScoped<IRecognitionMetricsService, RecognitionMetricsService>();
             services.AddScoped<IRecognitionQualityEngine, RecognitionQualityEngine>();
             services.AddScoped<IContinuousLearningCoordinator, ContinuousLearningCoordinator>();
+
+            // AI20.PHASE2.6: enterprise AI operations, observability, and production readiness.
+            services.AddAIOperationsPlatform();
 
             services.AddHostedService<StudentFaceEmbeddingBackgroundService>();
             services.AddHostedService<ClassroomRecognitionBackgroundService>();
