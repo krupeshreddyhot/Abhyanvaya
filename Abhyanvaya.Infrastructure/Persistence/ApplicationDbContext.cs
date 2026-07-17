@@ -72,6 +72,9 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<StudentEnrollmentProgressSnapshot> StudentEnrollmentProgressSnapshots =>
             Set<StudentEnrollmentProgressSnapshot>();
         public IQueryable<EnrollmentStorageRecord> EnrollmentStorageRecords => Set<EnrollmentStorageRecord>();
+        public IQueryable<EnrollmentEmbeddingVersionSnapshot> EnrollmentEmbeddingVersionSnapshots =>
+            Set<EnrollmentEmbeddingVersionSnapshot>();
+        public IQueryable<EnrollmentPersistenceAudit> EnrollmentPersistenceAudits => Set<EnrollmentPersistenceAudit>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

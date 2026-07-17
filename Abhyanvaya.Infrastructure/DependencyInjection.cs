@@ -28,6 +28,7 @@ using Abhyanvaya.Infrastructure.Enrollment.Storage;
 using Abhyanvaya.Infrastructure.Enrollment.Storage.ArtifactTypes;
 using Abhyanvaya.Infrastructure.Enrollment.Storage.Pipeline;
 using Abhyanvaya.Infrastructure.Enrollment.Embedding;
+using Abhyanvaya.Infrastructure.Enrollment.Persistence;
 using Abhyanvaya.Infrastructure.Enrollment.Versioning;
 using Abhyanvaya.Infrastructure.Enrollment.PhotoProviders;
 using Abhyanvaya.Infrastructure.Resilience;
@@ -194,6 +195,13 @@ namespace Abhyanvaya.Infrastructure
             services.AddScoped<IEmbeddingEngine, InsightFaceEmbeddingEngine>();
             services.AddScoped<IEmbeddingQualityAnalyzer, EmbeddingQualityAnalyzer>();
             services.AddScoped<IEnrollmentEmbeddingService, EnrollmentEmbeddingService>();
+
+            // AI20.PHASE2.1.7: enrollment result writer (sole embedding persistence owner).
+            services.AddSingleton<IEnrollmentPersistenceMetrics, NoOpEnrollmentPersistenceMetrics>();
+            services.AddScoped<IEnrollmentPersistencePolicy, DefaultEnrollmentPersistencePolicy>();
+            services.AddScoped<IEnrollmentPersistenceRepository, EnrollmentPersistenceRepository>();
+            services.AddScoped<IEnrollmentDuplicateDetector, EnrollmentDuplicateDetector>();
+            services.AddScoped<IEnrollmentResultWriter, EnrollmentResultWriter>();
 
             return services;
         }

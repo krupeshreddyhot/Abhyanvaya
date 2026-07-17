@@ -98,6 +98,10 @@ namespace Abhyanvaya.Application.Common.Interfaces
 
         IQueryable<EnrollmentStorageRecord> EnrollmentStorageRecords { get; }
 
+        IQueryable<EnrollmentEmbeddingVersionSnapshot> EnrollmentEmbeddingVersionSnapshots { get; }
+
+        IQueryable<EnrollmentPersistenceAudit> EnrollmentPersistenceAudits { get; }
+
         Task AddAsync<T>(T entity) where T : class;
 
         void Remove<T>(T entity) where T : class;
