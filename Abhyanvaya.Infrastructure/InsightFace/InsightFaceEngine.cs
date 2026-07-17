@@ -228,6 +228,17 @@ public sealed class InsightFaceEngine
         return new EnrollmentFaceAnalysisEngineResult(image.Width, image.Height, faces, alignedWebp);
     }
 
+    /// <summary>
+    /// Generates an L2-normalized embedding from a pre-aligned face crop (typically 112×112 WebP).
+    /// Skips detection — enrollment embedding consumes the stored aligned artifact directly.
+    /// </summary>
+    public float[] GenerateEmbeddingFromAlignedFace(Stream alignedFaceStream, CancellationToken cancellationToken = default)
+    {
+        using var image = Image.Load<Rgb24>(alignedFaceStream);
+        cancellationToken.ThrowIfCancellationRequested();
+        return ExtractEmbedding(image);
+    }
+
     private IReadOnlyList<InsightFaceImageMath.FaceCandidate> DetectFaces(Image<Rgb24> image)
     {
         var session = _modelHost.GetDetectionSession();

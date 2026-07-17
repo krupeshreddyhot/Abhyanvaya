@@ -27,6 +27,7 @@ using Abhyanvaya.Infrastructure.Enrollment.Validation.Rules;
 using Abhyanvaya.Infrastructure.Enrollment.Storage;
 using Abhyanvaya.Infrastructure.Enrollment.Storage.ArtifactTypes;
 using Abhyanvaya.Infrastructure.Enrollment.Storage.Pipeline;
+using Abhyanvaya.Infrastructure.Enrollment.Embedding;
 using Abhyanvaya.Infrastructure.Enrollment.Versioning;
 using Abhyanvaya.Infrastructure.Enrollment.PhotoProviders;
 using Abhyanvaya.Infrastructure.Resilience;
@@ -188,6 +189,11 @@ namespace Abhyanvaya.Infrastructure
 
             // AI20.PHASE2.1.5A: enrollment artifact resolver (sole artifact read owner).
             services.AddScoped<IEnrollmentArtifactResolver, EnrollmentArtifactResolver>();
+
+            // AI20.PHASE2.1.6: enrollment embedding service (sole embedding generation owner).
+            services.AddScoped<IEmbeddingEngine, InsightFaceEmbeddingEngine>();
+            services.AddScoped<IEmbeddingQualityAnalyzer, EmbeddingQualityAnalyzer>();
+            services.AddScoped<IEnrollmentEmbeddingService, EnrollmentEmbeddingService>();
 
             return services;
         }
