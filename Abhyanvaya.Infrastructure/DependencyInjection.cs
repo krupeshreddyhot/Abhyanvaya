@@ -29,6 +29,8 @@ using Abhyanvaya.Infrastructure.Enrollment.Storage.ArtifactTypes;
 using Abhyanvaya.Infrastructure.Enrollment.Storage.Pipeline;
 using Abhyanvaya.Infrastructure.Enrollment.Embedding;
 using Abhyanvaya.Infrastructure.Enrollment.Persistence;
+using Abhyanvaya.Infrastructure.Enrollment.Orchestration;
+using Abhyanvaya.Infrastructure.Enrollment.Orchestration.Stages;
 using Abhyanvaya.Infrastructure.Enrollment.Versioning;
 using Abhyanvaya.Infrastructure.Enrollment.PhotoProviders;
 using Abhyanvaya.Infrastructure.Resilience;
@@ -202,6 +204,19 @@ namespace Abhyanvaya.Infrastructure
             services.AddScoped<IEnrollmentPersistenceRepository, EnrollmentPersistenceRepository>();
             services.AddScoped<IEnrollmentDuplicateDetector, EnrollmentDuplicateDetector>();
             services.AddScoped<IEnrollmentResultWriter, EnrollmentResultWriter>();
+
+            // AI20.PHASE2.1.8: enrollment orchestrator and pipeline workflow engine.
+            services.AddSingleton<IEnrollmentPipelineMetrics, NoOpEnrollmentPipelineMetrics>();
+            services.AddScoped<IEnrollmentRetryPolicy, DefaultEnrollmentRetryPolicy>();
+            services.AddScoped<IEnrollmentPipelineStage, DownloadEnrollmentPipelineStage>();
+            services.AddScoped<IEnrollmentPipelineStage, ValidationEnrollmentPipelineStage>();
+            services.AddScoped<IEnrollmentPipelineStage, StorageEnrollmentPipelineStage>();
+            services.AddScoped<IEnrollmentPipelineStage, EmbeddingEnrollmentPipelineStage>();
+            services.AddScoped<IEnrollmentPipelineStage, PersistenceEnrollmentPipelineStage>();
+            services.AddScoped<IEnrollmentPipelineStage, ProgressEnrollmentPipelineStage>();
+            services.AddScoped<IEnrollmentPipelineRegistry, EnrollmentPipelineRegistry>();
+            services.AddScoped<IEnrollmentPipelineExecutor, EnrollmentPipelineExecutor>();
+            services.AddScoped<IEnrollmentOrchestrator, EnrollmentOrchestrator>();
 
             return services;
         }
