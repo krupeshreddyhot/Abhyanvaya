@@ -1,11 +1,16 @@
 ﻿using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Enrollment.Storage;
+using Abhyanvaya.Application.Recognition;
 using Abhyanvaya.Infrastructure.BackgroundWorkers;
 using Abhyanvaya.Infrastructure.Diagnostics;
 using Abhyanvaya.Infrastructure.Diagnostics.MemoryAudit;
 using Abhyanvaya.Infrastructure.Embedding;
 using Abhyanvaya.Infrastructure.InsightFace;
 using Abhyanvaya.Infrastructure.Recognition;
+using Abhyanvaya.Infrastructure.Recognition.Orchestration;
+using Abhyanvaya.Infrastructure.Recognition.Orchestration.Stages;
+using Abhyanvaya.Infrastructure.Recognition.Engine;
+using Abhyanvaya.Infrastructure.Recognition.Persistence;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -119,6 +124,35 @@ namespace Abhyanvaya.Infrastructure
             // (InsightFaceEngine) never sees this interface.
             services.AddScoped<IRecognitionMediaService, RecognitionMediaService>();
             services.AddScoped<IClassroomRecognitionPipeline, ClassroomRecognitionPipeline>();
+
+            // AI20.PHASE2.3: recognition engine and vector search framework.
+            services.AddOptions<RecognitionEngineOptions>()
+                .Bind(configuration.GetSection(RecognitionEngineOptions.SectionName));
+            services.AddSingleton<IRecognitionPipelineMetrics, NoOpRecognitionPipelineMetrics>();
+            services.AddScoped<IRecognitionPolicy, ConfigurableRecognitionPolicy>();
+            services.AddScoped<ISimilarityProvider, CosineSimilarityProvider>();
+            services.AddScoped<ISimilarityProvider, EuclideanSimilarityProvider>();
+            services.AddScoped<ISimilarityProvider, InnerProductSimilarityProvider>();
+            services.AddScoped<SimilarityEngine>();
+            services.AddScoped<ISimilarityEngine>(sp => sp.GetRequiredService<SimilarityEngine>());
+            services.AddScoped<IVectorDatabaseProvider, PostgreSqlVectorDatabaseProvider>();
+            services.AddScoped<IVectorSearchEngine, VectorSearchEngine>();
+            services.AddScoped<IRecognitionDecisionEngine, RecognitionDecisionEngine>();
+            services.AddScoped<IRecognitionRepository, RecognitionRepository>();
+            services.AddScoped<IRecognitionResultWriter, RecognitionResultWriter>();
+            services.AddScoped<IRecognitionCandidateStrategy, AttendanceSessionCandidateStrategy>();
+            services.AddScoped<IRecognitionCandidateStrategy, CourseCandidateStrategy>();
+            services.AddScoped<IRecognitionCandidateStrategy, TenantCandidateStrategy>();
+            services.AddScoped<IRecognitionCandidateProvider, RecognitionCandidateProvider>();
+            services.AddScoped<IRecognitionPipelineStage, EmbeddingRecognitionPipelineStage>();
+            services.AddScoped<IRecognitionPipelineStage, CandidateRetrievalRecognitionPipelineStage>();
+            services.AddScoped<IRecognitionPipelineStage, VectorSearchRecognitionPipelineStage>();
+            services.AddScoped<IRecognitionPipelineStage, SimilarityRecognitionPipelineStage>();
+            services.AddScoped<IRecognitionPipelineStage, DecisionRecognitionPipelineStage>();
+            services.AddScoped<IRecognitionPipelineStage, PersistenceRecognitionPipelineStage>();
+            services.AddScoped<IRecognitionPipelineRegistry, RecognitionPipelineRegistry>();
+            services.AddScoped<IRecognitionPipelineExecutor, RecognitionPipelineExecutor>();
+            services.AddScoped<IRecognitionOrchestrator, RecognitionOrchestrator>();
 
             services.AddHostedService<StudentFaceEmbeddingBackgroundService>();
             services.AddHostedService<ClassroomRecognitionBackgroundService>();
