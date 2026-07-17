@@ -17,6 +17,23 @@ public static class EnrollmentStorageVersions
 {
     public const int StorageSchemaVersion = 1;
     public const int ValidationSchemaVersion = 1;
+    public const int ManifestSchemaVersion = 1;
+    public const int CurrentManifestVersion = 1;
+}
+
+public enum StorageLifecycleTier
+{
+    Hot = 0,
+    Cool = 1,
+    Archive = 2,
+    Delete = 3,
+}
+
+public enum StorageRetentionAction
+{
+    Retain = 0,
+    Archive = 1,
+    Delete = 2,
 }
 
 /// <summary>Extracts artifact bytes and metadata from a validation artifact for storage.</summary>
@@ -102,8 +119,12 @@ public sealed record EnrollmentStorageManifest
     public required Guid StorageGroupId { get; init; }
     public required IReadOnlyList<EnrollmentStorageManifestEntry> Entries { get; init; }
     public required DateTimeOffset CreatedUtc { get; init; }
+    public required int ManifestVersion { get; init; }
+    public required int SchemaVersion { get; init; }
     public required int PipelineVersion { get; init; }
     public required int ValidationVersion { get; init; }
+    public required int StorageVersion { get; init; }
+    public required int ArtifactVersion { get; init; }
     public string? ValidationProfile { get; init; }
     public required Guid CorrelationId { get; init; }
 }
@@ -143,8 +164,12 @@ public sealed record EnrollmentStoragePolicyDecision
 {
     public required IReadOnlySet<string> EnabledArtifactTypes { get; init; }
     public int RetentionDays { get; init; } = 365;
+    public StorageRetentionAction RetentionAction { get; init; } = StorageRetentionAction.Retain;
+    public StorageLifecycleTier LifecycleTier { get; init; } = StorageLifecycleTier.Hot;
     public bool EnableCompression { get; init; }
     public bool EnableEncryption { get; init; }
+    public bool EnableReplication { get; init; }
+    public bool LegalHold { get; init; }
     public string? PreferredProvider { get; init; }
     public string StorageTier { get; init; } = "standard";
 }

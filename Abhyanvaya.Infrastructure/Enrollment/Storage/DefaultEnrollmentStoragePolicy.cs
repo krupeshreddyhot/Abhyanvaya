@@ -21,8 +21,12 @@ internal sealed class DefaultEnrollmentStoragePolicy : IEnrollmentStoragePolicy
         {
             EnabledArtifactTypes = enabled,
             RetentionDays = 365,
+            RetentionAction = StorageRetentionAction.Retain,
+            LifecycleTier = StorageLifecycleTier.Hot,
             EnableCompression = false,
             EnableEncryption = false,
+            EnableReplication = false,
+            LegalHold = false,
             StorageTier = "standard",
         });
     }

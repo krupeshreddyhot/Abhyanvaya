@@ -4,6 +4,7 @@ using Abhyanvaya.Application.Enrollment.Validation;
 using Abhyanvaya.Domain.Entities;
 using Abhyanvaya.Infrastructure.Enrollment.Storage;
 using Abhyanvaya.Infrastructure.Enrollment.Storage.ArtifactTypes;
+using Abhyanvaya.Infrastructure.Enrollment.Storage.Pipeline;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -16,15 +17,10 @@ public sealed class EnrollmentStorageServiceTests
     private readonly Mock<IEnrollmentStorageRecordRepository> _repository = new();
     private readonly Mock<IUnitOfWork> _unitOfWork = new();
     private readonly IChecksumService _checksumService = new Sha256ChecksumService();
-    private readonly IEnrollmentArtifactTypeRegistry _registry;
+    private readonly IEnrollmentArtifactTypeRegistry _registry = EnrollmentStorageTestFactory.CreateRegistry();
 
     public EnrollmentStorageServiceTests()
     {
-        _registry = new EnrollmentArtifactTypeRegistry([
-            new AlignedFaceArtifactTypeDefinition(),
-            new ValidationReportArtifactTypeDefinition(),
-        ]);
-
         _policy.Setup(p => p.ResolveAsync(It.IsAny<EnrollmentStoragePolicyRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new EnrollmentStoragePolicyDecision
             {
@@ -334,12 +330,15 @@ public sealed class EnrollmentStorageServiceTests
 
     private EnrollmentStorageService CreateService() =>
         new(
-            _policy.Object,
-            _registry,
-            _objectStorage.Object,
-            _checksumService,
+            EnrollmentStorageTestFactory.CreatePipelineExecutor(
+                _policy.Object,
+                _registry,
+                _objectStorage.Object,
+                _checksumService,
+                _repository.Object,
+                _unitOfWork.Object,
+                TimeProvider.System),
             _repository.Object,
-            _unitOfWork.Object,
             TimeProvider.System,
             NullLogger<EnrollmentStorageService>.Instance);
 

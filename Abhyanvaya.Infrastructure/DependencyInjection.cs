@@ -26,6 +26,7 @@ using Abhyanvaya.Infrastructure.Enrollment.Validation;
 using Abhyanvaya.Infrastructure.Enrollment.Validation.Rules;
 using Abhyanvaya.Infrastructure.Enrollment.Storage;
 using Abhyanvaya.Infrastructure.Enrollment.Storage.ArtifactTypes;
+using Abhyanvaya.Infrastructure.Enrollment.Storage.Pipeline;
 using Abhyanvaya.Infrastructure.Enrollment.Versioning;
 using Abhyanvaya.Infrastructure.Enrollment.PhotoProviders;
 using Abhyanvaya.Infrastructure.Resilience;
@@ -180,9 +181,33 @@ namespace Abhyanvaya.Infrastructure
             services.AddSingleton<IEnrollmentArtifactTypeRegistry, EnrollmentArtifactTypeRegistry>();
             services.AddScoped<IEnrollmentStoragePolicy, DefaultEnrollmentStoragePolicy>();
             services.AddScoped<IEnrollmentStorageRecordRepository, EnrollmentStorageRecordRepository>();
+            services.AddSingleton<IStorageMetricsCollector, NoOpStorageMetricsCollector>();
+            services.AddSingleton<IEnrollmentArtifactCache, NoOpEnrollmentArtifactCache>();
+            RegisterEnrollmentStoragePipeline(services);
             services.AddScoped<IEnrollmentStorageService, EnrollmentStorageService>();
 
+            // AI20.PHASE2.1.5A: enrollment artifact resolver (sole artifact read owner).
+            services.AddScoped<IEnrollmentArtifactResolver, EnrollmentArtifactResolver>();
+
             return services;
+        }
+
+        private static void RegisterEnrollmentStoragePipeline(IServiceCollection services)
+        {
+            services.AddScoped<IEnrollmentStorageStep, ValidateInputStep>();
+            services.AddScoped<IEnrollmentStorageStep, ResolvePolicyStep>();
+            services.AddScoped<IEnrollmentStorageStep, PrepareArtifactsStep>();
+            services.AddScoped<IEnrollmentStorageStep, ChecksumStep>();
+            services.AddScoped<IEnrollmentStorageStep, CompressionStep>();
+            services.AddScoped<IEnrollmentStorageStep, EncryptionStep>();
+            services.AddScoped<IEnrollmentStorageStep, DuplicateDetectionStep>();
+            services.AddScoped<IEnrollmentStorageStep, UploadStep>();
+            services.AddScoped<IEnrollmentStorageStep, MetadataStep>();
+            services.AddScoped<IEnrollmentStorageStep, ManifestStep>();
+            services.AddScoped<RollbackStep>();
+            services.AddScoped<EnrollmentStoragePipelineExecutor>();
+            services.AddScoped<IEnrollmentStoragePipelineExecutor>(sp =>
+                sp.GetRequiredService<EnrollmentStoragePipelineExecutor>());
         }
 
         private static void RegisterEnrollmentValidationRules(IServiceCollection services)
