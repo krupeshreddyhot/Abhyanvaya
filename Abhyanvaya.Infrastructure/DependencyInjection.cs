@@ -1,4 +1,5 @@
-﻿using Abhyanvaya.Application.Common.Interfaces;
+﻿using Abhyanvaya.Application.ClassroomAttendance;
+using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Enrollment.Storage;
 using Abhyanvaya.Application.Recognition;
 using Abhyanvaya.Infrastructure.BackgroundWorkers;
@@ -11,6 +12,8 @@ using Abhyanvaya.Infrastructure.Recognition.Orchestration;
 using Abhyanvaya.Infrastructure.Recognition.Orchestration.Stages;
 using Abhyanvaya.Infrastructure.Recognition.Engine;
 using Abhyanvaya.Infrastructure.Recognition.Persistence;
+using Abhyanvaya.Infrastructure.ClassroomAttendance;
+using Abhyanvaya.Infrastructure.ClassroomAttendance.Persistence;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -153,6 +156,23 @@ namespace Abhyanvaya.Infrastructure
             services.AddScoped<IRecognitionPipelineRegistry, RecognitionPipelineRegistry>();
             services.AddScoped<IRecognitionPipelineExecutor, RecognitionPipelineExecutor>();
             services.AddScoped<IRecognitionOrchestrator, RecognitionOrchestrator>();
+
+            // AI20.PHASE2.4: classroom recognition orchestration and attendance decision framework.
+            services.AddOptions<ClassroomAttendanceOptions>()
+                .Bind(configuration.GetSection(ClassroomAttendanceOptions.SectionName));
+            services.AddScoped<IAttendancePolicy, ConfigurableAttendancePolicy>();
+            services.AddScoped<IAttendanceSessionManager, AttendanceSessionManager>();
+            services.AddScoped<IAttendanceValidationService, AttendanceValidationService>();
+            services.AddScoped<IAttendanceConflictStrategy, HighestConfidenceConflictStrategy>();
+            services.AddScoped<IAttendanceConflictStrategy, ManualReviewConflictStrategy>();
+            services.AddScoped<IAttendanceConflictResolver, AttendanceConflictResolver>();
+            services.AddScoped<IAttendanceDecisionEngine, AttendanceDecisionEngine>();
+            services.AddScoped<IAttendanceRecognitionRepository, AttendanceRecognitionRepository>();
+            services.AddScoped<IAttendanceResultWriter, AttendanceResultWriter>();
+            services.AddScoped<IMultiFaceRecognitionCoordinator, MultiFaceRecognitionCoordinator>();
+            services.AddScoped<IManualReviewService, ManualReviewService>();
+            services.AddScoped<IAttendanceAnalyticsService, AttendanceAnalyticsService>();
+            services.AddScoped<IClassroomRecognitionOrchestrator, ClassroomRecognitionOrchestrator>();
 
             services.AddHostedService<StudentFaceEmbeddingBackgroundService>();
             services.AddHostedService<ClassroomRecognitionBackgroundService>();
