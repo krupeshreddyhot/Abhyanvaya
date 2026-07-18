@@ -122,6 +122,10 @@ namespace Abhyanvaya.Application.Common.Interfaces
 
         IQueryable<StudentPhotoAcquisitionItem> StudentPhotoAcquisitionItems { get; }
 
+        IQueryable<FaceEnrollmentBatch> FaceEnrollmentBatches { get; }
+
+        IQueryable<FaceEnrollmentJob> FaceEnrollmentJobs { get; }
+
         Task AddAsync<T>(T entity) where T : class;
 
         void Remove<T>(T entity) where T : class;
