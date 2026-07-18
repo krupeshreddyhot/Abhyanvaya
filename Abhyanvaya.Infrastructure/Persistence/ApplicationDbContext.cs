@@ -83,6 +83,8 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<ModelRolloutPlan> ModelRolloutPlans => Set<ModelRolloutPlan>();
         public IQueryable<ModelLifecycleAuditEntry> ModelLifecycleAuditEntries => Set<ModelLifecycleAuditEntry>();
         public IQueryable<RetrainingCandidateEntry> RetrainingCandidateEntries => Set<RetrainingCandidateEntry>();
+        public IQueryable<StudentPhotoAcquisitionBatch> StudentPhotoAcquisitionBatches => Set<StudentPhotoAcquisitionBatch>();
+        public IQueryable<StudentPhotoAcquisitionItem> StudentPhotoAcquisitionItems => Set<StudentPhotoAcquisitionItem>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

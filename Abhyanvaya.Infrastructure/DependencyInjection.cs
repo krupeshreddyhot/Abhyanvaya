@@ -17,6 +17,7 @@ using Abhyanvaya.Infrastructure.ClassroomAttendance.Persistence;
 using Abhyanvaya.Infrastructure.ModelLifecycle;
 using Abhyanvaya.Infrastructure.ModelLifecycle.Persistence;
 using Abhyanvaya.Infrastructure.Operations;
+using Abhyanvaya.Infrastructure.PhotoAcquisition;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -233,6 +234,9 @@ namespace Abhyanvaya.Infrastructure
 
             services.AddScoped<IStudentPhotoProvider, ExamBranchPhotoProvider>();
             services.AddScoped<IStudentPhotoProviderFactory, StudentPhotoProviderFactory>();
+
+            // AI21.PHASE1: enterprise student photo acquisition framework.
+            services.AddPhotoAcquisitionPlatform(configuration);
 
             // AI20.PHASE2.1.2: enrollment batch creation service (create-only scope).
             services.AddOptions<EnrollmentPipelineOptions>()

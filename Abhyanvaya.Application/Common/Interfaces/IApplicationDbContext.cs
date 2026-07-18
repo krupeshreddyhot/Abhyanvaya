@@ -118,6 +118,10 @@ namespace Abhyanvaya.Application.Common.Interfaces
 
         IQueryable<RetrainingCandidateEntry> RetrainingCandidateEntries { get; }
 
+        IQueryable<StudentPhotoAcquisitionBatch> StudentPhotoAcquisitionBatches { get; }
+
+        IQueryable<StudentPhotoAcquisitionItem> StudentPhotoAcquisitionItems { get; }
+
         Task AddAsync<T>(T entity) where T : class;
 
         void Remove<T>(T entity) where T : class;
