@@ -18,6 +18,7 @@ using Abhyanvaya.Infrastructure.ModelLifecycle;
 using Abhyanvaya.Infrastructure.ModelLifecycle.Persistence;
 using Abhyanvaya.Infrastructure.Operations;
 using Abhyanvaya.Infrastructure.ArtifactStorage;
+using Abhyanvaya.Infrastructure.ProductionReadiness;
 using Abhyanvaya.Infrastructure.FaceEnrollment;
 using Abhyanvaya.Infrastructure.PhotoAcquisition;
 using Microsoft.Extensions.Configuration;
@@ -245,6 +246,9 @@ namespace Abhyanvaya.Infrastructure
 
             // AI21.PHASE3: enterprise artifact storage platform (consumes artifact upload queue).
             services.AddArtifactStoragePlatform(configuration);
+
+            // AI21.PHASE4: enterprise production deployment and go-live readiness.
+            services.AddProductionReadinessPlatform(configuration);
 
             // AI20.PHASE2.1.2: enrollment batch creation service (create-only scope).
             services.AddOptions<EnrollmentPipelineOptions>()
