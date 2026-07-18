@@ -126,6 +126,10 @@ namespace Abhyanvaya.Application.Common.Interfaces
 
         IQueryable<FaceEnrollmentJob> FaceEnrollmentJobs { get; }
 
+        IQueryable<ArtifactRegistryEntry> ArtifactRegistryEntries { get; }
+
+        IQueryable<ArtifactStorageManifest> ArtifactStorageManifests { get; }
+
         Task AddAsync<T>(T entity) where T : class;
 
         void Remove<T>(T entity) where T : class;

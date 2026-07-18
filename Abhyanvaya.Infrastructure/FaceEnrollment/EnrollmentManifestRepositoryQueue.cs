@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using Abhyanvaya.Application.ArtifactStorage;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.FaceEnrollment;
 using Abhyanvaya.Domain.Entities;
@@ -82,23 +83,23 @@ public sealed class EnrollmentReportService : IEnrollmentReportService
 
 public sealed class ArtifactUploadQueue : IArtifactUploadQueue
 {
-    private readonly Channel<EnrollmentArtifact> _channel = Channel.CreateUnbounded<EnrollmentArtifact>();
+    private readonly Channel<ArtifactUploadRequest> _channel = Channel.CreateUnbounded<ArtifactUploadRequest>();
     private int _depth;
 
     public int QueueDepth => Volatile.Read(ref _depth);
 
-    public ValueTask EnqueueAsync(EnrollmentArtifact artifact, CancellationToken cancellationToken = default)
+    public ValueTask EnqueueAsync(ArtifactUploadRequest request, CancellationToken cancellationToken = default)
     {
         Interlocked.Increment(ref _depth);
-        return _channel.Writer.WriteAsync(artifact, cancellationToken);
+        return _channel.Writer.WriteAsync(request, cancellationToken);
     }
 
-    public async IAsyncEnumerable<EnrollmentArtifact> ReadAllAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<ArtifactUploadRequest> ReadAllAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await foreach (var artifact in _channel.Reader.ReadAllAsync(cancellationToken))
+        await foreach (var request in _channel.Reader.ReadAllAsync(cancellationToken))
         {
             Interlocked.Decrement(ref _depth);
-            yield return artifact;
+            yield return request;
         }
     }
 }

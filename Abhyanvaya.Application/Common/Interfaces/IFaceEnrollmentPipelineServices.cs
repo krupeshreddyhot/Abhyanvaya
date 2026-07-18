@@ -1,3 +1,4 @@
+using Abhyanvaya.Application.ArtifactStorage;
 using Abhyanvaya.Application.FaceEnrollment;
 using Abhyanvaya.Domain.Entities;
 using Abhyanvaya.Domain.Enums;
@@ -97,8 +98,8 @@ public interface IEnrollmentReportService
 
 public interface IArtifactUploadQueue
 {
-    ValueTask EnqueueAsync(EnrollmentArtifact artifact, CancellationToken cancellationToken = default);
-    IAsyncEnumerable<EnrollmentArtifact> ReadAllAsync(CancellationToken cancellationToken = default);
+    ValueTask EnqueueAsync(ArtifactUploadRequest request, CancellationToken cancellationToken = default);
+    IAsyncEnumerable<ArtifactUploadRequest> ReadAllAsync(CancellationToken cancellationToken = default);
     int QueueDepth { get; }
 }
 

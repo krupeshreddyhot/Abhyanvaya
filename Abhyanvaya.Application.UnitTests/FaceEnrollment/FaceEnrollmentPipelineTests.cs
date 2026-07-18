@@ -1,3 +1,4 @@
+using Abhyanvaya.Application.ArtifactStorage;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Enrollment.Validation;
 using Abhyanvaya.Application.FaceEnrollment;
@@ -96,7 +97,18 @@ public sealed class FaceEnrollmentPipelineTests
             Checksum = "ABC",
         };
 
-        await queue.EnqueueAsync(artifact);
+        await queue.EnqueueAsync(new ArtifactUploadRequest
+        {
+            Artifact = artifact,
+            EnrollmentId = Guid.NewGuid(),
+            BatchId = Guid.NewGuid(),
+            PhotoId = Guid.NewGuid(),
+            TenantId = 1,
+            CorrelationId = Guid.NewGuid(),
+            TraceId = Guid.NewGuid(),
+            AlignedFaceBytes = [1, 2, 3],
+            Embedding = [1f, 0f, 0f, 0f],
+        });
         Assert.Equal(1, queue.QueueDepth);
     }
 

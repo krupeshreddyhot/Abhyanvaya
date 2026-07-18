@@ -87,6 +87,8 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<StudentPhotoAcquisitionItem> StudentPhotoAcquisitionItems => Set<StudentPhotoAcquisitionItem>();
         public IQueryable<FaceEnrollmentBatch> FaceEnrollmentBatches => Set<FaceEnrollmentBatch>();
         public IQueryable<FaceEnrollmentJob> FaceEnrollmentJobs => Set<FaceEnrollmentJob>();
+        public IQueryable<ArtifactRegistryEntry> ArtifactRegistryEntries => Set<ArtifactRegistryEntry>();
+        public IQueryable<ArtifactStorageManifest> ArtifactStorageManifests => Set<ArtifactStorageManifest>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

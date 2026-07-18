@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
+using Abhyanvaya.Application.ArtifactStorage;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.FaceEnrollment;
 using Abhyanvaya.Domain.Entities;
@@ -219,7 +220,20 @@ public sealed class EnrollmentBatchProcessor : IEnrollmentBatchProcessor
             await _repository.UpdateJobAsync(job, cancellationToken);
             await _progressTracker.UpdateStateAsync(job.Id, EnrollmentState.Completed, cancellationToken);
 
-            await _uploadQueue.EnqueueAsync(artifact, cancellationToken);
+            await _uploadQueue.EnqueueAsync(new ArtifactUploadRequest
+            {
+                Artifact = artifact,
+                EnrollmentId = context.EnrollmentId,
+                BatchId = context.BatchId,
+                PhotoId = context.PhotoId,
+                TenantId = job.TenantId,
+                CorrelationId = context.CorrelationId,
+                TraceId = context.TraceId,
+                OriginalPhotoBytes = photoBytes,
+                AlignedFaceBytes = alignment.AlignedFaceBytes,
+                Embedding = normalized,
+                OriginalContentType = alignment.ContentType,
+            }, cancellationToken);
             _ = new ArtifactBuilt(context.EnrollmentId, artifact.ManifestId, DateTime.UtcNow);
             _ = new EnrollmentCompleted(context.EnrollmentId, context.BatchId, DateTime.UtcNow);
 

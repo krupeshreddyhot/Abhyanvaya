@@ -17,6 +17,7 @@ using Abhyanvaya.Infrastructure.ClassroomAttendance.Persistence;
 using Abhyanvaya.Infrastructure.ModelLifecycle;
 using Abhyanvaya.Infrastructure.ModelLifecycle.Persistence;
 using Abhyanvaya.Infrastructure.Operations;
+using Abhyanvaya.Infrastructure.ArtifactStorage;
 using Abhyanvaya.Infrastructure.FaceEnrollment;
 using Abhyanvaya.Infrastructure.PhotoAcquisition;
 using Microsoft.Extensions.Configuration;
@@ -241,6 +242,9 @@ namespace Abhyanvaya.Infrastructure
 
             // AI21.PHASE2: enterprise face enrollment pipeline (consumes ReadyForEnrollment photos).
             services.AddFaceEnrollmentPipeline(configuration);
+
+            // AI21.PHASE3: enterprise artifact storage platform (consumes artifact upload queue).
+            services.AddArtifactStoragePlatform(configuration);
 
             // AI20.PHASE2.1.2: enrollment batch creation service (create-only scope).
             services.AddOptions<EnrollmentPipelineOptions>()
