@@ -67,6 +67,28 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<AuditEntry> AuditEntries => Set<AuditEntry>();
         public IQueryable<StudentFaceEmbedding> StudentFaceEmbeddings => Set<StudentFaceEmbedding>();
         public IQueryable<ClassSchedule> ClassSchedules => Set<ClassSchedule>();
+        public IQueryable<StudentEnrollmentBatch> StudentEnrollmentBatches => Set<StudentEnrollmentBatch>();
+        public IQueryable<StudentEnrollmentItem> StudentEnrollmentItems => Set<StudentEnrollmentItem>();
+        public IQueryable<StudentEnrollmentProgressSnapshot> StudentEnrollmentProgressSnapshots =>
+            Set<StudentEnrollmentProgressSnapshot>();
+        public IQueryable<EnrollmentStorageRecord> EnrollmentStorageRecords => Set<EnrollmentStorageRecord>();
+        public IQueryable<EnrollmentEmbeddingVersionSnapshot> EnrollmentEmbeddingVersionSnapshots =>
+            Set<EnrollmentEmbeddingVersionSnapshot>();
+        public IQueryable<EnrollmentPersistenceAudit> EnrollmentPersistenceAudits => Set<EnrollmentPersistenceAudit>();
+        public IQueryable<EnrollmentWorkLease> EnrollmentWorkLeases => Set<EnrollmentWorkLease>();
+        public IQueryable<EnrollmentDeadLetterEntry> EnrollmentDeadLetterEntries => Set<EnrollmentDeadLetterEntry>();
+        public IQueryable<AiModelDefinition> AiModelDefinitions => Set<AiModelDefinition>();
+        public IQueryable<AiModelVersion> AiModelVersions => Set<AiModelVersion>();
+        public IQueryable<GoldenDatasetDefinition> GoldenDatasetDefinitions => Set<GoldenDatasetDefinition>();
+        public IQueryable<ModelRolloutPlan> ModelRolloutPlans => Set<ModelRolloutPlan>();
+        public IQueryable<ModelLifecycleAuditEntry> ModelLifecycleAuditEntries => Set<ModelLifecycleAuditEntry>();
+        public IQueryable<RetrainingCandidateEntry> RetrainingCandidateEntries => Set<RetrainingCandidateEntry>();
+        public IQueryable<StudentPhotoAcquisitionBatch> StudentPhotoAcquisitionBatches => Set<StudentPhotoAcquisitionBatch>();
+        public IQueryable<StudentPhotoAcquisitionItem> StudentPhotoAcquisitionItems => Set<StudentPhotoAcquisitionItem>();
+        public IQueryable<FaceEnrollmentBatch> FaceEnrollmentBatches => Set<FaceEnrollmentBatch>();
+        public IQueryable<FaceEnrollmentJob> FaceEnrollmentJobs => Set<FaceEnrollmentJob>();
+        public IQueryable<ArtifactRegistryEntry> ArtifactRegistryEntries => Set<ArtifactRegistryEntry>();
+        public IQueryable<ArtifactStorageManifest> ArtifactStorageManifests => Set<ArtifactStorageManifest>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -117,6 +139,9 @@ namespace Abhyanvaya.Infrastructure.Persistence
             builder.Entity<AuditEntry>();
             builder.Entity<StudentFaceEmbedding>();
             builder.Entity<ClassSchedule>();
+            builder.Entity<StudentEnrollmentBatch>();
+            builder.Entity<StudentEnrollmentItem>();
+            builder.ApplyConfiguration(new Configurations.StudentEnrollmentProgressSnapshotConfiguration());
 
             builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
 
@@ -343,6 +368,36 @@ namespace Abhyanvaya.Infrastructure.Persistence
             }
 
             foreach (var entry in ChangeTracker.Entries<AttendanceRecognition>())
+            {
+                if (entry.State == EntityState.Added
+                    && (entry.Entity.RowVersion == null || entry.Entity.RowVersion.Length == 0))
+                {
+                    entry.Entity.RowVersion = CreateInitialRowVersion();
+                    entry.Property(x => x.RowVersion).IsModified = true;
+                }
+                else if (entry.State == EntityState.Modified)
+                {
+                    entry.Entity.RowVersion = CreateInitialRowVersion();
+                    entry.Property(x => x.RowVersion).IsModified = true;
+                }
+            }
+
+            foreach (var entry in ChangeTracker.Entries<StudentEnrollmentBatch>())
+            {
+                if (entry.State == EntityState.Added
+                    && (entry.Entity.RowVersion == null || entry.Entity.RowVersion.Length == 0))
+                {
+                    entry.Entity.RowVersion = CreateInitialRowVersion();
+                    entry.Property(x => x.RowVersion).IsModified = true;
+                }
+                else if (entry.State == EntityState.Modified)
+                {
+                    entry.Entity.RowVersion = CreateInitialRowVersion();
+                    entry.Property(x => x.RowVersion).IsModified = true;
+                }
+            }
+
+            foreach (var entry in ChangeTracker.Entries<StudentEnrollmentItem>())
             {
                 if (entry.State == EntityState.Added
                     && (entry.Entity.RowVersion == null || entry.Entity.RowVersion.Length == 0))

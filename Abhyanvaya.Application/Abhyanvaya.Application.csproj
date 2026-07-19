@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Abhyanvaya.IntegrationTests" />
+    <InternalsVisibleTo Include="Abhyanvaya.Application.UnitTests" />
   </ItemGroup>
 
 </Project>

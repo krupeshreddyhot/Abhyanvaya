@@ -32,5 +32,11 @@ namespace Abhyanvaya.API.Common
 
         /// <summary>College tenant Admin role only (JWT <c>TenantId</c> &gt; 0). Excludes Super Admin.</summary>
         public const string TenantCollegeAdminOnly = "TenantCollegeAdminOnly";
+
+        /// <summary>View enrollment dashboard, batches, and student explorer.</summary>
+        public const string CanViewEnrollment = "CanViewEnrollment";
+
+        /// <summary>Create, cancel, and retry enrollment batches.</summary>
+        public const string CanManageEnrollment = "CanManageEnrollment";
     }
 }

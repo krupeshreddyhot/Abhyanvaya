@@ -14,19 +14,29 @@ namespace Abhyanvaya.API.Controllers;
 public sealed class AttendanceRecognitionController : ControllerBase
 {
     private readonly IAttendanceRecognitionReviewService _reviewService;
+    private readonly ITenantContextService _tenantContextService;
 
-    public AttendanceRecognitionController(IAttendanceRecognitionReviewService reviewService)
+    public AttendanceRecognitionController(
+        IAttendanceRecognitionReviewService reviewService,
+        ITenantContextService tenantContextService)
     {
         _reviewService = reviewService;
+        _tenantContextService = tenantContextService;
     }
 
     [HttpGet("~/api/attendance-sessions/{sessionId:guid}/recognitions")]
     [ProducesResponseType(typeof(IReadOnlyList<AttendanceRecognitionReviewDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<IReadOnlyList<AttendanceRecognitionReviewDto>>> GetRecognitionsForSession(
         Guid sessionId,
         CancellationToken cancellationToken)
     {
+        if (this.RequireTenantContext(_tenantContextService, out _) is { } contextError)
+        {
+            return contextError;
+        }
+
         var results = await _reviewService.GetRecognitionsForSessionAsync(sessionId, cancellationToken);
         return Ok(results);
     }
