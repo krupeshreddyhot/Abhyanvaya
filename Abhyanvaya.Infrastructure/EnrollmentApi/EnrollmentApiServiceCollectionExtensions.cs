@@ -12,6 +12,8 @@ public static class EnrollmentApiServiceCollectionExtensions
         services.AddScoped<IEnrollmentHistoryService, EnrollmentHistoryService>();
         services.AddScoped<IBatchCancellationService, BatchCancellationService>();
         services.AddScoped<IBatchRetryService, BatchRetryService>();
+        services.AddScoped<IEnrollmentAuthorizationService, EnrollmentAuthorizationService>();
+        services.AddSingleton<IEnrollmentAuthorizationTelemetry, EnrollmentAuthorizationTelemetry>();
 
         return services;
     }

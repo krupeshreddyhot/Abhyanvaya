@@ -254,7 +254,7 @@ public sealed class EnrollmentHistoryService : IEnrollmentHistoryService
     private readonly IEnrollmentBatchService _batchService;
     private readonly IEnrollmentEligibleStudentQuery _eligibleQuery;
     private readonly IEnrollmentProgressReporter _progressReporter;
-    private readonly IEnrollmentEventPublisher _eventPublisher;
+    private readonly IEnrollmentSignalRPublisher _eventPublisher;
     private readonly IAuditService _auditService;
 
     public EnrollmentHistoryService(
@@ -262,7 +262,7 @@ public sealed class EnrollmentHistoryService : IEnrollmentHistoryService
         IEnrollmentBatchService batchService,
         IEnrollmentEligibleStudentQuery eligibleQuery,
         IEnrollmentProgressReporter progressReporter,
-        IEnrollmentEventPublisher eventPublisher,
+        IEnrollmentSignalRPublisher eventPublisher,
         IAuditService auditService)
     {
         _context = context;
@@ -473,8 +473,8 @@ public sealed class EnrollmentHistoryService : IEnrollmentHistoryService
                 result.BatchId.Value.ToString(),
                 AuditAction.Created,
                 newValues: new { request.CollegeId, request.AcademicYear, request.CourseId, request.GroupId, UserId = userId, result.TotalStudents });
-            await _eventPublisher.PublishBatchCreatedAsync(result.BatchId.Value, result.TotalStudents, cancellationToken);
-            await _eventPublisher.PublishBatchStartedAsync(result.BatchId.Value, cancellationToken);
+            await _eventPublisher.PublishBatchCreatedAsync(tenantId, result.BatchId.Value, result.TotalStudents, cancellationToken);
+            await _eventPublisher.PublishBatchStartedAsync(tenantId, result.BatchId.Value, cancellationToken);
         }
 
         return new CreateBatchResponse
@@ -538,12 +538,12 @@ public sealed class EnrollmentHistoryService : IEnrollmentHistoryService
 public sealed class BatchCancellationService : IBatchCancellationService
 {
     private readonly IEnrollmentBatchService _batchService;
-    private readonly IEnrollmentEventPublisher _eventPublisher;
+    private readonly IEnrollmentSignalRPublisher _eventPublisher;
     private readonly IAuditService _auditService;
 
     public BatchCancellationService(
         IEnrollmentBatchService batchService,
-        IEnrollmentEventPublisher eventPublisher,
+        IEnrollmentSignalRPublisher eventPublisher,
         IAuditService auditService)
     {
         _batchService = batchService;
@@ -557,7 +557,7 @@ public sealed class BatchCancellationService : IBatchCancellationService
 
         if (result.Applied)
         {
-            await _eventPublisher.PublishBatchCancelledAsync(batchId, cancellationToken);
+            await _eventPublisher.PublishCancelledAsync(tenantId, batchId, cancellationToken);
             await _auditService.RecordAsync("StudentEnrollmentBatch", batchId.ToString(), Domain.Enums.AuditAction.Cancelled, newValues: new { Action = "Cancel", UserId = userId });
         }
 

@@ -26,6 +26,8 @@ public static class ProductionReadinessServiceCollectionExtensions
         services.AddScoped<IProductionReportService, ProductionReportService>();
         services.AddScoped<ICapacityPlanningService, CapacityPlanningService>();
         services.AddScoped<IProductionValidationScenarioRunner, ProductionValidationScenarioRunner>();
+        services.AddScoped<IEnrollmentConfigurationValidator, EnrollmentConfigurationValidator>();
+        services.AddScoped<IMigrationCompatibilityValidator, MigrationCompatibilityValidator>();
 
         return services;
     }
