@@ -295,36 +295,47 @@ export const EnrollmentDashboardProvider = ({ children }: { children: ReactNode 
   }, [subscribe, refreshDashboard, refreshReadiness, refreshBatches]);
 
   useEffect(() => {
+    if (!token || !hasOperationalContext) return;
+    void enrollmentApiClient.subscribeTenant();
+  }, [token, hasOperationalContext, context?.selectedCollegeId]);
+
+  useEffect(() => {
     if (!token) return;
 
-    void enrollmentApiClient.connectSignalR(token, {
-      onBatchCreated: () => {
-        void refreshBatches();
-        void refreshDashboard();
-      },
-      onBatchProgress: (progress: BatchProgressDto) => {
-        dispatch({ type: "SET_PROGRESS", progress });
-      },
-      onBatchCompleted: () => {
-        void refreshBatches();
-        void refreshDashboard();
-        void refreshReadiness();
-      },
-      onBatchFailed: () => {
-        void refreshBatches();
-        void refreshDashboard();
-      },
-      onBatchCancelled: () => {
-        void refreshBatches();
-        void refreshDashboard();
-        void refreshReadiness();
-      },
-    });
+    void enrollmentApiClient
+      .connectSignalR(token, {
+        onBatchCreated: () => {
+          void refreshBatches();
+          void refreshDashboard();
+        },
+        onBatchProgress: (progress: BatchProgressDto) => {
+          dispatch({ type: "SET_PROGRESS", progress });
+        },
+        onBatchCompleted: () => {
+          void refreshBatches();
+          void refreshDashboard();
+          void refreshReadiness();
+        },
+        onBatchFailed: () => {
+          void refreshBatches();
+          void refreshDashboard();
+        },
+        onBatchCancelled: () => {
+          void refreshBatches();
+          void refreshDashboard();
+          void refreshReadiness();
+        },
+      })
+      .then(async () => {
+        if (hasOperationalContext) {
+          await enrollmentApiClient.subscribeTenant();
+        }
+      });
 
     return () => {
       void enrollmentApiClient.disconnectSignalR();
     };
-  }, [token, refreshBatches, refreshDashboard, refreshReadiness]);
+  }, [token, hasOperationalContext, refreshBatches, refreshDashboard, refreshReadiness]);
 
   const value = useMemo<EnrollmentContextValue>(
     () => ({
