@@ -3,6 +3,7 @@ import type {
   AvailableCollegeDto,
   ContextDiagnosticsReport,
   PagedCollegesResult,
+  RecentCollegeEntry,
   RecentCollegesResult,
   SetCollegeContextRequest,
   TenantContextSnapshot,
@@ -24,4 +25,4 @@ export const getContextDiagnostics = () => api.get<ContextDiagnosticsReport>("/c
 export const searchAvailableColleges = (params: { search?: string; page?: number; pageSize?: number }) =>
   api.get<PagedCollegesResult>("/context/available-colleges", { params });
 
-export type { AvailableCollegeDto, TenantContextSnapshot, RecentCollegesResult };
+export type { AvailableCollegeDto, RecentCollegeEntry, TenantContextSnapshot, RecentCollegesResult };
