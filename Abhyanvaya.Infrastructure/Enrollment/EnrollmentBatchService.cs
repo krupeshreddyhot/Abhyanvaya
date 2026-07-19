@@ -291,28 +291,10 @@ public sealed class EnrollmentBatchService : IEnrollmentBatchService
         }
 
         var utcNow = _clock.GetUtcNow().UtcDateTime;
-        var items = await _itemRepository.GetByBatchAsync(batchId, cancellationToken: cancellationToken);
-        var terminalStatuses = new HashSet<EnrollmentStatus>
-        {
-            EnrollmentStatus.Completed,
-            EnrollmentStatus.Failed,
-            EnrollmentStatus.Cancelled,
-        };
 
         await _unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
-            foreach (var item in items)
-            {
-                if (terminalStatuses.Contains(item.Status))
-                {
-                    continue;
-                }
-
-                item.Status = EnrollmentStatus.Cancelled;
-                item.CompletedUtc ??= utcNow;
-                item.RowVersion = Guid.NewGuid().ToByteArray();
-                await _itemRepository.UpdateItemAsync(item, ct);
-            }
+            await _itemRepository.CancelNonTerminalItemsAsync(batchId, utcNow, ct);
 
             batch.CancellationRequestedUtc = utcNow;
             batch.Status = BatchStatus.Cancelled;
@@ -322,10 +304,19 @@ public sealed class EnrollmentBatchService : IEnrollmentBatchService
             batch.ValidatingCount = 0;
             batch.EmbeddingCount = 0;
             batch.RetryRequiredCount = 0;
-            batch.CompletedCount = items.Count(i => i.Status == EnrollmentStatus.Completed);
-            batch.FailedCount = items.Count(i => i.Status == EnrollmentStatus.Failed);
-            batch.CancelledCount = items.Count(i => i.Status == EnrollmentStatus.Cancelled);
-            batch.RowVersion = Guid.NewGuid().ToByteArray();
+            batch.CompletedCount = await _itemRepository.CountByStatusAsync(
+                batchId,
+                EnrollmentStatus.Completed,
+                ct);
+            batch.FailedCount = await _itemRepository.CountByStatusAsync(
+                batchId,
+                EnrollmentStatus.Failed,
+                ct);
+            batch.CancelledCount = await _itemRepository.CountByStatusAsync(
+                batchId,
+                EnrollmentStatus.Cancelled,
+                ct);
+
             await _batchRepository.UpdateBatchAsync(batch, ct);
             await _unitOfWork.SaveChangesAsync(ct);
         }, cancellationToken);

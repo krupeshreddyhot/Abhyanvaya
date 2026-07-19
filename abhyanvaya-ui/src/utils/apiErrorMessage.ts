@@ -5,6 +5,7 @@ const readObjectMessage = (data: Record<string, unknown>): string | null => {
     "detail",
     "title",
     "message",
+    "Message",
     "error",
     "failureMessage",
     "FailureMessage",
@@ -46,6 +47,9 @@ export const getApiErrorMessage = (error: unknown, fallback = "Request failed.")
 
   return fallback;
 };
+
+export const getEnrollmentApiErrorMessage = (error: unknown, fallback = "Enrollment request failed."): string =>
+  getApiErrorMessage(error, fallback);
 
 /** Upload endpoints use a photo-specific fallback when the API returns no message body. */
 export const getUploadApiErrorMessage = (error: unknown): string =>

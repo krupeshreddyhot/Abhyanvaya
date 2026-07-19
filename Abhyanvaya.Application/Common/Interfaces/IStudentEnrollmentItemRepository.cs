@@ -40,6 +40,14 @@ public interface IStudentEnrollmentItemRepository
 
     Task UpdateItemAsync(StudentEnrollmentItem item, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Cancels all non-terminal items in a batch in one statement (avoids per-row optimistic concurrency failures).
+    /// </summary>
+    Task<int> CancelNonTerminalItemsAsync(
+        Guid batchId,
+        DateTime utcNow,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<StudentEnrollmentItem>> GetFailedItemsAsync(
         Guid batchId,
         CancellationToken cancellationToken = default);

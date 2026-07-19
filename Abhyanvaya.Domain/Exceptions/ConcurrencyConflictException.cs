@@ -31,4 +31,8 @@ public sealed class ConcurrencyConflictException : Exception
     /// <summary>Conflict on another AI attendance entity participating in the same unit of work.</summary>
     public static ConcurrencyConflictException ForAttendanceModule() =>
         new("Attendance data was modified by another user. Please reload and try again.");
+
+    /// <summary>Conflict on a <see cref="Entities.StudentEnrollmentBatch"/> or item row.</summary>
+    public static ConcurrencyConflictException ForEnrollmentBatch() =>
+        new("This enrollment batch was modified by another process. Please reload and try again.");
 }

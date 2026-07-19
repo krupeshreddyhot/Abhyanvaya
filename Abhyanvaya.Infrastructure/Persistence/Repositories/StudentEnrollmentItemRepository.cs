@@ -158,6 +158,30 @@ public sealed class StudentEnrollmentItemRepository : IStudentEnrollmentItemRepo
         return Task.CompletedTask;
     }
 
+    public Task<int> CancelNonTerminalItemsAsync(
+        Guid batchId,
+        DateTime utcNow,
+        CancellationToken cancellationToken = default)
+    {
+        var terminalStatuses = new[]
+        {
+            EnrollmentStatus.Completed,
+            EnrollmentStatus.Failed,
+            EnrollmentStatus.Cancelled,
+        };
+
+        var rowVersion = Guid.NewGuid().ToByteArray();
+
+        return _context.StudentEnrollmentItems
+            .Where(i => i.BatchId == batchId && !terminalStatuses.Contains(i.Status))
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(i => i.Status, EnrollmentStatus.Cancelled)
+                    .SetProperty(i => i.CompletedUtc, i => i.CompletedUtc ?? utcNow)
+                    .SetProperty(i => i.RowVersion, rowVersion),
+                cancellationToken);
+    }
+
     public async Task<IReadOnlyList<StudentEnrollmentItem>> GetFailedItemsAsync(
         Guid batchId,
         CancellationToken cancellationToken = default) =>
