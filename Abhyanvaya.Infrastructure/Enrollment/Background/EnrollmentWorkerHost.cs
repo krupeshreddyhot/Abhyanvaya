@@ -47,18 +47,13 @@ public sealed class EnrollmentWorkerHost : IEnrollmentWorkerHost
 
         try
         {
-            await using var scope = _scopeFactory.CreateAsyncScope();
-            var worker = scope.ServiceProvider.GetRequiredService<EnrollmentProcessingWorker>();
-
-            _logger.LogInformation(
-                "Enrollment worker started. WorkerIndex={WorkerIndex} WorkerId={WorkerId}",
-                workerIndex,
-                worker.WorkerId);
-
             while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
+                    await using var scope = _scopeFactory.CreateAsyncScope();
+                    var worker = scope.ServiceProvider.GetRequiredService<EnrollmentProcessingWorker>();
+
                     var result = await worker.ProcessNextAsync(cancellationToken);
                     if (result != null)
                     {
