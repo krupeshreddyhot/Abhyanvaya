@@ -90,6 +90,46 @@ namespace Abhyanvaya.Application.Common.Interfaces
 
         IQueryable<ClassSchedule> ClassSchedules { get; }
 
+        IQueryable<StudentEnrollmentBatch> StudentEnrollmentBatches { get; }
+
+        IQueryable<StudentEnrollmentItem> StudentEnrollmentItems { get; }
+
+        IQueryable<StudentEnrollmentProgressSnapshot> StudentEnrollmentProgressSnapshots { get; }
+
+        IQueryable<EnrollmentStorageRecord> EnrollmentStorageRecords { get; }
+
+        IQueryable<EnrollmentEmbeddingVersionSnapshot> EnrollmentEmbeddingVersionSnapshots { get; }
+
+        IQueryable<EnrollmentPersistenceAudit> EnrollmentPersistenceAudits { get; }
+
+        IQueryable<EnrollmentWorkLease> EnrollmentWorkLeases { get; }
+
+        IQueryable<EnrollmentDeadLetterEntry> EnrollmentDeadLetterEntries { get; }
+
+        IQueryable<AiModelDefinition> AiModelDefinitions { get; }
+
+        IQueryable<AiModelVersion> AiModelVersions { get; }
+
+        IQueryable<GoldenDatasetDefinition> GoldenDatasetDefinitions { get; }
+
+        IQueryable<ModelRolloutPlan> ModelRolloutPlans { get; }
+
+        IQueryable<ModelLifecycleAuditEntry> ModelLifecycleAuditEntries { get; }
+
+        IQueryable<RetrainingCandidateEntry> RetrainingCandidateEntries { get; }
+
+        IQueryable<StudentPhotoAcquisitionBatch> StudentPhotoAcquisitionBatches { get; }
+
+        IQueryable<StudentPhotoAcquisitionItem> StudentPhotoAcquisitionItems { get; }
+
+        IQueryable<FaceEnrollmentBatch> FaceEnrollmentBatches { get; }
+
+        IQueryable<FaceEnrollmentJob> FaceEnrollmentJobs { get; }
+
+        IQueryable<ArtifactRegistryEntry> ArtifactRegistryEntries { get; }
+
+        IQueryable<ArtifactStorageManifest> ArtifactStorageManifests { get; }
+
         Task AddAsync<T>(T entity) where T : class;
 
         void Remove<T>(T entity) where T : class;

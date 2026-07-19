@@ -187,6 +187,58 @@ public sealed class InsightFaceEngine
         return ExtractEmbedding(aligned);
     }
 
+    /// <summary>
+    /// Detection + single-face alignment for enrollment validation — no embedding extraction.
+    /// Reuses private <see cref="DetectFaces"/> and <see cref="InsightFaceImageMath.AlignFace"/>.
+    /// </summary>
+    public async Task<EnrollmentFaceAnalysisEngineResult> AnalyzeForEnrollmentValidationAsync(
+        byte[] imageBytes,
+        CancellationToken cancellationToken = default)
+    {
+        using var image = Image.Load<Rgb24>(imageBytes);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var candidates = DetectFaces(image);
+        var faces = new List<EnrollmentFaceAnalysisEngineFace>(candidates.Count);
+
+        foreach (var candidate in candidates)
+        {
+            var bbox = InsightFaceImageMath.ToBoundingBox(candidate);
+            faces.Add(new EnrollmentFaceAnalysisEngineFace(
+                candidate.Score,
+                bbox.X,
+                bbox.Y,
+                bbox.Width,
+                bbox.Height,
+                candidate.Landmarks));
+        }
+
+        byte[]? alignedWebp = null;
+        if (candidates.Count == 1)
+        {
+            using var aligned = InsightFaceImageMath.AlignFace(
+                image,
+                candidates[0].Landmarks,
+                _options.RecognitionInputSize);
+            await using var ms = new MemoryStream(8192);
+            await aligned.SaveAsWebpAsync(ms, cancellationToken);
+            alignedWebp = ms.ToArray();
+        }
+
+        return new EnrollmentFaceAnalysisEngineResult(image.Width, image.Height, faces, alignedWebp);
+    }
+
+    /// <summary>
+    /// Generates an L2-normalized embedding from a pre-aligned face crop (typically 112×112 WebP).
+    /// Skips detection — enrollment embedding consumes the stored aligned artifact directly.
+    /// </summary>
+    public float[] GenerateEmbeddingFromAlignedFace(Stream alignedFaceStream, CancellationToken cancellationToken = default)
+    {
+        using var image = Image.Load<Rgb24>(alignedFaceStream);
+        cancellationToken.ThrowIfCancellationRequested();
+        return ExtractEmbedding(image);
+    }
+
     private IReadOnlyList<InsightFaceImageMath.FaceCandidate> DetectFaces(Image<Rgb24> image)
     {
         var session = _modelHost.GetDetectionSession();

@@ -22,6 +22,116 @@ namespace Abhyanvaya.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.AiModelDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("ModelKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("ModelType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ModelKey")
+                        .IsUnique();
+
+                    b.ToTable("AiModelDefinitions", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.AiModelVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Accuracy")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime?>("ActivatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Checksum")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DatasetVersion")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EmbeddingVersion")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ModelDefinitionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("PipelineVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RecognitionVersion")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("RetiredUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Signature")
+                        .HasColumnType("text");
+
+                    b.Property<int>("State")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("TrainingDateUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("ModelDefinitionId", "Version")
+                        .IsUnique();
+
+                    b.ToTable("AiModelVersions", (string)null);
+                });
+
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.ApplicationRole", b =>
                 {
                     b.Property<int>("Id")
@@ -209,6 +319,135 @@ namespace Abhyanvaya.Infrastructure.Migrations
                             ApplicationRoleId = 101,
                             PermissionId = 11
                         });
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.ArtifactRegistryEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ArchivedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ArtifactType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("ArtifactVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Bucket")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Checksum")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("EnrollmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ManifestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.Property<string>("StorageProvider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<int>("StorageVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TraceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("VerificationResultJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime?>("VerifiedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Checksum");
+
+                    b.HasIndex("BatchId", "EnrollmentId", "ArtifactType")
+                        .IsUnique();
+
+                    b.ToTable("ArtifactRegistryEntry", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.ArtifactStorageManifest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("EnrollmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ManifestJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("ManifestVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("VerifiedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.ToTable("ArtifactStorageManifest", (string)null);
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Attendance", b =>
@@ -1320,6 +1559,461 @@ namespace Abhyanvaya.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.EnrollmentDeadLetterEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ExceptionSummary")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("FailureReason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RetryHistoryJson")
+                        .HasColumnType("text");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_EnrollmentDeadLetterEntry_Item");
+
+                    b.ToTable("EnrollmentDeadLetterEntry", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.EnrollmentEmbeddingVersionSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ArtifactVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EmbeddingModel")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("EmbeddingModelVersion")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("EnrollmentItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FrameworkVersion")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<int>("ManifestVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OnnxVersion")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("PipelineVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StorageVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("StudentFaceEmbeddingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ValidationVersion")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EnrollmentItemId");
+
+                    b.HasIndex("StudentFaceEmbeddingId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_EnrollmentEmbeddingVersionSnapshot_Embedding");
+
+                    b.ToTable("EnrollmentEmbeddingVersionSnapshot", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.EnrollmentPersistenceAudit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid?>("EmbeddingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("EnrollmentItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ModelVersion")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("PipelineVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StorageVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("TimestampUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ValidationVersion")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EnrollmentItemId", "TimestampUtc")
+                        .HasDatabaseName("IX_EnrollmentPersistenceAudit_Item_Timestamp");
+
+                    b.ToTable("EnrollmentPersistenceAudit", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.EnrollmentStorageRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AcademicYear")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ArtifactType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("ArtifactVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Checksum")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("CollegeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("ImageHeight")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ImageWidth")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ObjectKey")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("PipelineVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("StorageGroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("StorageProvider")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("StorageVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ValidationProfile")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("ValidationVersion")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StorageGroupId")
+                        .HasDatabaseName("IX_EnrollmentStorageRecord_StorageGroupId");
+
+                    b.HasIndex("TenantId", "StudentId", "ArtifactType", "ArtifactVersion")
+                        .IsUnique()
+                        .HasDatabaseName("UX_EnrollmentStorageRecord_Tenant_Student_Type_Version");
+
+                    b.HasIndex("TenantId", "StudentId", "ArtifactType", "Checksum")
+                        .HasDatabaseName("IX_EnrollmentStorageRecord_Tenant_Student_Type_Checksum");
+
+                    b.ToTable("EnrollmentStorageRecord", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.EnrollmentWorkLease", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AcquiredUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ExpiresUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("HeartbeatUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("LeaseVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("NodeId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("PipelineState")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ReleasedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("RenewalCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("WorkerId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_EnrollmentWorkLease_ActiveItem")
+                        .HasFilter("\"IsActive\" = TRUE");
+
+                    b.HasIndex("IsActive", "ExpiresUtc")
+                        .HasDatabaseName("IX_EnrollmentWorkLease_Active_Expires");
+
+                    b.ToTable("EnrollmentWorkLease", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.FaceEnrollmentBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AcquisitionBatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("CompletedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("CompletedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DuplicateCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("FailedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ManifestJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("State")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TotalItems")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("FaceEnrollmentBatch", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.FaceEnrollmentJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AcquisitionBatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AcquisitionItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ArtifactJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FailureReason")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("LastStateChangeUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("QualityScore")
+                        .HasColumnType("numeric");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("StartedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("State")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StudentNumber")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TraceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId", "StudentId")
+                        .IsUnique();
+
+                    b.ToTable("FaceEnrollmentJob", (string)null);
+                });
+
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Gender", b =>
                 {
                     b.Property<int>("Id")
@@ -1353,6 +2047,51 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Gender");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.GoldenDatasetDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DatasetKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<bool>("IsImmutable")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("MetadataJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("SamplesJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DatasetKey", "Version")
+                        .IsUnique();
+
+                    b.ToTable("GoldenDatasetDefinitions", (string)null);
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Group", b =>
@@ -1481,6 +2220,90 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Medium");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.ModelLifecycleAuditEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int?>("ActorUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FromVersion")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("ModelDefinitionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("OccurredUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<string>("ToVersion")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ModelLifecycleAuditEntries", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.ModelRolloutPlan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsCanary")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ModelVersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Percentage")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("PolicyType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RolloutKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime>("StartedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .HasColumnType("text");
+
+                    b.Property<int>("TargetState")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ModelVersionId");
+
+                    b.ToTable("ModelRolloutPlans", (string)null);
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Permission", b =>
@@ -1752,6 +2575,41 @@ namespace Abhyanvaya.Infrastructure.Migrations
                             SortOrder = 2,
                             TenantId = 1
                         });
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.RetrainingCandidateEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CorrectionType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("QueuedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("RecognitionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("RetrainingCandidateEntries", (string)null);
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Semester", b =>
@@ -2269,6 +3127,282 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.ToTable("Student");
                 });
 
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentEnrollmentBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AcademicYear")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("CancellationRequestedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CancelledCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("CollegeId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CompletedCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("CompletedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ConfigurationSnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.Property<int>("DownloadingCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("EmbeddingCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("FailedCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("PendingCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("PhotoProviderName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("PipelineVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<int>("Priority")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("RetryRequiredCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTime?>("StartedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TotalStudents")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("UniversityId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ValidatingCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CollegeId");
+
+                    b.HasIndex("TenantId", "Status")
+                        .HasDatabaseName("IX_StudentEnrollmentBatch_Tenant_Status");
+
+                    b.HasIndex("UniversityId", "CollegeId", "AcademicYear")
+                        .HasDatabaseName("IX_StudentEnrollmentBatch_University_College_Year");
+
+                    b.ToTable("StudentEnrollmentBatch", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentEnrollmentItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("ByteSize")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Checksum")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("CompletedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.Property<DateTime?>("DownloadStartedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DownloadedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("EmbeddingStartedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EmbeddingVersion")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int?>("FailureCategory")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ImageHeight")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ImageWidth")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("LastAttemptUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("NextAttemptUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PhotoKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<float?>("QualityScore")
+                        .HasColumnType("real");
+
+                    b.Property<int>("RetryCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("SourceUrl")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<Guid?>("StudentFaceEmbeddingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ValidatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ValidationStartedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentFaceEmbeddingId");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("BatchId", "Status")
+                        .HasDatabaseName("IX_StudentEnrollmentItem_Batch_Status");
+
+                    b.HasIndex("BatchId", "StudentId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_StudentEnrollmentItem_Batch_Student");
+
+                    b.HasIndex("Status", "LastAttemptUtc")
+                        .HasDatabaseName("IX_StudentEnrollmentItem_Status_LastAttempt");
+
+                    b.HasIndex("Status", "NextAttemptUtc")
+                        .HasDatabaseName("IX_StudentEnrollmentItem_Status_NextAttempt");
+
+                    b.HasIndex("TenantId", "StudentId")
+                        .HasDatabaseName("IX_StudentEnrollmentItem_Tenant_Student");
+
+                    b.ToTable("StudentEnrollmentItem", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentEnrollmentProgressSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CapturedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId", "CapturedUtc")
+                        .HasDatabaseName("IX_StudentEnrollmentProgressSnapshot_Batch_CapturedUtc");
+
+                    b.ToTable("StudentEnrollmentProgressSnapshot", (string)null);
+                });
+
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentFaceEmbedding", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2355,6 +3489,132 @@ namespace Abhyanvaya.Infrastructure.Migrations
                         .HasDatabaseName("IX_StudentFaceEmbedding_Tenant_Student");
 
                     b.ToTable("StudentFaceEmbedding", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentPhotoAcquisitionBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AcademicYear")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("CompletedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("FailedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ManifestJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("ProviderName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<int>("ReadyForEnrollmentCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RetryQueuedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SucceededCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TotalItems")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("StudentPhotoAcquisitionBatch", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentPhotoAcquisitionItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CollegeCode")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime?>("CompletedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ContentHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FailureReason")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("NextAttemptUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("PhotoByteSize")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("PhotoBytes")
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("QualityReportJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SourceReference")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StudentNumber")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ValidationReportJson")
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContentHash");
+
+                    b.HasIndex("BatchId", "StudentId")
+                        .IsUnique();
+
+                    b.ToTable("StudentPhotoAcquisitionItem", (string)null);
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentSubject", b =>
@@ -2619,7 +3879,7 @@ namespace Abhyanvaya.Infrastructure.Migrations
                         {
                             Id = 1,
                             CourseId = 1,
-                            CreatedDate = new DateTime(2026, 7, 5, 14, 3, 46, 17, DateTimeKind.Utc).AddTicks(7044),
+                            CreatedDate = new DateTime(2026, 7, 18, 12, 54, 21, 462, DateTimeKind.Utc).AddTicks(8410),
                             GroupId = 1,
                             IsDeleted = false,
                             MustChangePassword = false,
@@ -2650,6 +3910,17 @@ namespace Abhyanvaya.Infrastructure.Migrations
                             UserId = 1,
                             ApplicationRoleId = 100
                         });
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.AiModelVersion", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.AiModelDefinition", "ModelDefinition")
+                        .WithMany("Versions")
+                        .HasForeignKey("ModelDefinitionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ModelDefinition");
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.ApplicationRolePermission", b =>
@@ -2962,6 +4233,56 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.Navigation("Semester");
                 });
 
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.EnrollmentEmbeddingVersionSnapshot", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.StudentEnrollmentItem", "EnrollmentItem")
+                        .WithMany()
+                        .HasForeignKey("EnrollmentItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.StudentFaceEmbedding", "StudentFaceEmbedding")
+                        .WithMany()
+                        .HasForeignKey("StudentFaceEmbeddingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("EnrollmentItem");
+
+                    b.Navigation("StudentFaceEmbedding");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.EnrollmentPersistenceAudit", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.StudentEnrollmentItem", "EnrollmentItem")
+                        .WithMany()
+                        .HasForeignKey("EnrollmentItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("EnrollmentItem");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.EnrollmentWorkLease", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.StudentEnrollmentItem", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.FaceEnrollmentJob", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.FaceEnrollmentBatch", null)
+                        .WithMany("Jobs")
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Group", b =>
                 {
                     b.HasOne("Abhyanvaya.Domain.Entities.Course", "Course")
@@ -2971,6 +4292,17 @@ namespace Abhyanvaya.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Course");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.ModelRolloutPlan", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.AiModelVersion", "ModelVersion")
+                        .WithMany()
+                        .HasForeignKey("ModelVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ModelVersion");
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Semester", b =>
@@ -3180,6 +4512,62 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.Navigation("Semester");
                 });
 
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentEnrollmentBatch", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.College", "College")
+                        .WithMany()
+                        .HasForeignKey("CollegeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.University", "University")
+                        .WithMany()
+                        .HasForeignKey("UniversityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("College");
+
+                    b.Navigation("University");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentEnrollmentItem", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.StudentEnrollmentBatch", "Batch")
+                        .WithMany("Items")
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.StudentFaceEmbedding", "StudentFaceEmbedding")
+                        .WithMany()
+                        .HasForeignKey("StudentFaceEmbeddingId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("Student");
+
+                    b.Navigation("StudentFaceEmbedding");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentEnrollmentProgressSnapshot", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.StudentEnrollmentBatch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+                });
+
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentFaceEmbedding", b =>
                 {
                     b.HasOne("Abhyanvaya.Domain.Entities.Student", "Student")
@@ -3189,6 +4577,17 @@ namespace Abhyanvaya.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentPhotoAcquisitionItem", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.StudentPhotoAcquisitionBatch", "Batch")
+                        .WithMany("Items")
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentSubject", b =>
@@ -3302,6 +4701,11 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.AiModelDefinition", b =>
+                {
+                    b.Navigation("Versions");
+                });
+
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.ApplicationRole", b =>
                 {
                     b.Navigation("ApplicationRolePermissions");
@@ -3331,6 +4735,11 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.Navigation("AttendanceSessions");
                 });
 
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.FaceEnrollmentBatch", b =>
+                {
+                    b.Navigation("Jobs");
+                });
+
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Staff", b =>
                 {
                     b.Navigation("StaffCollegeRoles");
@@ -3350,6 +4759,16 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.Navigation("AttendanceRecognitions");
 
                     b.Navigation("FaceEmbeddings");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentEnrollmentBatch", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.StudentPhotoAcquisitionBatch", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.User", b =>

@@ -15,25 +15,25 @@ namespace Abhyanvaya.API.Controllers
     {
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUser;
+        private readonly ITenantContextService _tenantContextService;
         private readonly ILogger<AttendanceController> _logger;
 
         public ReportsController(
             IApplicationDbContext context,
             ICurrentUserService currentUser,
+            ITenantContextService tenantContextService,
             ILogger<AttendanceController> logger)
         {
             _context = context;
             _currentUser = currentUser;
+            _tenantContextService = tenantContextService;
             _logger = logger;
         }
 
-        private async Task<Student?> FindStudentForReportAsync(string studentNumber, CancellationToken ct)
-        {
-            var q = _context.Students.Where(x => x.StudentNumber == studentNumber);
-            if (_currentUser.TenantId > 0)
-                q = q.Where(x => x.TenantId == _currentUser.TenantId);
-            return await q.FirstOrDefaultAsync(ct);
-        }
+        private async Task<Student?> FindStudentForReportAsync(string studentNumber, int tenantId, CancellationToken ct) =>
+            await _context.Students
+                .Where(x => x.StudentNumber == studentNumber && x.TenantId == tenantId)
+                .FirstOrDefaultAsync(ct);
 
         /// <summary>Legacy Faculty (no staff link) may only run reports for students in their JWT course/group.</summary>
         private IActionResult? LegacyFacultyStudentGate(Student student)
@@ -68,9 +68,14 @@ namespace Abhyanvaya.API.Controllers
         [HttpGet("student")]
         public async Task<IActionResult> GetStudentReport(string studentNumber)
         {
+            if (this.RequireTenantContext(_tenantContextService, out var resolution) is { } contextError)
+            {
+                return contextError;
+            }
+
             var ct = HttpContext.RequestAborted;
 
-            var student = await FindStudentForReportAsync(studentNumber, ct);
+            var student = await FindStudentForReportAsync(studentNumber, resolution.EffectiveTenantId, ct);
             if (student == null)
                 return NotFound();
 
@@ -79,8 +84,7 @@ namespace Abhyanvaya.API.Controllers
                 return legacyGate;
 
             var attendanceQuery = _context.Attendances.Where(x => x.StudentId == student.Id);
-            if (_currentUser.TenantId > 0)
-                attendanceQuery = attendanceQuery.Where(x => x.TenantId == _currentUser.TenantId);
+            attendanceQuery = attendanceQuery.Where(x => x.TenantId == resolution.EffectiveTenantId);
 
             attendanceQuery = await ApplyStaffFacultySubjectFilterAsync(attendanceQuery, ct).ConfigureAwait(false);
 
@@ -101,8 +105,13 @@ namespace Abhyanvaya.API.Controllers
         [HttpGet("subject")]
         public async Task<IActionResult> GetSubjectReport(int subjectId)
         {
+            if (this.RequireTenantContext(_tenantContextService, out var resolution) is { } contextError)
+            {
+                return contextError;
+            }
+
             var subjectRow = await _context.Subjects.AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Id == subjectId && x.TenantId == _currentUser.TenantId);
+                .FirstOrDefaultAsync(x => x.Id == subjectId && x.TenantId == resolution.EffectiveTenantId);
             if (subjectRow == null)
                 return NotFound();
 
@@ -132,9 +141,14 @@ namespace Abhyanvaya.API.Controllers
         [HttpGet("monthly")]
         public async Task<IActionResult> GetMonthlyReport(string studentNumber, int month, int year)
         {
+            if (this.RequireTenantContext(_tenantContextService, out var resolution) is { } contextError)
+            {
+                return contextError;
+            }
+
             var ct = HttpContext.RequestAborted;
 
-            var student = await FindStudentForReportAsync(studentNumber, ct);
+            var student = await FindStudentForReportAsync(studentNumber, resolution.EffectiveTenantId, ct);
             if (student == null)
                 return NotFound();
 
@@ -147,8 +161,7 @@ namespace Abhyanvaya.API.Controllers
                 x.Date.Month == month &&
                 x.Date.Year == year);
 
-            if (_currentUser.TenantId > 0)
-                attendanceQuery = attendanceQuery.Where(x => x.TenantId == _currentUser.TenantId);
+            attendanceQuery = attendanceQuery.Where(x => x.TenantId == resolution.EffectiveTenantId);
 
             attendanceQuery = await ApplyStaffFacultySubjectFilterAsync(attendanceQuery, ct).ConfigureAwait(false);
 

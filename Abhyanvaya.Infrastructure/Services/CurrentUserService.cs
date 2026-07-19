@@ -29,11 +29,14 @@ namespace Abhyanvaya.Infrastructure.Services
         public string Role { get; }
 
         /// <summary>
-        /// Resolves the tenant in priority order: HTTP JWT claim first, then the ambient
-        /// <see cref="ITenantContextAccessor"/> (set by non-HTTP entry points such as background
-        /// workers), then <c>0</c> when no tenant is established.
+        /// Resolves the tenant in priority order: HTTP JWT claim when &gt; 0, then the ambient
+        /// operational context / <see cref="ITenantContextAccessor"/> (SuperAdmin selection or
+        /// non-HTTP workers), then <c>0</c> when no tenant is established.
         /// </summary>
-        public int TenantId => _httpTenantId ?? _tenantContextAccessor.CurrentTenantId ?? 0;
+        public int TenantId =>
+            _httpTenantId is > 0
+                ? _httpTenantId.Value
+                : _tenantContextAccessor.CurrentTenantId ?? 0;
 
         public int StaffId { get; }
         public int CourseId { get; set; }

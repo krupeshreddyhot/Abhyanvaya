@@ -6,10 +6,14 @@ using Abhyanvaya.API.Services;
 using Abhyanvaya.API.Common.Auth.Handlers;
 using Abhyanvaya.API.Common.Auth.Requirements;
 using Abhyanvaya.Application;
+using Abhyanvaya.API.SignalR;
+using Abhyanvaya.API.Hubs;
+using Abhyanvaya.API.Middleware;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Mappings;
 using Abhyanvaya.Infrastructure;
 using Abhyanvaya.Infrastructure.BackgroundWorkers;
+using Abhyanvaya.Infrastructure.ProductionReadiness;
 using Abhyanvaya.Infrastructure.Diagnostics;
 using Abhyanvaya.Infrastructure.InsightFace;
 using Abhyanvaya.Infrastructure.Persistence;
@@ -19,6 +23,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -45,6 +50,16 @@ var jwtKey = jwtSettings["Key"] ?? throw new InvalidOperationException("Jwt:Key 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
+builder.Services.AddHostedService<EnrollmentStartupValidationHostedService>();
+builder.Services.AddSingleton<IEnrollmentSignalRPublisher, EnrollmentSignalRPublisher>();
+builder.Services.AddScoped<IEnrollmentActorPermissions, EnrollmentActorPermissions>();
+builder.Services.Configure<EnrollmentProgressBroadcastOptions>(
+    builder.Configuration.GetSection(EnrollmentProgressBroadcastOptions.SectionName));
+if (builder.Configuration.GetValue<bool>($"{EnrollmentProgressBroadcastOptions.SectionName}:Enabled", true))
+{
+    builder.Services.AddHostedService<EnrollmentProgressBroadcastService>();
+}
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -92,6 +107,7 @@ builder.Services.AddAutoMapper(typeof(StudentMappingProfile).Assembly);
 builder.Services.AddMediaStorage();
 builder.Services.AddStudentPhotoServices();
 builder.Services.AddScoped<Abhyanvaya.Application.Common.Interfaces.IMediaStorageService, ApplicationMediaStorageService>();
+builder.Services.AddScoped<Abhyanvaya.Application.Common.Interfaces.IObjectStorageProvider, ObjectStorageProviderAdapter>();
 builder.Services.AddScoped<IMediaObjectReader, MediaObjectReader>();
 builder.Services.AddScoped<CollegeBrandingService>();
 
@@ -111,6 +127,20 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = jwtIssuer,
         ValidAudience = jwtAudience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+    };
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+            {
+                context.Token = accessToken;
+            }
+
+            return Task.CompletedTask;
+        },
     };
 });
 
@@ -281,6 +311,33 @@ builder.Services.AddAuthorization(options =>
                    && tid > 0;
         });
     });
+
+    options.AddPolicy(AuthorizationPolicies.CanViewEnrollment, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                return true;
+            return ctx.User.HasClaim("permission", PermissionKeys.EnrollmentView)
+                   || ctx.User.HasClaim("permission", PermissionKeys.EnrollmentManage)
+                   || ctx.User.HasClaim("permission", PermissionKeys.StudentsView);
+        });
+    });
+
+    options.AddPolicy(AuthorizationPolicies.CanManageEnrollment, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                return true;
+            return ctx.User.HasClaim("permission", PermissionKeys.EnrollmentManage)
+                   || ctx.User.HasClaim("permission", PermissionKeys.StudentsManage);
+        });
+    });
 });
 builder.Services.AddSingleton<IAuthorizationHandler, HasTenantHandler>();
 
@@ -332,7 +389,8 @@ builder.Services.AddCors(options =>
                 return false;
             })
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
@@ -341,6 +399,13 @@ if (!string.IsNullOrEmpty(portEnv))
     builder.WebHost.UseUrls($"http://+:{portEnv}");
 
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    await using var migrateScope = app.Services.CreateAsyncScope();
+    var dbContext = migrateScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
 
 app.UseExceptionHandler();
 
@@ -411,8 +476,10 @@ app.UseStaticFiles(new StaticFileOptions
     },
 });
 app.UseAuthentication();
+app.UseTenantContext();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<EnrollmentHub>("/hubs/enrollment").RequireCors("AllowReact");
 
 MapPlatformHealthEndpoints(app);
 
