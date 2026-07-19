@@ -6,12 +6,14 @@ using Abhyanvaya.API.Services;
 using Abhyanvaya.API.Common.Auth.Handlers;
 using Abhyanvaya.API.Common.Auth.Requirements;
 using Abhyanvaya.Application;
+using Abhyanvaya.API.SignalR;
 using Abhyanvaya.API.Hubs;
 using Abhyanvaya.API.Middleware;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Mappings;
 using Abhyanvaya.Infrastructure;
 using Abhyanvaya.Infrastructure.BackgroundWorkers;
+using Abhyanvaya.Infrastructure.ProductionReadiness;
 using Abhyanvaya.Infrastructure.Diagnostics;
 using Abhyanvaya.Infrastructure.InsightFace;
 using Abhyanvaya.Infrastructure.Persistence;
@@ -49,7 +51,9 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
-builder.Services.AddSingleton<IEnrollmentEventPublisher, EnrollmentEventPublisher>();
+builder.Services.AddHostedService<EnrollmentStartupValidationHostedService>();
+builder.Services.AddSingleton<IEnrollmentSignalRPublisher, EnrollmentSignalRPublisher>();
+builder.Services.AddScoped<IEnrollmentActorPermissions, EnrollmentActorPermissions>();
 builder.Services.Configure<EnrollmentProgressBroadcastOptions>(
     builder.Configuration.GetSection(EnrollmentProgressBroadcastOptions.SectionName));
 if (builder.Configuration.GetValue<bool>($"{EnrollmentProgressBroadcastOptions.SectionName}:Enabled", true))

@@ -41,13 +41,3 @@ public interface IBatchRetryService
 {
     Task<BatchCommandResponse> RetryAsync(Guid batchId, int tenantId, int userId, CancellationToken cancellationToken = default);
 }
-
-public interface IEnrollmentEventPublisher
-{
-    Task PublishBatchCreatedAsync(Guid batchId, int totalStudents, CancellationToken cancellationToken = default);
-    Task PublishBatchStartedAsync(Guid batchId, CancellationToken cancellationToken = default);
-    Task PublishBatchProgressAsync(BatchProgressDto progress, CancellationToken cancellationToken = default);
-    Task PublishBatchCompletedAsync(Guid batchId, CancellationToken cancellationToken = default);
-    Task PublishBatchFailedAsync(Guid batchId, string reason, CancellationToken cancellationToken = default);
-    Task PublishBatchCancelledAsync(Guid batchId, CancellationToken cancellationToken = default);
-}

@@ -48,7 +48,7 @@ public sealed class EnrollmentProgressBroadcastService : BackgroundService
         await using var scope = _scopeFactory.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<IApplicationDbContext>();
         var history = scope.ServiceProvider.GetRequiredService<IEnrollmentHistoryService>();
-        var publisher = scope.ServiceProvider.GetRequiredService<IEnrollmentEventPublisher>();
+        var publisher = scope.ServiceProvider.GetRequiredService<IEnrollmentSignalRPublisher>();
 
         var activeBatchIds = await context.StudentEnrollmentBatches
             .AsNoTracking()
@@ -61,7 +61,7 @@ public sealed class EnrollmentProgressBroadcastService : BackgroundService
             var progress = await history.GetBatchProgressAsync(batch.Id, batch.TenantId, cancellationToken);
             if (progress is not null)
             {
-                await publisher.PublishBatchProgressAsync(progress, cancellationToken);
+                await publisher.PublishProgressAsync(batch.TenantId, progress, cancellationToken);
             }
         }
     }

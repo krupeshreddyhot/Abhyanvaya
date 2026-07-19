@@ -8,46 +8,74 @@ namespace Abhyanvaya.API.Hubs;
 [Authorize]
 public sealed class EnrollmentHub : Hub
 {
-    public Task SubscribeBatch(Guid batchId) =>
-        Groups.AddToGroupAsync(Context.ConnectionId, BatchGroup(batchId));
+    private readonly IEnrollmentAuthorizationService _authorizationService;
+    private readonly IBatchCancellationService _cancellationService;
+    private readonly IBatchRetryService _retryService;
+    private readonly ITenantContextService _tenantContextService;
+    private readonly ILogger<EnrollmentHub> _logger;
 
-    public static string BatchGroup(Guid batchId) => $"enrollment-batch:{batchId}";
-}
-
-public sealed class EnrollmentEventPublisher : IEnrollmentEventPublisher
-{
-    private readonly IHubContext<EnrollmentHub> _hubContext;
-
-    public EnrollmentEventPublisher(IHubContext<EnrollmentHub> hubContext)
+    public EnrollmentHub(
+        IEnrollmentAuthorizationService authorizationService,
+        IBatchCancellationService cancellationService,
+        IBatchRetryService retryService,
+        ITenantContextService tenantContextService,
+        ILogger<EnrollmentHub> logger)
     {
-        _hubContext = hubContext;
+        _authorizationService = authorizationService;
+        _cancellationService = cancellationService;
+        _retryService = retryService;
+        _tenantContextService = tenantContextService;
+        _logger = logger;
     }
 
-    public Task PublishBatchCreatedAsync(Guid batchId, int totalStudents, CancellationToken cancellationToken = default) =>
-        _hubContext.Clients.All.SendAsync("BatchCreated", new { batchId, totalStudents }, cancellationToken);
+    public async Task SubscribeTenant()
+    {
+        var authorization = await _authorizationService.ValidateTenantAccessAsync(Context.ConnectionAborted);
+        await EnsureAllowedAsync(authorization);
 
-    public Task PublishBatchStartedAsync(Guid batchId, CancellationToken cancellationToken = default) =>
-        _hubContext.Clients.Group(EnrollmentHub.BatchGroup(batchId)).SendAsync("BatchStarted", new { batchId }, cancellationToken);
+        await Groups.AddToGroupAsync(Context.ConnectionId, EnrollmentSignalRGroups.Tenant(authorization.TenantId!.Value));
+        _logger.LogInformation("Enrollment tenant subscription user={UserId} tenantId={TenantId}", Context.UserIdentifier, authorization.TenantId);
+    }
 
-    public Task PublishBatchProgressAsync(BatchProgressDto progress, CancellationToken cancellationToken = default) =>
-        _hubContext.Clients.Group(EnrollmentHub.BatchGroup(progress.BatchId)).SendAsync("BatchProgress", progress, cancellationToken);
+    public async Task SubscribeBatch(Guid batchId)
+    {
+        var authorization = await _authorizationService.CanSubscribeBatchAsync(batchId, Context.ConnectionAborted);
+        await EnsureAllowedAsync(authorization);
 
-    public Task PublishBatchCompletedAsync(Guid batchId, CancellationToken cancellationToken = default) =>
-        _hubContext.Clients.Group(EnrollmentHub.BatchGroup(batchId)).SendAsync("BatchCompleted", new { batchId }, cancellationToken);
+        await Groups.AddToGroupAsync(Context.ConnectionId, EnrollmentSignalRGroups.Batch(batchId));
+        await Groups.AddToGroupAsync(Context.ConnectionId, EnrollmentSignalRGroups.Tenant(authorization.TenantId!.Value));
+        _logger.LogInformation("Enrollment batch subscription user={UserId} batchId={BatchId} tenantId={TenantId}", Context.UserIdentifier, batchId, authorization.TenantId);
+    }
 
-    public Task PublishBatchFailedAsync(Guid batchId, string reason, CancellationToken cancellationToken = default) =>
-        _hubContext.Clients.Group(EnrollmentHub.BatchGroup(batchId)).SendAsync("BatchFailed", new { batchId, reason }, cancellationToken);
+    public async Task CancelBatch(Guid batchId)
+    {
+        var authorization = await _authorizationService.CanCancelBatchAsync(batchId, Context.ConnectionAborted);
+        await EnsureAllowedAsync(authorization);
 
-    public Task PublishBatchCancelledAsync(Guid batchId, CancellationToken cancellationToken = default) =>
-        _hubContext.Clients.Group(EnrollmentHub.BatchGroup(batchId)).SendAsync("BatchCancelled", new { batchId }, cancellationToken);
-}
+        var resolution = _tenantContextService.ResolveForOperation();
+        await _cancellationService.CancelAsync(batchId, resolution.EffectiveTenantId, resolution.UserId, Context.ConnectionAborted);
+    }
 
-public sealed class NoOpEnrollmentEventPublisher : IEnrollmentEventPublisher
-{
-    public Task PublishBatchCreatedAsync(Guid batchId, int totalStudents, CancellationToken cancellationToken = default) => Task.CompletedTask;
-    public Task PublishBatchStartedAsync(Guid batchId, CancellationToken cancellationToken = default) => Task.CompletedTask;
-    public Task PublishBatchProgressAsync(BatchProgressDto progress, CancellationToken cancellationToken = default) => Task.CompletedTask;
-    public Task PublishBatchCompletedAsync(Guid batchId, CancellationToken cancellationToken = default) => Task.CompletedTask;
-    public Task PublishBatchFailedAsync(Guid batchId, string reason, CancellationToken cancellationToken = default) => Task.CompletedTask;
-    public Task PublishBatchCancelledAsync(Guid batchId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public async Task RetryBatch(Guid batchId)
+    {
+        var authorization = await _authorizationService.CanRetryBatchAsync(batchId, Context.ConnectionAborted);
+        await EnsureAllowedAsync(authorization);
+
+        var resolution = _tenantContextService.ResolveForOperation();
+        await _retryService.RetryAsync(batchId, resolution.EffectiveTenantId, resolution.UserId, Context.ConnectionAborted);
+    }
+
+    private static Task EnsureAllowedAsync(EnrollmentAuthorizationResult authorization)
+    {
+        if (authorization.IsAllowed)
+        {
+            return Task.CompletedTask;
+        }
+
+        throw authorization.Decision switch
+        {
+            EnrollmentAuthorizationDecision.ContextRequired => new HubException(authorization.FailureReason ?? "A college context is required for this operation."),
+            _ => new HubException(authorization.FailureReason ?? "Access denied."),
+        };
+    }
 }

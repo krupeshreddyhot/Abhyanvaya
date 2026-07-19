@@ -51,7 +51,7 @@ public sealed class OperationsFrameworkTests
         var scope = new Mock<IServiceScope>();
         var serviceProvider = new Mock<IServiceProvider>();
 
-        scopeFactory.Setup(f => f.CreateAsyncScope()).Returns(new TestAsyncScope(scope.Object));
+        scopeFactory.Setup(f => f.CreateAsyncScope()).Returns(new AsyncServiceScope(scope.Object));
         scope.Setup(s => s.ServiceProvider).Returns(serviceProvider.Object);
         serviceProvider.Setup(p => p.GetService(typeof(IEnumerable<IAIHealthCheckProvider>)))
             .Returns(new IAIHealthCheckProvider[]
@@ -65,19 +65,6 @@ public sealed class OperationsFrameworkTests
 
         Assert.Equal(AIHealthStatus.Offline, report.OverallStatus);
         Assert.Equal(2, report.Checks.Count);
-    }
-
-    private sealed class TestAsyncScope : IAsyncDisposable
-    {
-        private readonly IServiceScope _scope;
-
-        public TestAsyncScope(IServiceScope scope) => _scope = scope;
-
-        public ValueTask DisposeAsync()
-        {
-            _scope.Dispose();
-            return ValueTask.CompletedTask;
-        }
     }
 
     [Fact]
