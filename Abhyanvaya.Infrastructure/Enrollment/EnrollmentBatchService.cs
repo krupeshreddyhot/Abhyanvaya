@@ -262,9 +262,7 @@ public sealed class EnrollmentBatchService : IEnrollmentBatchService
         int tenantId,
         int requestedByUserId,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(EnrollmentCommandResult.NoOp(
-            BatchStatus.Created,
-            "Cancel batch is not implemented in Phase 2.1.2."));
+        CancelBatchCoreAsync(batchId, tenantId, requestedByUserId, cancellationToken);
 
     public Task<EnrollmentCommandResult> ResumeBatchAsync(
         Guid batchId,
@@ -274,6 +272,81 @@ public sealed class EnrollmentBatchService : IEnrollmentBatchService
         Task.FromResult(EnrollmentCommandResult.NoOp(
             BatchStatus.Created,
             "Resume batch is not implemented in Phase 2.1.2."));
+
+    private async Task<EnrollmentCommandResult> CancelBatchCoreAsync(
+        Guid batchId,
+        int tenantId,
+        int requestedByUserId,
+        CancellationToken cancellationToken)
+    {
+        var batch = await _batchRepository.GetBatchAsync(batchId, tenantId, cancellationToken);
+        if (batch is null)
+        {
+            return EnrollmentCommandResult.NoOp(BatchStatus.Created, "Batch not found.");
+        }
+
+        if (batch.Status is BatchStatus.Completed or BatchStatus.Cancelled)
+        {
+            return EnrollmentCommandResult.NoOp(batch.Status, $"Batch is already {batch.Status}.");
+        }
+
+        var utcNow = _clock.GetUtcNow().UtcDateTime;
+        var items = await _itemRepository.GetByBatchAsync(batchId, cancellationToken: cancellationToken);
+        var terminalStatuses = new HashSet<EnrollmentStatus>
+        {
+            EnrollmentStatus.Completed,
+            EnrollmentStatus.Failed,
+            EnrollmentStatus.Cancelled,
+        };
+
+        await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+        {
+            foreach (var item in items)
+            {
+                if (terminalStatuses.Contains(item.Status))
+                {
+                    continue;
+                }
+
+                item.Status = EnrollmentStatus.Cancelled;
+                item.CompletedUtc ??= utcNow;
+                item.RowVersion = Guid.NewGuid().ToByteArray();
+                await _itemRepository.UpdateItemAsync(item, ct);
+            }
+
+            batch.CancellationRequestedUtc = utcNow;
+            batch.Status = BatchStatus.Cancelled;
+            batch.CompletedUtc = utcNow;
+            batch.PendingCount = 0;
+            batch.DownloadingCount = 0;
+            batch.ValidatingCount = 0;
+            batch.EmbeddingCount = 0;
+            batch.RetryRequiredCount = 0;
+            batch.CompletedCount = items.Count(i => i.Status == EnrollmentStatus.Completed);
+            batch.FailedCount = items.Count(i => i.Status == EnrollmentStatus.Failed);
+            batch.CancelledCount = items.Count(i => i.Status == EnrollmentStatus.Cancelled);
+            batch.RowVersion = Guid.NewGuid().ToByteArray();
+            await _batchRepository.UpdateBatchAsync(batch, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+        }, cancellationToken);
+
+        _logger.LogInformation(
+            "Enrollment batch cancelled. BatchId={BatchId} TenantId={TenantId} RequestedByUserId={RequestedByUserId}",
+            batchId,
+            tenantId,
+            requestedByUserId);
+
+        try
+        {
+            _jobQueue.SignalWork();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to signal enrollment workers after batch cancellation.");
+        }
+
+        return EnrollmentCommandResult.Ok(BatchStatus.Cancelled);
+    }
 
     private string ResolvePhotoProviderName(string? requestedProvider)
     {

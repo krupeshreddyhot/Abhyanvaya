@@ -1,6 +1,6 @@
 import api from "../api/axios";
 import type { AttendanceContext } from "../types/attendanceContext";
-import { getApiErrorMessage, isRetryableUploadError } from "../utils/apiErrorMessage";
+import { getUploadApiErrorMessage, isRetryableUploadError } from "../utils/apiErrorMessage";
 import { mapUploadProgressToMilestone, sleep } from "../utils/uploadProgress";
 
 export type CreatePhotoAttendanceSessionResponse = {
@@ -95,12 +95,12 @@ export const uploadClassroomPhoto = async (
     } catch (error) {
       lastError = error;
       if (options?.signal?.aborted || !isRetryableUploadError(error)) {
-        throw new Error(getApiErrorMessage(error, "Classroom photo upload failed."));
+        throw new Error(getUploadApiErrorMessage(error));
       }
     }
   }
 
-  throw new Error(getApiErrorMessage(lastError, "Classroom photo upload failed."));
+  throw new Error(getUploadApiErrorMessage(lastError));
 };
 
 export const getAttendanceSession = async (
