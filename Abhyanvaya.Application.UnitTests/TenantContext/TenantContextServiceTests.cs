@@ -20,38 +20,22 @@ public sealed class TenantContextServiceTests
         var store = new Mock<ITenantContextStore>();
         var accessor = new Mock<ITenantContextAccessor>();
         var audit = new Mock<IAuditService>();
+        var events = new Mock<IContextEventPublisher>();
 
-        var service = new TenantContextService(
-            user,
-            store.Object,
-            Mock.Of<ITenantContextCollegeCatalog>(),
-            accessor.Object,
-            Mock.Of<IApplicationDbContext>(),
-            audit.Object,
-            Mock.Of<Microsoft.Extensions.Logging.ILogger<TenantContextService>>());
+        var service = CreateService(user, store.Object, accessor.Object, audit.Object, events.Object);
 
         await service.ClearContextAsync();
 
         store.Verify(s => s.RemoveAsync(1, It.IsAny<CancellationToken>()), Times.Once);
         accessor.Verify(a => a.Clear(), Times.Once);
-        audit.Verify(
-            a => a.RecordAsync(
-                "TenantContext",
-                "1",
-                AuditAction.Custom,
-                null,
-                It.IsAny<object>(),
-                It.IsAny<CancellationToken>()),
-            Times.Once);
+        events.Verify(e => e.PublishContextClearedAsync(1, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public void ResolveForOperation_SuperAdminWithoutSelection_ReturnsContextRequired()
     {
         var service = CreateService(
-            userId: 1,
-            role: nameof(UserRole.SuperAdmin),
-            tenantId: 0);
+            Mock.Of<ICurrentUserService>(u => u.UserId == 1 && u.Role == nameof(UserRole.SuperAdmin) && u.TenantId == 0));
 
         var resolution = service.ResolveForOperation();
 
@@ -63,9 +47,7 @@ public sealed class TenantContextServiceTests
     public void ResolveForOperation_CollegeAdmin_UsesJwtTenant()
     {
         var service = CreateService(
-            userId: 2,
-            role: nameof(UserRole.Admin),
-            tenantId: 99);
+            Mock.Of<ICurrentUserService>(u => u.UserId == 2 && u.Role == nameof(UserRole.Admin) && u.TenantId == 99));
 
         var resolution = service.ResolveForOperation();
 
@@ -77,9 +59,7 @@ public sealed class TenantContextServiceTests
     public async Task SetCurrentContextAsync_NonSuperAdmin_ReturnsNotAllowed()
     {
         var service = CreateService(
-            userId: 3,
-            role: nameof(UserRole.Admin),
-            tenantId: 5);
+            Mock.Of<ICurrentUserService>(u => u.UserId == 3 && u.Role == nameof(UserRole.Admin) && u.TenantId == 5));
 
         var result = await service.SetCurrentContextAsync(10);
 
@@ -104,10 +84,8 @@ public sealed class TenantContextServiceTests
             });
 
         var service = CreateService(
-            userId: 1,
-            role: nameof(UserRole.SuperAdmin),
-            tenantId: 0,
-            store: store.Object);
+            Mock.Of<ICurrentUserService>(u => u.UserId == 1 && u.Role == nameof(UserRole.SuperAdmin) && u.TenantId == 0),
+            store.Object);
 
         var result = await service.ValidateContextAsync();
 
@@ -116,16 +94,21 @@ public sealed class TenantContextServiceTests
     }
 
     private static TenantContextService CreateService(
-        int userId,
-        string role,
-        int tenantId,
-        ITenantContextStore? store = null) =>
+        ICurrentUserService user,
+        ITenantContextStore? store = null,
+        ITenantContextAccessor? accessor = null,
+        IAuditService? audit = null,
+        IContextEventPublisher? events = null) =>
         new(
-            Mock.Of<ICurrentUserService>(u => u.UserId == userId && u.Role == role && u.TenantId == tenantId),
+            user,
             store ?? Mock.Of<ITenantContextStore>(),
             Mock.Of<ITenantContextCollegeCatalog>(),
-            Mock.Of<ITenantContextAccessor>(),
+            accessor ?? Mock.Of<ITenantContextAccessor>(),
             Mock.Of<IApplicationDbContext>(),
-            Mock.Of<IAuditService>(),
+            audit ?? Mock.Of<IAuditService>(),
+            Mock.Of<IRecentContextService>(),
+            new ContextExpirationService(Microsoft.Extensions.Options.Options.Create(new ContextPlatformOptions())),
+            events ?? Mock.Of<IContextEventPublisher>(),
+            new ContextOperationalMetricsCollector(),
             Mock.Of<Microsoft.Extensions.Logging.ILogger<TenantContextService>>());
 }

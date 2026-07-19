@@ -14,6 +14,10 @@ public sealed class TenantContextService : ITenantContextService
     private readonly ITenantContextAccessor _tenantContextAccessor;
     private readonly IApplicationDbContext _context;
     private readonly IAuditService _auditService;
+    private readonly IRecentContextService _recentContext;
+    private readonly IContextExpirationService _expiration;
+    private readonly IContextEventPublisher _events;
+    private readonly IContextOperationalMetricsCollector _metrics;
     private readonly ILogger<TenantContextService> _logger;
 
     private TenantContextSnapshot? _requestCache;
@@ -25,6 +29,10 @@ public sealed class TenantContextService : ITenantContextService
         ITenantContextAccessor tenantContextAccessor,
         IApplicationDbContext context,
         IAuditService auditService,
+        IRecentContextService recentContext,
+        IContextExpirationService expiration,
+        IContextEventPublisher events,
+        IContextOperationalMetricsCollector metrics,
         ILogger<TenantContextService> logger)
     {
         _currentUser = currentUser;
@@ -33,6 +41,10 @@ public sealed class TenantContextService : ITenantContextService
         _tenantContextAccessor = tenantContextAccessor;
         _context = context;
         _auditService = auditService;
+        _recentContext = recentContext;
+        _expiration = expiration;
+        _events = events;
+        _metrics = metrics;
         _logger = logger;
     }
 
@@ -46,6 +58,12 @@ public sealed class TenantContextService : ITenantContextService
         if (IsSuperAdmin())
         {
             var stored = await _store.GetAsync(_currentUser.UserId, cancellationToken);
+            if (stored is not null && _expiration.IsExpired(stored))
+            {
+                await ExpireStoredContextAsync(_currentUser.UserId, stored, cancellationToken);
+                stored = null;
+            }
+
             _requestCache = stored ?? BuildGlobalContext("Session");
             return _requestCache;
         }
@@ -80,9 +98,11 @@ public sealed class TenantContextService : ITenantContextService
         var validation = catalogImpl.ValidateCollegeRow(college);
         if (!validation.IsValid)
         {
+            _metrics.RecordContextValidationFailed();
             return validation;
         }
 
+        var now = DateTime.UtcNow;
         var snapshot = new TenantContextSnapshot
         {
             UserId = _currentUser.UserId,
@@ -92,7 +112,8 @@ public sealed class TenantContextService : ITenantContextService
             SelectedCollegeCode = college.Code,
             TenantId = college.TenantId,
             ContextType = ContextType.College,
-            CreatedUtc = DateTime.UtcNow,
+            CreatedUtc = now,
+            ExpiresUtc = _expiration.ComputeExpiresUtc(now),
             IsGlobal = false,
             ContextSource = "OperationalSelection",
         };
@@ -100,11 +121,27 @@ public sealed class TenantContextService : ITenantContextService
         await _store.SetAsync(_currentUser.UserId, snapshot, cancellationToken);
         _requestCache = snapshot;
 
+        await _recentContext.RecordCollegeSelectionAsync(
+            _currentUser.UserId,
+            new AvailableCollegeDto
+            {
+                Id = college.Id,
+                TenantId = college.TenantId,
+                Name = college.Name,
+                Code = college.Code,
+                Status = college.IsDeleted ? "Deleted" : "Active",
+                AiEnabled = true,
+            },
+            cancellationToken);
+
         await _auditService.RecordAsync(
             "TenantContext",
             college.Id.ToString(),
             AuditAction.Custom,
-            newValues: new { Action = "ContextSelected", college.Id, college.Name, college.TenantId });
+            newValues: new { Action = "ContextSelected", college.Id, college.Name, college.TenantId, snapshot.ExpiresUtc });
+
+        _metrics.RecordContextSwitch(college.TenantId);
+        await _events.PublishContextChangedAsync(snapshot, cancellationToken);
 
         _logger.LogInformation(
             "Tenant context selected. UserId={UserId} CollegeId={CollegeId} TenantId={TenantId}",
@@ -134,6 +171,8 @@ public sealed class TenantContextService : ITenantContextService
             AuditAction.Custom,
             newValues: new { Action = "ContextCleared" });
 
+        await _events.PublishContextClearedAsync(_currentUser.UserId, cancellationToken);
+
         _logger.LogInformation("Tenant context cleared for UserId={UserId}", _currentUser.UserId);
     }
 
@@ -142,20 +181,36 @@ public sealed class TenantContextService : ITenantContextService
         var context = await GetCurrentContextAsync(cancellationToken);
         if (context is null || context.IsGlobal)
         {
+            _metrics.RecordContextValidationFailed();
             return TenantContextValidationResult.Failure("ContextRequired", "A college context is required.");
         }
 
         if (context.SelectedCollegeId is not int collegeId)
         {
+            _metrics.RecordContextValidationFailed();
             return TenantContextValidationResult.Failure("ContextRequired", "A college context is required.");
         }
 
-        return await _catalog.ValidateCollegeSelectionAsync(
+        if (_expiration.IsExpired(context))
+        {
+            await ExpireStoredContextAsync(_currentUser.UserId, context, cancellationToken);
+            _metrics.RecordContextValidationFailed();
+            return TenantContextValidationResult.Failure("ContextExpired", "Operational context has expired. Select a college again.");
+        }
+
+        var result = await _catalog.ValidateCollegeSelectionAsync(
             collegeId,
             _currentUser.UserId,
             _currentUser.Role,
             _currentUser.TenantId,
             cancellationToken);
+
+        if (!result.IsValid)
+        {
+            _metrics.RecordContextValidationFailed();
+        }
+
+        return result;
     }
 
     public bool IsGlobalContext()
@@ -199,6 +254,11 @@ public sealed class TenantContextService : ITenantContextService
 
         if (_requestCache is { IsGlobal: false, SelectedCollegeId: > 0, TenantId: > 0 })
         {
+            if (_expiration.IsExpired(_requestCache))
+            {
+                return TenantContextResolution.ContextRequired("Operational context has expired. Select a college again.");
+            }
+
             return TenantContextResolution.FromContext(_requestCache);
         }
 
@@ -212,6 +272,22 @@ public sealed class TenantContextService : ITenantContextService
         {
             _tenantContextAccessor.SetTenant(context.TenantId);
         }
+    }
+
+    private async Task ExpireStoredContextAsync(int userId, TenantContextSnapshot context, CancellationToken cancellationToken)
+    {
+        await _store.RemoveAsync(userId, cancellationToken);
+        _requestCache = BuildGlobalContext("Expired");
+        _tenantContextAccessor.Clear();
+
+        await _auditService.RecordAsync(
+            "TenantContext",
+            userId.ToString(),
+            AuditAction.Custom,
+            newValues: new { Action = "ContextExpired", context.SelectedCollegeId });
+
+        await _events.PublishContextExpiredAsync(userId, cancellationToken);
+        _metrics.RecordContextExpired();
     }
 
     private async Task<TenantContextSnapshot?> BuildCollegeAdminContextAsync(CancellationToken cancellationToken)

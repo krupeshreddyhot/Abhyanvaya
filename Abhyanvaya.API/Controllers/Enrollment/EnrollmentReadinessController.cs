@@ -1,4 +1,5 @@
 using Abhyanvaya.API.Common;
+using Abhyanvaya.API.Filters;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.EnrollmentApi;
 using Microsoft.AspNetCore.Authorization;
@@ -8,6 +9,7 @@ namespace Abhyanvaya.API.Controllers.Enrollment;
 
 [ApiController]
 [Authorize(Policy = AuthorizationPolicies.CanViewEnrollment)]
+[RequireOperationalContext]
 [Route("api/enrollment")]
 public sealed class EnrollmentReadinessController : EnrollmentControllerBase
 {
@@ -35,11 +37,7 @@ public sealed class EnrollmentReadinessController : EnrollmentControllerBase
         [FromQuery] bool forceReEnrollment = false,
         CancellationToken cancellationToken = default)
     {
-        if (RequireTenantContext(_tenantContextService, out var resolution) is { } error)
-        {
-            return error;
-        }
-
+        var resolution = _tenantContextService.ResolveForOperation();
         var (tenantId, _, contextCollegeId) = MapResolution(resolution);
         var effectiveCollegeId = collegeId ?? contextCollegeId;
         if (effectiveCollegeId is null or <= 0)

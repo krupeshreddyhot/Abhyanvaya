@@ -134,6 +134,8 @@ public sealed class ArtifactStorageOptions
     public const string SectionName = "ArtifactStorage";
 
     public string Provider { get; set; } = "r2";
+    /// <summary>Root directory for <c>Provider=local</c>. Relative paths resolve under the host content root.</summary>
+    public string PhysicalRoot { get; set; } = string.Empty;
     public string Bucket { get; set; } = string.Empty;
     public string KeyPrefix { get; set; } = "artifacts";
     public int MultipartThresholdBytes { get; set; } = 5 * 1024 * 1024;

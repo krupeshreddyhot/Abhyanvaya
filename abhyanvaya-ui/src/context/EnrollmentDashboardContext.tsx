@@ -125,7 +125,7 @@ const EnrollmentDashboardContext = createContext<EnrollmentContextValue | null>(
 
 export const EnrollmentDashboardProvider = ({ children }: { children: ReactNode }) => {
   const { token, user, hasPermission } = useAuth();
-  const { context, needsCollegeSelection } = useTenantContext();
+  const { context, hasOperationalContext, subscribe } = useTenantContext();
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const canManage = hasPermission("Enrollment.Manage") || user?.role === "SuperAdmin";
 
@@ -261,11 +261,38 @@ export const EnrollmentDashboardProvider = ({ children }: { children: ReactNode 
   }, [context?.selectedCollegeId]);
 
   useEffect(() => {
-    if (!token || !state.collegeId || needsCollegeSelection) return;
+    if (!token || !state.collegeId || !hasOperationalContext) return;
     void refreshDashboard();
     void refreshReadiness();
     void refreshBatches();
-  }, [token, state.collegeId, needsCollegeSelection, refreshDashboard, refreshReadiness, refreshBatches]);
+  }, [token, state.collegeId, hasOperationalContext, refreshDashboard, refreshReadiness, refreshBatches]);
+
+  useEffect(() => {
+    const unsubChanged = subscribe("ContextChanged", () => {
+      void refreshDashboard();
+      void refreshReadiness();
+      void refreshBatches();
+    });
+    const unsubCleared = subscribe("ContextCleared", () => {
+      void refreshDashboard();
+      void refreshBatches();
+    });
+    const unsubExpired = subscribe("ContextExpired", () => {
+      void refreshDashboard();
+      void refreshBatches();
+    });
+    const unsubRestored = subscribe("ContextRestored", () => {
+      void refreshDashboard();
+      void refreshReadiness();
+      void refreshBatches();
+    });
+    return () => {
+      unsubChanged();
+      unsubCleared();
+      unsubExpired();
+      unsubRestored();
+    };
+  }, [subscribe, refreshDashboard, refreshReadiness, refreshBatches]);
 
   useEffect(() => {
     if (!token) return;

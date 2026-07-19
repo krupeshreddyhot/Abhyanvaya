@@ -3,6 +3,7 @@ using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Domain.Enums;
 using Abhyanvaya.Infrastructure.Operations;
 using Abhyanvaya.Infrastructure.Operations.HealthProviders;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -43,14 +44,40 @@ public sealed class OperationsFrameworkTests
     public async Task AIHealthService_ResolvesOverallOffline_WhenAnyProviderOffline()
     {
         var registry = new AIHealthRegistry();
-        registry.Register(CreateProvider("A", AIHealthStatus.Live));
-        registry.Register(CreateProvider("B", AIHealthStatus.Offline));
+        registry.RegisterComponent("A");
+        registry.RegisterComponent("B");
 
-        var service = new AIHealthService(registry, NullLogger<AIHealthService>.Instance);
+        var scopeFactory = new Mock<IServiceScopeFactory>();
+        var scope = new Mock<IServiceScope>();
+        var serviceProvider = new Mock<IServiceProvider>();
+
+        scopeFactory.Setup(f => f.CreateAsyncScope()).Returns(new TestAsyncScope(scope.Object));
+        scope.Setup(s => s.ServiceProvider).Returns(serviceProvider.Object);
+        serviceProvider.Setup(p => p.GetService(typeof(IEnumerable<IAIHealthCheckProvider>)))
+            .Returns(new IAIHealthCheckProvider[]
+            {
+                CreateProvider("A", AIHealthStatus.Live),
+                CreateProvider("B", AIHealthStatus.Offline),
+            });
+
+        var service = new AIHealthService(scopeFactory.Object, NullLogger<AIHealthService>.Instance);
         var report = await service.GetPlatformHealthAsync();
 
         Assert.Equal(AIHealthStatus.Offline, report.OverallStatus);
         Assert.Equal(2, report.Checks.Count);
+    }
+
+    private sealed class TestAsyncScope : IAsyncDisposable
+    {
+        private readonly IServiceScope _scope;
+
+        public TestAsyncScope(IServiceScope scope) => _scope = scope;
+
+        public ValueTask DisposeAsync()
+        {
+            _scope.Dispose();
+            return ValueTask.CompletedTask;
+        }
     }
 
     [Fact]

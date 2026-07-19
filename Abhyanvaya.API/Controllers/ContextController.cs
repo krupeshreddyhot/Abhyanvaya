@@ -13,15 +13,24 @@ public sealed class ContextController : ControllerBase
 {
     private readonly ITenantContextService _tenantContextService;
     private readonly ITenantContextCollegeCatalog _collegeCatalog;
+    private readonly IRecentContextService _recentContext;
+    private readonly IContextRefreshService _contextRefresh;
+    private readonly IContextDiagnosticsService _diagnostics;
     private readonly ICurrentUserService _currentUser;
 
     public ContextController(
         ITenantContextService tenantContextService,
         ITenantContextCollegeCatalog collegeCatalog,
+        IRecentContextService recentContext,
+        IContextRefreshService contextRefresh,
+        IContextDiagnosticsService diagnostics,
         ICurrentUserService currentUser)
     {
         _tenantContextService = tenantContextService;
         _collegeCatalog = collegeCatalog;
+        _recentContext = recentContext;
+        _contextRefresh = contextRefresh;
+        _diagnostics = diagnostics;
         _currentUser = currentUser;
     }
 
@@ -92,6 +101,58 @@ public sealed class ContextController : ControllerBase
             cancellationToken);
 
         return Ok(result);
+    }
+
+    /// <summary>Recent colleges for SuperAdmin quick selection (max 10, most recent first).</summary>
+    [HttpGet("recent-colleges")]
+    [ProducesResponseType(typeof(RecentCollegesResult), StatusCodes.Status200OK)]
+    public async Task<ActionResult<RecentCollegesResult>> GetRecentColleges(CancellationToken cancellationToken)
+    {
+        var recent = await _recentContext.GetRecentCollegesAsync(_currentUser.UserId, cancellationToken);
+        IReadOnlyList<AvailableCollegeDto> popular = [];
+
+        if (recent.Count == 0)
+        {
+            var catalog = await _collegeCatalog.GetAccessibleCollegesAsync(
+                _currentUser.UserId,
+                _currentUser.Role,
+                _currentUser.TenantId,
+                new AvailableCollegesQuery { Page = 1, PageSize = 5 },
+                cancellationToken);
+            popular = catalog.Items;
+        }
+
+        return Ok(new RecentCollegesResult { Recent = recent, Popular = popular });
+    }
+
+    /// <summary>Extends operational context TTL without changing JWT identity.</summary>
+    [HttpPost("refresh")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Refresh(CancellationToken cancellationToken)
+    {
+        if (!IsSuperAdmin())
+        {
+            return Forbid();
+        }
+
+        var refreshed = await _contextRefresh.RefreshAsync(_currentUser.UserId, cancellationToken);
+        if (!refreshed)
+        {
+            return BadRequest(new { errorCode = "NoContext", message = "No operational context to refresh." });
+        }
+
+        return NoContent();
+    }
+
+    /// <summary>Read-only operational context diagnostics for support engineers.</summary>
+    [HttpGet("diagnostics")]
+    [Authorize(Roles = nameof(Domain.Enums.UserRole.SuperAdmin))]
+    [ProducesResponseType(typeof(ContextDiagnosticsReport), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ContextDiagnosticsReport>> GetDiagnostics(CancellationToken cancellationToken)
+    {
+        var report = await _diagnostics.GetDiagnosticsAsync(_currentUser.UserId, cancellationToken);
+        return Ok(report);
     }
 
     private bool IsSuperAdmin() =>

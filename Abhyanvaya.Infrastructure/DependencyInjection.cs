@@ -256,7 +256,7 @@ namespace Abhyanvaya.Infrastructure
             services.AddEnrollmentApiPlatform();
 
             // AI22.5: enterprise operational tenant context platform.
-            services.AddTenantContextPlatform();
+            services.AddTenantContextPlatform(configuration);
 
             // AI20.PHASE2.1.2: enrollment batch creation service (create-only scope).
             services.AddOptions<EnrollmentPipelineOptions>()

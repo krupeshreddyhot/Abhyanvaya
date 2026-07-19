@@ -1,8 +1,13 @@
 using Abhyanvaya.Application.AIOperations;
+using Abhyanvaya.Application.ArtifactStorage;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Domain.Enums;
+using Abhyanvaya.Infrastructure.ArtifactStorage;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Abhyanvaya.Infrastructure.Operations.HealthProviders;
 
@@ -62,10 +67,20 @@ public sealed class DatabaseHealthCheckProvider : BaseHealthCheckProvider
 
 public sealed class StorageHealthCheckProvider : BaseHealthCheckProvider
 {
+    private readonly IConfiguration _configuration;
+    private readonly IHostEnvironment _environment;
+    private readonly ArtifactStorageOptions _storageOptions;
     private readonly ILogger<StorageHealthCheckProvider> _logger;
 
-    public StorageHealthCheckProvider(ILogger<StorageHealthCheckProvider> logger)
+    public StorageHealthCheckProvider(
+        IConfiguration configuration,
+        IHostEnvironment environment,
+        IOptions<ArtifactStorageOptions> storageOptions,
+        ILogger<StorageHealthCheckProvider> logger)
     {
+        _configuration = configuration;
+        _environment = environment;
+        _storageOptions = storageOptions.Value;
         _logger = logger;
     }
 
@@ -73,12 +88,76 @@ public sealed class StorageHealthCheckProvider : BaseHealthCheckProvider
 
     protected override Task<AIHealthCheckResult> CheckCoreAsync(DateTime startedUtc, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Storage health check executed");
+        var provider = ArtifactStorageProviderSelection.ResolveProviderName(_storageOptions, _environment);
+        if (provider == LocalArtifactStorageProvider.ProviderId)
+        {
+            return CheckLocalStorageAsync(startedUtc, cancellationToken);
+        }
+
+        return CheckR2StorageAsync(startedUtc);
+    }
+
+    private Task<AIHealthCheckResult> CheckLocalStorageAsync(DateTime startedUtc, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            var root = LocalArtifactStorageProvider.ResolveRootDirectory(_environment, _storageOptions);
+            Directory.CreateDirectory(root);
+            _logger.LogInformation("Local artifact storage health check passed root={Root}", root);
+            return Task.FromResult(new AIHealthCheckResult
+            {
+                ComponentName = ComponentName,
+                Status = AIHealthStatus.Ready,
+                Version = "local",
+                Message = $"Local artifact storage is ready at {root}.",
+                Duration = DateTime.UtcNow - startedUtc,
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Local artifact storage health check failed");
+            return Task.FromResult(new AIHealthCheckResult
+            {
+                ComponentName = ComponentName,
+                Status = AIHealthStatus.Offline,
+                Version = "local",
+                Message = "Local artifact storage directory is not accessible.",
+                Duration = DateTime.UtcNow - startedUtc,
+            });
+        }
+    }
+
+    private Task<AIHealthCheckResult> CheckR2StorageAsync(DateTime startedUtc)
+    {
+        var endpoint = _configuration["ArtifactStorage:R2:Endpoint"];
+        var accessKeyId = _configuration["ArtifactStorage:R2:AccessKeyId"];
+        var secretAccessKey = _configuration["ArtifactStorage:R2:SecretAccessKey"];
+
+        var configured = !string.IsNullOrWhiteSpace(endpoint)
+            && !string.IsNullOrWhiteSpace(accessKeyId)
+            && !string.IsNullOrWhiteSpace(secretAccessKey);
+
+        if (!configured)
+        {
+            _logger.LogWarning("Cloudflare R2 storage is not configured");
+            return Task.FromResult(new AIHealthCheckResult
+            {
+                ComponentName = ComponentName,
+                Status = AIHealthStatus.Offline,
+                Version = "r2",
+                Message = "Cloudflare R2 storage is not configured.",
+                Duration = DateTime.UtcNow - startedUtc,
+            });
+        }
+
+        _logger.LogInformation("Storage health check passed (R2 configured)");
         return Task.FromResult(new AIHealthCheckResult
         {
             ComponentName = ComponentName,
             Status = AIHealthStatus.Ready,
-            Version = "local",
+            Version = "r2",
             Duration = DateTime.UtcNow - startedUtc,
         });
     }
@@ -87,16 +166,35 @@ public sealed class StorageHealthCheckProvider : BaseHealthCheckProvider
 public sealed class RecognitionHealthCheckProvider : BaseHealthCheckProvider
 {
     private readonly IApplicationDbContext _context;
+    private readonly IHostEnvironment _environment;
+    private readonly Microsoft.Extensions.Options.IOptions<InsightFace.InsightFaceOptions> _insightFaceOptions;
 
-    public RecognitionHealthCheckProvider(IApplicationDbContext context)
+    public RecognitionHealthCheckProvider(
+        IApplicationDbContext context,
+        IHostEnvironment environment,
+        Microsoft.Extensions.Options.IOptions<InsightFace.InsightFaceOptions> insightFaceOptions)
     {
         _context = context;
+        _environment = environment;
+        _insightFaceOptions = insightFaceOptions;
     }
 
     public override string ComponentName => AIOperationsComponents.Recognition;
 
     protected override async Task<AIHealthCheckResult> CheckCoreAsync(DateTime startedUtc, CancellationToken cancellationToken)
     {
+        if (!InsightFace.InsightFaceModelPathResolver.AllModelsPresent(_insightFaceOptions.Value, _environment))
+        {
+            return new AIHealthCheckResult
+            {
+                ComponentName = ComponentName,
+                Status = AIHealthStatus.Offline,
+                Version = _insightFaceOptions.Value.PipelineVersion,
+                Message = "InsightFace ONNX models are missing from the configured model directory.",
+                Duration = DateTime.UtcNow - startedUtc,
+            };
+        }
+
         var recentCount = await _context.AttendanceRecognitions
             .AsNoTracking()
             .CountAsync(cancellationToken);
@@ -109,6 +207,37 @@ public sealed class RecognitionHealthCheckProvider : BaseHealthCheckProvider
             Dependencies = new Dictionary<string, string> { ["recentRecords"] = recentCount.ToString() },
             Duration = DateTime.UtcNow - startedUtc,
         };
+    }
+}
+
+public sealed class EmbeddingEngineHealthCheckProvider : BaseHealthCheckProvider
+{
+    private readonly IHostEnvironment _environment;
+    private readonly Microsoft.Extensions.Options.IOptions<InsightFace.InsightFaceOptions> _insightFaceOptions;
+
+    public EmbeddingEngineHealthCheckProvider(
+        IHostEnvironment environment,
+        Microsoft.Extensions.Options.IOptions<InsightFace.InsightFaceOptions> insightFaceOptions)
+    {
+        _environment = environment;
+        _insightFaceOptions = insightFaceOptions;
+    }
+
+    public override string ComponentName => AIOperationsComponents.EmbeddingEngine;
+
+    protected override Task<AIHealthCheckResult> CheckCoreAsync(DateTime startedUtc, CancellationToken cancellationToken)
+    {
+        var options = _insightFaceOptions.Value;
+        var modelsPresent = InsightFace.InsightFaceModelPathResolver.AllModelsPresent(options, _environment);
+
+        return Task.FromResult(new AIHealthCheckResult
+        {
+            ComponentName = ComponentName,
+            Status = modelsPresent ? AIHealthStatus.Ready : AIHealthStatus.Offline,
+            Version = options.PipelineVersion,
+            Message = modelsPresent ? null : "InsightFace embedding model files are not deployed.",
+            Duration = DateTime.UtcNow - startedUtc,
+        });
     }
 }
 

@@ -1,6 +1,7 @@
 using Abhyanvaya.Application.AIOperations;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Domain.Enums;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Abhyanvaya.Infrastructure.Operations;
@@ -8,7 +9,7 @@ namespace Abhyanvaya.Infrastructure.Operations;
 public sealed class AIHealthRegistry : IAIHealthRegistry
 {
     private readonly object _lock = new();
-    private readonly List<IAIHealthCheckProvider> _providers = new();
+    private readonly HashSet<string> _componentNames = new(StringComparer.Ordinal);
 
     public IReadOnlyList<string> RegisteredComponents
     {
@@ -16,7 +17,7 @@ public sealed class AIHealthRegistry : IAIHealthRegistry
         {
             lock (_lock)
             {
-                return _providers.Select(p => p.ComponentName).ToList();
+                return _componentNames.OrderBy(n => n).ToList();
             }
         }
     }
@@ -24,41 +25,41 @@ public sealed class AIHealthRegistry : IAIHealthRegistry
     public void Register(IAIHealthCheckProvider provider)
     {
         ArgumentNullException.ThrowIfNull(provider);
-        lock (_lock)
-        {
-            if (_providers.Any(p => p.ComponentName == provider.ComponentName))
-            {
-                return;
-            }
-
-            _providers.Add(provider);
-        }
+        RegisterComponent(provider.ComponentName);
     }
 
-    internal IReadOnlyList<IAIHealthCheckProvider> GetProviders()
+    public void RegisterComponent(string componentName)
     {
+        if (string.IsNullOrWhiteSpace(componentName))
+        {
+            return;
+        }
+
         lock (_lock)
         {
-            return _providers.ToList();
+            _componentNames.Add(componentName);
         }
     }
 }
 
 public sealed class AIHealthService : IAIHealthService
 {
-    private readonly AIHealthRegistry _registry;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<AIHealthService> _logger;
 
-    public AIHealthService(AIHealthRegistry registry, ILogger<AIHealthService> logger)
+    public AIHealthService(IServiceScopeFactory scopeFactory, ILogger<AIHealthService> logger)
     {
-        _registry = registry;
+        _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
     public async Task<AIPlatformHealthReport> GetPlatformHealthAsync(CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var providers = scope.ServiceProvider.GetServices<IAIHealthCheckProvider>();
         var checks = new List<AIHealthCheckResult>();
-        foreach (var provider in _registry.GetProviders())
+
+        foreach (var provider in providers)
         {
             var result = await provider.CheckHealthAsync(cancellationToken);
             checks.Add(result);
@@ -79,8 +80,11 @@ public sealed class AIHealthService : IAIHealthService
 
     public async Task<AIHealthCheckResult> GetComponentHealthAsync(string componentName, CancellationToken cancellationToken = default)
     {
-        var provider = _registry.GetProviders().FirstOrDefault(p => p.ComponentName == componentName)
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var provider = scope.ServiceProvider.GetServices<IAIHealthCheckProvider>()
+            .FirstOrDefault(p => p.ComponentName == componentName)
             ?? throw new KeyNotFoundException($"Health provider not registered: {componentName}");
+
         return await provider.CheckHealthAsync(cancellationToken);
     }
 

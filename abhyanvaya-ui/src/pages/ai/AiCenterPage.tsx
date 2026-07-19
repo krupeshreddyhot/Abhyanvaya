@@ -1,6 +1,7 @@
 import { Link as RouterLink } from "react-router-dom";
 import { Box, Card, CardActionArea, CardContent, Stack, Typography } from "@mui/material";
 import FaceRetouchingNaturalIcon from "@mui/icons-material/FaceRetouchingNatural";
+import ContextAwareLayout from "../../layouts/ContextAwareLayout";
 
 type AiModuleLink = {
   to: string;
@@ -9,10 +10,6 @@ type AiModuleLink = {
   icon: React.ReactNode;
 };
 
-/**
- * AI Center hub — Super Admin only landing page for AI-driven platform modules.
- * Navigation only; each module's own page owns its business logic.
- */
 const modules: AiModuleLink[] = [
   {
     to: "/ai/enrollment",
@@ -22,12 +19,9 @@ const modules: AiModuleLink[] = [
   },
 ];
 
-import ContextBanner from "../../components/context/ContextBanner";
-
 const AiCenterPage = () => {
   return (
-    <Stack spacing={3}>
-      <ContextBanner />
+    <ContextAwareLayout breadcrumbItems={[{ label: "AI Center" }]}>
       <Typography variant="h4">AI Center</Typography>
       <Typography variant="body1" color="text.secondary">
         Super Admin tools for AI-driven platform capabilities.
@@ -56,7 +50,7 @@ const AiCenterPage = () => {
           </Card>
         ))}
       </Box>
-    </Stack>
+    </ContextAwareLayout>
   );
 };
 

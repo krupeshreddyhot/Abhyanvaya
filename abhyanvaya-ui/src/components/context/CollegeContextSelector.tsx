@@ -12,6 +12,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import type { AvailableCollegeDto } from "../../api/tenantContextApiClient";
 import { useTenantContext } from "../../context/TenantContextProvider";
+import RecentCollegeList from "./RecentCollegeList";
 
 type Props = {
   open: boolean;
@@ -19,8 +20,10 @@ type Props = {
 };
 
 const CollegeContextSelector = ({ open, onSelected }: Props) => {
-  const { selectCollege, searchColleges, error } = useTenantContext();
+  const { selectCollege, searchColleges, getRecentColleges, error } = useTenantContext();
   const [options, setOptions] = useState<AvailableCollegeDto[]>([]);
+  const [recent, setRecent] = useState<Awaited<ReturnType<typeof getRecentColleges>>["recent"]>([]);
+  const [popular, setPopular] = useState<Awaited<ReturnType<typeof getRecentColleges>>["popular"]>([]);
   const [inputValue, setInputValue] = useState("");
   const [selected, setSelected] = useState<AvailableCollegeDto | null>(null);
   const [loading, setLoading] = useState(false);
@@ -39,10 +42,17 @@ const CollegeContextSelector = ({ open, onSelected }: Props) => {
     [searchColleges],
   );
 
+  const loadRecent = useCallback(async () => {
+    const data = await getRecentColleges();
+    setRecent(data.recent);
+    setPopular(data.popular);
+  }, [getRecentColleges]);
+
   useEffect(() => {
     if (!open) return;
     void loadOptions("");
-  }, [open, loadOptions]);
+    void loadRecent();
+  }, [open, loadOptions, loadRecent]);
 
   useEffect(() => {
     if (!open) return;
@@ -52,10 +62,11 @@ const CollegeContextSelector = ({ open, onSelected }: Props) => {
     return () => window.clearTimeout(handle);
   }, [inputValue, open, loadOptions]);
 
-  const handleConfirm = async () => {
-    if (!selected) return;
+  const handleConfirm = async (collegeId?: number) => {
+    const id = collegeId ?? selected?.id;
+    if (!id) return;
     setSubmitting(true);
-    const ok = await selectCollege(selected.id);
+    const ok = await selectCollege(id);
     setSubmitting(false);
     if (ok) {
       onSelected?.();
@@ -69,6 +80,14 @@ const CollegeContextSelector = ({ open, onSelected }: Props) => {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           SuperAdmin operations require an operational college context. This is not stored in your JWT.
         </Typography>
+
+        <RecentCollegeList
+          recent={recent}
+          popular={popular}
+          onSelect={(collegeId) => void handleConfirm(collegeId)}
+          selecting={submitting}
+        />
+
         <Autocomplete
           options={options}
           value={selected}
@@ -100,7 +119,7 @@ const CollegeContextSelector = ({ open, onSelected }: Props) => {
         ) : null}
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleConfirm} variant="contained" disabled={!selected || submitting}>
+        <Button onClick={() => void handleConfirm()} variant="contained" disabled={!selected || submitting}>
           Use This College
         </Button>
       </DialogActions>

@@ -2,6 +2,8 @@ using Abhyanvaya.Application.ArtifactStorage;
 using Abhyanvaya.Application.Common.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace Abhyanvaya.Infrastructure.ArtifactStorage;
 
@@ -26,8 +28,9 @@ public static class ArtifactStorageServiceCollectionExtensions
         services.AddSingleton<IArtifactIntegrityService, ArtifactIntegrityService>();
         services.AddSingleton<IArtifactVersionManager, ArtifactVersionManager>();
 
+        services.AddScoped<LocalArtifactStorageProvider>();
         services.AddScoped<IR2StorageProvider, R2StorageProvider>();
-        services.AddScoped<IArtifactStorageProvider>(sp => sp.GetRequiredService<IR2StorageProvider>());
+        services.AddScoped<IArtifactStorageProvider>(ArtifactStorageProviderSelection.ResolveActiveProvider);
         services.AddScoped<IArtifactUploadService, ArtifactUploadService>();
         services.AddScoped<IArtifactVerificationService, ArtifactVerificationService>();
         services.AddScoped<IArtifactRegistryRepository, ArtifactRegistryRepository>();

@@ -7,7 +7,9 @@ import MainLayout from "../layouts/MainLayout";
 import OrganizationPage from "../pages/OrganizationPage";
 import AttendanceMarking from "../pages/AttendanceMarking";
 import AttendanceRecognitionReviewPage from "../pages/AttendanceRecognitionReviewPage";
+import ContextAwareLayout from "../layouts/ContextAwareLayout";
 import StudentsPage from "../pages/StudentsPage";
+import ReportsPage from "../pages/ReportsPage";
 import SetupHub from "../pages/setup/SetupHub";
 import CoursesPage from "../pages/setup/CoursesPage";
 import GroupsPage from "../pages/setup/GroupsPage";
@@ -19,7 +21,6 @@ import MediumsPage from "../pages/setup/MediumsPage";
 import ElectiveGroupsPage from "../pages/setup/ElectiveGroupsPage";
 import StaffLookupsHub from "../pages/setup/StaffLookupsHub";
 import TenantRbacPage from "../pages/setup/TenantRbacPage";
-import ReportsPage from "../pages/ReportsPage";
 import CollegeProfilePage from "../pages/setup/CollegeProfilePage";
 import DepartmentsPage from "../pages/setup/DepartmentsPage";
 import StaffPage from "../pages/setup/StaffPage";
@@ -28,6 +29,25 @@ import ForgotPasswordPage from "../pages/ForgotPasswordPage";
 import ResetPasswordPage from "../pages/ResetPasswordPage";
 import AiCenterPage from "../pages/ai/AiCenterPage";
 import StudentEnrollmentPage from "../pages/ai/StudentEnrollmentPage";
+import ContextDiagnosticsPage from "../pages/admin/ContextDiagnosticsPage";
+
+const StudentsPageWithContext = () => (
+  <ContextAwareLayout breadcrumbItems={[{ label: "Students" }]}>
+    <StudentsPage />
+  </ContextAwareLayout>
+);
+
+const ReportsPageWithContext = () => (
+  <ContextAwareLayout breadcrumbItems={[{ label: "Reports" }]}>
+    <ReportsPage />
+  </ContextAwareLayout>
+);
+
+const AttendancePageWithContext = () => (
+  <ContextAwareLayout breadcrumbItems={[{ label: "Attendance" }]}>
+    <AttendanceMarking />
+  </ContextAwareLayout>
+);
 
 const AppRoutes = () => {
   return (
@@ -203,7 +223,7 @@ const AppRoutes = () => {
             path="students"
             element={
               <ProtectedRoute anyPermission={[PermissionKeys.StudentsView]}>
-                <StudentsPage />
+                <StudentsPageWithContext />
               </ProtectedRoute>
             }
           />
@@ -212,7 +232,7 @@ const AppRoutes = () => {
             path="attendance"
             element={
               <ProtectedRoute anyPermission={[PermissionKeys.AttendanceManage]}>
-                <AttendanceMarking />
+                <AttendancePageWithContext />
               </ProtectedRoute>
             }
           />
@@ -230,7 +250,7 @@ const AppRoutes = () => {
             path="reports"
             element={
               <ProtectedRoute anyPermission={[PermissionKeys.ReportsView]}>
-                <ReportsPage />
+                <ReportsPageWithContext />
               </ProtectedRoute>
             }
           />
@@ -249,6 +269,15 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute anyPermission={[PermissionKeys.EnrollmentView, PermissionKeys.EnrollmentManage]} allowedRoles={["SuperAdmin"]} allowRoleOrPermission>
                 <StudentEnrollmentPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="admin/context-diagnostics"
+            element={
+              <ProtectedRoute allowedRoles={["SuperAdmin"]}>
+                <ContextDiagnosticsPage />
               </ProtectedRoute>
             }
           />

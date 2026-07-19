@@ -53,6 +53,7 @@ public static class AIOperationsServiceCollectionExtensions
 
         services.AddScoped<IAIHealthCheckProvider, DatabaseHealthCheckProvider>();
         services.AddScoped<IAIHealthCheckProvider, StorageHealthCheckProvider>();
+        services.AddScoped<IAIHealthCheckProvider, EmbeddingEngineHealthCheckProvider>();
         services.AddScoped<IAIHealthCheckProvider, RecognitionHealthCheckProvider>();
         services.AddScoped<IAIHealthCheckProvider, AttendanceHealthCheckProvider>();
         services.AddScoped<IAIHealthCheckProvider, EnrollmentHealthCheckProvider>();

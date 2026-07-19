@@ -1,11 +1,14 @@
+using Abhyanvaya.Application.ArtifactStorage;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Enrollment;
 using Abhyanvaya.Application.EnrollmentApi;
 using Abhyanvaya.Domain.Enums;
+using Abhyanvaya.Infrastructure.ArtifactStorage;
 using Abhyanvaya.Infrastructure.Enrollment.PhotoProviders;
 using Abhyanvaya.Infrastructure.Operations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace Abhyanvaya.Infrastructure.EnrollmentApi;
@@ -17,19 +20,25 @@ public sealed class EnrollmentDashboardService : IEnrollmentDashboardService
     private readonly IArtifactUploadQueue _artifactQueue;
     private readonly IConfiguration _configuration;
     private readonly ExamBranchPhotoProviderOptions _photoOptions;
+    private readonly ArtifactStorageOptions _artifactStorageOptions;
+    private readonly IHostEnvironment _environment;
 
     public EnrollmentDashboardService(
         IApplicationDbContext context,
         IAIHealthService healthService,
         IArtifactUploadQueue artifactQueue,
         IConfiguration configuration,
-        IOptions<ExamBranchPhotoProviderOptions> photoOptions)
+        IOptions<ExamBranchPhotoProviderOptions> photoOptions,
+        IOptions<ArtifactStorageOptions> artifactStorageOptions,
+        IHostEnvironment environment)
     {
         _context = context;
         _healthService = healthService;
         _artifactQueue = artifactQueue;
         _configuration = configuration;
         _photoOptions = photoOptions.Value;
+        _artifactStorageOptions = artifactStorageOptions.Value;
+        _environment = environment;
     }
 
     public async Task<EnrollmentDashboardResponse> GetDashboardAsync(int tenantId, int? collegeId, CancellationToken cancellationToken = default)
@@ -76,7 +85,10 @@ public sealed class EnrollmentDashboardService : IEnrollmentDashboardService
         var successRate = completed + failed == 0 ? 0m : (decimal)completed / (completed + failed);
 
         var health = await _healthService.GetPlatformHealthAsync(cancellationToken);
-        var systemStatus = MapSystemStatus(health);
+        var systemStatus = MapSystemStatus(
+            health,
+            _photoOptions.BaseUrlTemplate,
+            ArtifactStorageProviderSelection.ResolveProviderName(_artifactStorageOptions, _environment));
 
         return new EnrollmentDashboardResponse
         {
@@ -104,7 +116,7 @@ public sealed class EnrollmentDashboardService : IEnrollmentDashboardService
             PhotoProvider = "ExamBranch",
             EmbeddingEngine = "InsightFace",
             RecognitionEngine = "InsightFace",
-            StorageProvider = _configuration["ArtifactStorage:Provider"] ?? "r2",
+            StorageProvider = ArtifactStorageProviderSelection.ResolveProviderName(_artifactStorageOptions, _environment),
             RetryPolicy = "3 Attempts",
             DownloadThreads = 4,
             ImageFormat = "JPEG",
@@ -112,7 +124,10 @@ public sealed class EnrollmentDashboardService : IEnrollmentDashboardService
             PhotoUrlTemplate = _photoOptions.BaseUrlTemplate,
         };
 
-    private static EnrollmentSystemStatusDto MapSystemStatus(Application.AIOperations.AIPlatformHealthReport health)
+    private static EnrollmentSystemStatusDto MapSystemStatus(
+        Application.AIOperations.AIPlatformHealthReport health,
+        string photoUrlTemplate,
+        string storageProviderName)
     {
         string StatusFor(string component) =>
             health.Checks.FirstOrDefault(c => c.ComponentName == component)?.Status.ToString() ?? "Unknown";
@@ -120,12 +135,12 @@ public sealed class EnrollmentDashboardService : IEnrollmentDashboardService
         return new EnrollmentSystemStatusDto
         {
             PhotoProvider = "ExamBranch",
-            PhotoProviderStatus = StatusFor(AIOperationsComponents.Storage),
+            PhotoProviderStatus = string.IsNullOrWhiteSpace(photoUrlTemplate) ? "Offline" : "Ready",
             EmbeddingEngine = "InsightFace",
-            EmbeddingEngineStatus = StatusFor(AIOperationsComponents.Recognition),
+            EmbeddingEngineStatus = StatusFor(AIOperationsComponents.EmbeddingEngine),
             RecognitionEngine = "InsightFace",
             RecognitionEngineStatus = StatusFor(AIOperationsComponents.Recognition),
-            StorageProvider = "Cloudflare R2",
+            StorageProvider = ArtifactStorageProviderSelection.ResolveDisplayName(storageProviderName),
             StorageStatus = StatusFor(AIOperationsComponents.Storage),
             WorkerStatus = StatusFor(AIOperationsComponents.Workers),
         };
@@ -161,14 +176,20 @@ public sealed class EnrollmentReadinessService : IEnrollmentReadinessService
         var reasons = new List<string>();
         var health = await _healthService.GetPlatformHealthAsync(cancellationToken);
 
-        var photoReady = IsHealthy(health, AIOperationsComponents.Storage);
-        var storageReady = !string.IsNullOrWhiteSpace(_configuration["ArtifactStorage:R2:Endpoint"]);
+        var photoReady = !string.IsNullOrWhiteSpace(_configuration["StudentPhotoProvider:ExamBranch:BaseUrlTemplate"]);
+        var storageReady = IsHealthy(health, AIOperationsComponents.Storage);
         var recognitionReady = IsHealthy(health, AIOperationsComponents.Recognition);
         var workerReady = IsHealthy(health, AIOperationsComponents.Workers);
         var configValid = !string.IsNullOrWhiteSpace(_configuration["Jwt:Key"]);
 
-        if (!photoReady) reasons.Add("Photo provider health check failed.");
-        if (!storageReady) reasons.Add("Cloudflare R2 storage is not configured.");
+        if (!photoReady) reasons.Add("ExamBranch photo URL template is not configured.");
+        if (!storageReady)
+        {
+            var storageMessage = health.Checks
+                .FirstOrDefault(c => c.ComponentName == AIOperationsComponents.Storage)
+                ?.Message;
+            reasons.Add(storageMessage ?? "Artifact storage is not ready.");
+        }
         if (!recognitionReady) reasons.Add("Recognition engine is not ready.");
         if (!workerReady) reasons.Add("Background workers are not ready.");
         if (!configValid) reasons.Add("Configuration validation failed.");

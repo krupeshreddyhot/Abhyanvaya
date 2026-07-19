@@ -12,6 +12,7 @@ public sealed record TenantContextSnapshot
     public required int TenantId { get; init; }
     public required ContextType ContextType { get; init; }
     public required DateTime CreatedUtc { get; init; }
+    public DateTime? ExpiresUtc { get; init; }
     public required bool IsGlobal { get; init; }
     public required string ContextSource { get; init; }
 }
