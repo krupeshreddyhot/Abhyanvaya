@@ -31,15 +31,16 @@ public sealed class EnrollmentConfigurationValidator : IEnrollmentConfigurationV
 
     public Task<StartupValidationReport> ValidateAsync(CancellationToken cancellationToken = default)
     {
+        var strict = _configuration.GetValue("EnrollmentStartupValidation:Strict", defaultValue: false);
         var checks = new List<StartupValidationCheck>
         {
             CheckKey("Jwt:Key", "JwtSecret"),
             CheckKey("Jwt:Issuer", "JwtIssuer"),
             CheckKey("Jwt:Audience", "JwtAudience"),
-            CheckExamBranch(),
-            CheckStorage(),
-            CheckRedis(),
-            CheckWorkers(),
+            SoftenEnrollmentCheck(CheckExamBranch(), strict),
+            SoftenEnrollmentCheck(CheckStorage(), strict),
+            SoftenEnrollmentCheck(CheckRedis(), strict),
+            SoftenEnrollmentCheck(CheckWorkers(), strict),
         };
 
         var overall = checks.Any(c => c.Severity == StartupValidationSeverity.Fail)
@@ -160,6 +161,15 @@ public sealed class EnrollmentConfigurationValidator : IEnrollmentConfigurationV
 
     private static StartupValidationCheck Severity(string name, string detail, StartupValidationSeverity severity) =>
         new() { Name = name, Severity = severity, Detail = detail };
+
+    private static StartupValidationCheck SoftenEnrollmentCheck(StartupValidationCheck check, bool strict) =>
+        strict || check.Severity != StartupValidationSeverity.Fail
+            ? check
+            : check with
+            {
+                Severity = StartupValidationSeverity.Warning,
+                Detail = $"{check.Detail} (strict validation disabled — set EnrollmentStartupValidation__Strict=true when enrollment is fully configured).",
+            };
 }
 
 public sealed class EnrollmentStartupValidationHostedService : IHostedService
@@ -200,7 +210,9 @@ public sealed class EnrollmentStartupValidationHostedService : IHostedService
 
         if (_environment.IsProduction() && report.OverallSeverity == StartupValidationSeverity.Fail)
         {
-            _logger.LogCritical("Aborting startup due to failed production configuration validation.");
+            _logger.LogCritical(
+                "Aborting startup due to failed production configuration validation. " +
+                "Enrollment checks can be warnings when EnrollmentStartupValidation__Strict=false.");
             _lifetime.StopApplication();
         }
     }
