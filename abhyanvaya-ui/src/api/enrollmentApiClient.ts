@@ -108,6 +108,12 @@ export class EnrollmentApiClient {
     await this.hubConnection.start();
   }
 
+  async subscribeTenant(): Promise<void> {
+    if (this.hubConnection?.state === signalR.HubConnectionState.Connected) {
+      await this.hubConnection.invoke("SubscribeTenant");
+    }
+  }
+
   async subscribeBatch(batchId: string): Promise<void> {
     if (this.hubConnection?.state === signalR.HubConnectionState.Connected) {
       await this.hubConnection.invoke("SubscribeBatch", batchId);

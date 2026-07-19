@@ -3,8 +3,10 @@ using Abhyanvaya.Application.ArtifactStorage;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Domain.Enums;
 using Abhyanvaya.Infrastructure.ArtifactStorage;
+using Abhyanvaya.Infrastructure.Enrollment.Background;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -299,15 +301,48 @@ public sealed class EnrollmentHealthCheckProvider : BaseHealthCheckProvider
 
 public sealed class WorkerHealthCheckProvider : BaseHealthCheckProvider
 {
+    private readonly EnrollmentBackgroundOptions _options;
+    private readonly IServiceProvider _serviceProvider;
+
+    public WorkerHealthCheckProvider(
+        IOptions<EnrollmentBackgroundOptions> options,
+        IServiceProvider serviceProvider)
+    {
+        _options = options.Value;
+        _serviceProvider = serviceProvider;
+    }
+
     public override string ComponentName => AIOperationsComponents.Workers;
 
     protected override Task<AIHealthCheckResult> CheckCoreAsync(DateTime startedUtc, CancellationToken cancellationToken)
     {
+        if (!_options.Enabled)
+        {
+            return Task.FromResult(new AIHealthCheckResult
+            {
+                ComponentName = ComponentName,
+                Status = AIHealthStatus.Offline,
+                Version = "2.2",
+                Message = "Enrollment background workers are disabled (EnrollmentBackground:Enabled=false).",
+                Duration = DateTime.UtcNow - startedUtc,
+            });
+        }
+
+        var backgroundService = _serviceProvider
+            .GetServices<IHostedService>()
+            .OfType<EnrollmentBackgroundService>()
+            .FirstOrDefault();
+
+        var isRunning = backgroundService?.IsRunning == true;
+
         return Task.FromResult(new AIHealthCheckResult
         {
             ComponentName = ComponentName,
-            Status = AIHealthStatus.Live,
+            Status = isRunning ? AIHealthStatus.Live : AIHealthStatus.Offline,
             Version = "2.2",
+            Message = isRunning
+                ? "Enrollment background workers are running."
+                : "Enrollment background workers are not running.",
             Duration = DateTime.UtcNow - startedUtc,
         });
     }
