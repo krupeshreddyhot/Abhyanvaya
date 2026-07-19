@@ -22,7 +22,7 @@ import type {
   EnrollmentSystemStatusDto,
   PagedResult,
 } from "../types/enrollment";
-import { getApiErrorMessage } from "../utils/apiErrorMessage";
+import { getApiErrorMessage, getEnrollmentApiErrorMessage } from "../utils/apiErrorMessage";
 
 type ToastState = { open: boolean; message: string; severity: "success" | "error" | "info" };
 
@@ -209,7 +209,11 @@ export const EnrollmentDashboardProvider = ({ children }: { children: ReactNode 
         await refreshReadiness();
         return true;
       } catch (err) {
-        dispatch({ type: "SHOW_TOAST", message: getApiErrorMessage(err), severity: "error" });
+        dispatch({
+          type: "SHOW_TOAST",
+          message: getEnrollmentApiErrorMessage(err, "Batch creation failed."),
+          severity: "error",
+        });
         return false;
       }
     },
