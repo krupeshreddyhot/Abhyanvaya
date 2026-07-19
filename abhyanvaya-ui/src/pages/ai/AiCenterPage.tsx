@@ -22,9 +22,12 @@ const modules: AiModuleLink[] = [
   },
 ];
 
+import ContextBanner from "../../components/context/ContextBanner";
+
 const AiCenterPage = () => {
   return (
     <Stack spacing={3}>
+      <ContextBanner />
       <Typography variant="h4">AI Center</Typography>
       <Typography variant="body1" color="text.secondary">
         Super Admin tools for AI-driven platform capabilities.

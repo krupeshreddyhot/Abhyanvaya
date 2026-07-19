@@ -1,6 +1,7 @@
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Domain.Entities;
 using Abhyanvaya.Domain.Enums;
+using Abhyanvaya.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using NpgsqlTypes;
@@ -133,20 +134,22 @@ public sealed class StudentEnrollmentItemRepository : IStudentEnrollmentItemRepo
             },
         };
 
-        var claimedId = await _context.Database
-            .SqlQueryRaw<Guid>(ClaimNextItemSql, parameters)
-            .FirstOrDefaultAsync(cancellationToken);
+        var claimedId = await PostgreSqlReturningExecutor.ExecuteReturningGuidAsync(
+            _context.Database,
+            ClaimNextItemSql,
+            parameters,
+            cancellationToken);
 
-        if (claimedId == Guid.Empty)
+        if (claimedId is null || claimedId == Guid.Empty)
         {
             return null;
         }
 
-        DetachTrackedItem(claimedId);
+        DetachTrackedItem(claimedId.Value);
 
         return await _context.StudentEnrollmentItems
             .AsNoTracking()
-            .FirstOrDefaultAsync(i => i.Id == claimedId, cancellationToken);
+            .FirstOrDefaultAsync(i => i.Id == claimedId.Value, cancellationToken);
     }
 
     public Task UpdateItemAsync(StudentEnrollmentItem item, CancellationToken cancellationToken = default)

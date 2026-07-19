@@ -19,6 +19,7 @@ namespace Abhyanvaya.API.Controllers
     {
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUser;
+        private readonly ITenantContextService _tenantContextService;
         private readonly ILogger<AttendanceController> _logger;
         private readonly IAttendanceCalendar _attendanceCalendar;
         private readonly IDomainEventDispatcher _domainEventDispatcher;
@@ -26,12 +27,14 @@ namespace Abhyanvaya.API.Controllers
         public AttendanceController(
             IApplicationDbContext context,
             ICurrentUserService currentUser,
+            ITenantContextService tenantContextService,
             ILogger<AttendanceController> logger,
             IAttendanceCalendar attendanceCalendar,
             IDomainEventDispatcher domainEventDispatcher)
         {
             _context = context;
             _currentUser = currentUser;
+            _tenantContextService = tenantContextService;
             _logger = logger;
             _attendanceCalendar = attendanceCalendar;
             _domainEventDispatcher = domainEventDispatcher;
@@ -44,6 +47,11 @@ namespace Abhyanvaya.API.Controllers
         [HttpPost("mark")]
         public async Task<IActionResult> MarkAttendance(MarkAttendanceRequest request)
         {
+            if (this.RequireTenantContext(_tenantContextService, out var resolution) is { } contextError)
+            {
+                return contextError;
+            }
+
             if (request?.Students == null || !request.Students.Any())
                 return BadRequest("Students list is required");
 

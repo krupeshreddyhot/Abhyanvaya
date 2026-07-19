@@ -21,17 +21,20 @@ namespace Abhyanvaya.API.Controllers
     {
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUser;
+        private readonly ITenantContextService _tenantContextService;
         private readonly IStudentService _studentService;
         private readonly IStudentPhotoService _studentPhotoService;
 
         public StudentController(
             IApplicationDbContext context,
             ICurrentUserService currentUser,
+            ITenantContextService tenantContextService,
             IStudentService studentService,
             IStudentPhotoService studentPhotoService)
         {
             _context = context;
             _currentUser = currentUser;
+            _tenantContextService = tenantContextService;
             _studentService = studentService;
             _studentPhotoService = studentPhotoService;
         }
@@ -46,16 +49,16 @@ namespace Abhyanvaya.API.Controllers
             int pageNumber = 1,
             int pageSize = 30)
         {
+            if (this.RequireTenantContext(_tenantContextService, out var resolution) is { } contextError)
+            {
+                return contextError;
+            }
+
             if (pageNumber <= 0) pageNumber = 1;
             if (pageSize <= 0) pageSize = 30;
             if (pageSize > 200) pageSize = 200;
 
-            // SuperAdmin JWT has TenantId 0; explicit tenant filter would return no rows. Global query filter already scopes non–Super Admin.
-            IQueryable<Student> query = _context.Students;
-            if (!string.Equals(_currentUser.Role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
-            {
-                query = query.Where(x => x.TenantId == _currentUser.TenantId);
-            }
+            IQueryable<Student> query = _context.Students.Where(x => x.TenantId == resolution.EffectiveTenantId);
 
             if (_currentUser.Role.Equals("Faculty", StringComparison.OrdinalIgnoreCase))
             {

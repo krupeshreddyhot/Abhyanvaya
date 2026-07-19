@@ -15,17 +15,20 @@ namespace Abhyanvaya.API.Controllers
     {
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUser;
+        private readonly ITenantContextService _tenantContextService;
         private readonly ILogger<AttendanceController> _logger;
         private readonly IAttendanceCalendar _attendanceCalendar;
 
         public DashboardController(
             IApplicationDbContext context,
             ICurrentUserService currentUser,
+            ITenantContextService tenantContextService,
             ILogger<AttendanceController> logger,
             IAttendanceCalendar attendanceCalendar)
         {
             _context = context;
             _currentUser = currentUser;
+            _tenantContextService = tenantContextService;
             _logger = logger;
             _attendanceCalendar = attendanceCalendar;
         }
@@ -34,28 +37,21 @@ namespace Abhyanvaya.API.Controllers
         [Authorize(Policy = AuthorizationPolicies.DashboardOverviewAccess)]
         public async Task<IActionResult> GetOverview()
         {
-            if (string.Equals(_currentUser.Role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+            if (this.RequireTenantContext(_tenantContextService, out var resolution) is { } contextError)
             {
-                return Ok(new
-                {
-                    TotalStudents = 0,
-                    TotalSubjects = 0,
-                    TotalAttendance = 0,
-                    TotalPresent = 0,
-                    OverallPercentage = 0d,
-                    TodayPresent = 0,
-                    TodayAbsent = 0
-                });
+                return contextError;
             }
 
+            var tenantId = resolution.EffectiveTenantId;
+
             var studentsQuery = _context.Students
-                .Where(x => x.TenantId == _currentUser.TenantId);
+                .Where(x => x.TenantId == tenantId);
 
             var subjectsQuery = _context.Subjects
-                .Where(x => x.TenantId == _currentUser.TenantId);
+                .Where(x => x.TenantId == tenantId);
 
             var attendanceQuery = _context.Attendances
-                .Where(x => x.TenantId == _currentUser.TenantId);
+                .Where(x => x.TenantId == tenantId);
 
             if (_currentUser.Role.Equals("Faculty", StringComparison.OrdinalIgnoreCase))
             {

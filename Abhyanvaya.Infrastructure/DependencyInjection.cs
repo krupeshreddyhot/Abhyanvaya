@@ -18,6 +18,8 @@ using Abhyanvaya.Infrastructure.ModelLifecycle;
 using Abhyanvaya.Infrastructure.ModelLifecycle.Persistence;
 using Abhyanvaya.Infrastructure.Operations;
 using Abhyanvaya.Infrastructure.ArtifactStorage;
+using Abhyanvaya.Infrastructure.TenantContext;
+using Abhyanvaya.Infrastructure.EnrollmentApi;
 using Abhyanvaya.Infrastructure.ProductionReadiness;
 using Abhyanvaya.Infrastructure.FaceEnrollment;
 using Abhyanvaya.Infrastructure.PhotoAcquisition;
@@ -250,6 +252,12 @@ namespace Abhyanvaya.Infrastructure
             // AI21.PHASE4: enterprise production deployment and go-live readiness.
             services.AddProductionReadinessPlatform(configuration);
 
+            // AI22.PHASE1: enterprise enrollment API platform.
+            services.AddEnrollmentApiPlatform();
+
+            // AI22.5: enterprise operational tenant context platform.
+            services.AddTenantContextPlatform();
+
             // AI20.PHASE2.1.2: enrollment batch creation service (create-only scope).
             services.AddOptions<EnrollmentPipelineOptions>()
                 .Bind(configuration.GetSection(EnrollmentPipelineOptions.SectionName));
@@ -335,8 +343,15 @@ namespace Abhyanvaya.Infrastructure
             services.AddScoped<IEnrollmentWorker, EnrollmentProcessingWorker>();
             services.AddScoped<IEnrollmentWorkerHost, EnrollmentWorkerHost>();
             services.AddScoped<IEnrollmentRecoveryService, EnrollmentRecoveryService>();
-            services.AddHostedService<EnrollmentBackgroundService>();
-            services.AddHostedService<EnrollmentRecoveryBackgroundService>();
+            if (configuration.GetValue<bool>($"{EnrollmentBackgroundOptions.SectionName}:Enabled", true))
+            {
+                services.AddHostedService<EnrollmentBackgroundService>();
+            }
+
+            if (configuration.GetValue<bool>($"{EnrollmentRecoveryOptions.SectionName}:Enabled", true))
+            {
+                services.AddHostedService<EnrollmentRecoveryBackgroundService>();
+            }
 
             return services;
         }

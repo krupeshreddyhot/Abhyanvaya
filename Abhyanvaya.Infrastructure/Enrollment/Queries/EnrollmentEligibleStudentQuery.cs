@@ -40,11 +40,12 @@ public sealed class EnrollmentEligibleStudentQuery : IEnrollmentEligibleStudentQ
 
         if (criteria.SubjectId.HasValue)
         {
-            query = query.Where(s =>
-                _context.StudentSubjects.Any(ss =>
-                    ss.StudentId == s.Id
-                    && ss.SubjectId == criteria.SubjectId.Value
-                    && !ss.IsDeleted));
+            var studentIdsWithSubject = _context.StudentSubjects
+                .AsNoTracking()
+                .Where(ss => ss.SubjectId == criteria.SubjectId.Value && !ss.IsDeleted)
+                .Select(ss => ss.StudentId);
+
+            query = query.Where(s => studentIdsWithSubject.Contains(s.Id));
         }
 
         if (!string.IsNullOrWhiteSpace(criteria.StudentFilter))
@@ -57,12 +58,19 @@ public sealed class EnrollmentEligibleStudentQuery : IEnrollmentEligibleStudentQ
 
         if (!criteria.ForceReEnrollment)
         {
-            query = query.Where(s =>
-                !_context.StudentFaceEmbeddings.Any(e =>
-                    e.StudentId == s.Id
-                    && e.TenantId == criteria.TenantId
+            var embeddedStudentIds = await _context.StudentFaceEmbeddings
+                .AsNoTracking()
+                .Where(e =>
+                    e.TenantId == criteria.TenantId
                     && e.IsActive
-                    && e.EmbeddingStatus == EmbeddingStatus.Completed));
+                    && e.EmbeddingStatus == EmbeddingStatus.Completed)
+                .Select(e => e.StudentId)
+                .ToListAsync(cancellationToken);
+
+            if (embeddedStudentIds.Count > 0)
+            {
+                query = query.Where(s => !embeddedStudentIds.Contains(s.Id));
+            }
         }
 
         return await query

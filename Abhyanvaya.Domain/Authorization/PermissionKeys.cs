@@ -18,6 +18,8 @@ namespace Abhyanvaya.Domain.Authorization
         public const string SetupCoursesManage = "Setup.Courses.Manage";
         public const string SetupGroupsManage = "Setup.Groups.Manage";
         public const string SetupSemestersManage = "Setup.Semesters.Manage";
+        public const string EnrollmentView = "Enrollment.View";
+        public const string EnrollmentManage = "Enrollment.Manage";
 
         public static IReadOnlyList<string> All { get; } =
         [
@@ -35,7 +37,9 @@ namespace Abhyanvaya.Domain.Authorization
             SetupLookupsManage,
             SetupCoursesManage,
             SetupGroupsManage,
-            SetupSemestersManage
+            SetupSemestersManage,
+            EnrollmentView,
+            EnrollmentManage,
         ];
 
         /// <summary>Fallback when <see cref="Entities.UserApplicationRole"/> rows are absent (legacy enum roles).</summary>

@@ -238,7 +238,7 @@ const AppRoutes = () => {
           <Route
             path="ai"
             element={
-              <ProtectedRoute allowedRoles={["SuperAdmin"]}>
+              <ProtectedRoute anyPermission={[PermissionKeys.EnrollmentView, PermissionKeys.EnrollmentManage]} allowedRoles={["SuperAdmin"]} allowRoleOrPermission>
                 <AiCenterPage />
               </ProtectedRoute>
             }
@@ -247,7 +247,7 @@ const AppRoutes = () => {
           <Route
             path="ai/enrollment"
             element={
-              <ProtectedRoute allowedRoles={["SuperAdmin"]}>
+              <ProtectedRoute anyPermission={[PermissionKeys.EnrollmentView, PermissionKeys.EnrollmentManage]} allowedRoles={["SuperAdmin"]} allowRoleOrPermission>
                 <StudentEnrollmentPage />
               </ProtectedRoute>
             }

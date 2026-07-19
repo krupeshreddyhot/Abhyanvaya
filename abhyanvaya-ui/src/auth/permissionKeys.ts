@@ -15,6 +15,8 @@ export const PermissionKeys = {
   SetupCoursesManage: "Setup.Courses.Manage",
   SetupGroupsManage: "Setup.Groups.Manage",
   SetupSemestersManage: "Setup.Semesters.Manage",
+  EnrollmentView: "Enrollment.View",
+  EnrollmentManage: "Enrollment.Manage",
 } as const;
 
 export type PermissionKey = (typeof PermissionKeys)[keyof typeof PermissionKeys];

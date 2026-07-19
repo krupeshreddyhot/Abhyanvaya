@@ -2,6 +2,7 @@ using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Enrollment.Background;
 using Abhyanvaya.Domain.Entities;
 using Abhyanvaya.Domain.Enums;
+using Abhyanvaya.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using NpgsqlTypes;
@@ -54,16 +55,18 @@ public sealed class EnrollmentWorkRepository : IEnrollmentWorkRepository
             new NpgsqlParameter("retryStatus", NpgsqlDbType.Integer) { Value = (int)EnrollmentStatus.RetryRequired },
         };
 
-        var claimedId = await _context.Database
-            .SqlQueryRaw<Guid>(ClaimNextSql, parameters)
-            .FirstOrDefaultAsync(cancellationToken);
+        var claimedId = await PostgreSqlReturningExecutor.ExecuteReturningGuidAsync(
+            _context.Database,
+            ClaimNextSql,
+            parameters,
+            cancellationToken);
 
-        if (claimedId == Guid.Empty)
+        if (claimedId is null || claimedId == Guid.Empty)
         {
             return null;
         }
 
-        return await LoadWorkItemAsync(claimedId, cancellationToken);
+        return await LoadWorkItemAsync(claimedId.Value, cancellationToken);
     }
 
     public Task<EnrollmentWorkItem?> GetByItemIdAsync(Guid itemId, CancellationToken cancellationToken = default) =>
