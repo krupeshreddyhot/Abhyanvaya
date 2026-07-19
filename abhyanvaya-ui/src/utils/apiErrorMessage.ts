@@ -1,7 +1,14 @@
 import axios from "axios";
 
 const readObjectMessage = (data: Record<string, unknown>): string | null => {
-  for (const key of ["detail", "title", "message", "error"] as const) {
+  for (const key of [
+    "detail",
+    "title",
+    "message",
+    "error",
+    "failureMessage",
+    "FailureMessage",
+  ] as const) {
     const value = data[key];
     if (typeof value === "string" && value.trim()) {
       return value.trim();
@@ -30,11 +37,7 @@ export const getApiErrorMessage = (error: unknown, fallback = "Request failed.")
       return "Network error. Check your connection and try again.";
     }
 
-    if (error.response.status === 400) {
-      return "The server rejected this upload. Check image size and dimensions (minimum 640×480).";
-    }
-
-    return `Request failed (${error.response.status}).`;
+    return fallback;
   }
 
   if (error instanceof Error && error.message.trim()) {
@@ -43,6 +46,13 @@ export const getApiErrorMessage = (error: unknown, fallback = "Request failed.")
 
   return fallback;
 };
+
+/** Upload endpoints use a photo-specific fallback when the API returns no message body. */
+export const getUploadApiErrorMessage = (error: unknown): string =>
+  getApiErrorMessage(
+    error,
+    "The server rejected this upload. Check image size and dimensions (minimum 640×480).",
+  );
 
 export const isRetryableUploadError = (error: unknown): boolean => {
   if (axios.isAxiosError(error)) {
