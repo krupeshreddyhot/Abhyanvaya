@@ -318,4 +318,78 @@ public sealed class EnrollmentBatchServiceTests
             .Setup(p => p.GetManifest("StudentEnrollment", 1))
             .Returns(EnrollmentPipelineDefaults.CreateV1Manifest());
     }
+
+    [Fact]
+    public async Task CancelBatchAsync_CancelsRunningBatch_WithoutUpdatingRowVersionManually()
+    {
+        var batchId = Guid.NewGuid();
+        var batch = new StudentEnrollmentBatch
+        {
+            Id = batchId,
+            TenantId = 1,
+            Status = BatchStatus.Running,
+            PhotoProviderName = "ExamBranch",
+            RowVersion = Guid.NewGuid().ToByteArray(),
+        };
+
+        _batchRepository
+            .Setup(r => r.GetBatchAsync(batchId, 1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(batch);
+
+        _itemRepository
+            .Setup(r => r.CancelNonTerminalItemsAsync(batchId, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(298);
+
+        _itemRepository
+            .Setup(r => r.CountByStatusAsync(batchId, EnrollmentStatus.Completed, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(2);
+        _itemRepository
+            .Setup(r => r.CountByStatusAsync(batchId, EnrollmentStatus.Failed, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+        _itemRepository
+            .Setup(r => r.CountByStatusAsync(batchId, EnrollmentStatus.Cancelled, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(298);
+
+        _unitOfWork
+            .Setup(u => u.ExecuteInTransactionAsync(It.IsAny<Func<CancellationToken, Task>>(), It.IsAny<CancellationToken>()))
+            .Returns<Func<CancellationToken, Task>, CancellationToken>(async (action, ct) => await action(ct));
+
+        var service = CreateService();
+        var result = await service.CancelBatchAsync(batchId, 1, 42);
+
+        Assert.True(result.Applied);
+        Assert.Equal(BatchStatus.Cancelled, result.Status);
+        Assert.Equal(BatchStatus.Cancelled, batch.Status);
+        Assert.NotNull(batch.CancellationRequestedUtc);
+        _itemRepository.Verify(
+            r => r.CancelNonTerminalItemsAsync(batchId, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+        _itemRepository.Verify(
+            r => r.UpdateItemAsync(It.IsAny<StudentEnrollmentItem>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task CancelBatchAsync_ReturnsNoOp_WhenBatchAlreadyCancelled()
+    {
+        var batchId = Guid.NewGuid();
+        _batchRepository
+            .Setup(r => r.GetBatchAsync(batchId, 1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StudentEnrollmentBatch
+            {
+                Id = batchId,
+                TenantId = 1,
+                Status = BatchStatus.Cancelled,
+                PhotoProviderName = "ExamBranch",
+                RowVersion = Guid.NewGuid().ToByteArray(),
+            });
+
+        var service = CreateService();
+        var result = await service.CancelBatchAsync(batchId, 1, 42);
+
+        Assert.False(result.Applied);
+        _unitOfWork.Verify(
+            u => u.ExecuteInTransactionAsync(It.IsAny<Func<CancellationToken, Task>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
 }

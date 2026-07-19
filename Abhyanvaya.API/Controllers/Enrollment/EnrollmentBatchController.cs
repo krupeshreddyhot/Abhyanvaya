@@ -153,6 +153,7 @@ public sealed class EnrollmentBatchController : EnrollmentControllerBase
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.CanManageEnrollment)]
     [ProducesResponseType(typeof(CreateBatchResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(CreateBatchResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<CreateBatchResponse>> Create(
         [FromBody] CreateEnrollmentBatchApiRequest request,
@@ -171,7 +172,8 @@ public sealed class EnrollmentBatchController : EnrollmentControllerBase
         var result = await _historyService.CreateBatchAsync(normalized, tenantId, userId, cancellationToken);
         if (!result.Succeeded)
         {
-            return BadRequest(result);
+            // Return 200 with succeeded=false so clients read failureMessage without treating it as a transport error.
+            return Ok(result);
         }
 
         return CreatedAtAction(nameof(Get), new { id = result.BatchId }, result);

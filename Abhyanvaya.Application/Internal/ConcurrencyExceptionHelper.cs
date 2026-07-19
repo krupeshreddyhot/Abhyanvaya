@@ -41,6 +41,11 @@ public static class ConcurrencyExceptionHelper
             {
                 return ConcurrencyConflictException.ForAttendanceRecognition();
             }
+
+            if (entry.Entity is StudentEnrollmentBatch or StudentEnrollmentItem)
+            {
+                return ConcurrencyConflictException.ForEnrollmentBatch();
+            }
         }
 
         return ConcurrencyConflictException.ForAttendanceModule();
