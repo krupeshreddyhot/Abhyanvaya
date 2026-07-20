@@ -6,6 +6,7 @@ import AiTechnologyCard from "../ai/AiTechnologyCard";
 import EnrollmentStatistics from "./EnrollmentStatistics";
 import EnrollmentReadinessCard from "./EnrollmentReadinessCard";
 import EnrollmentBatchGrid from "./EnrollmentBatchGrid";
+import EnrollmentInsightsWidgets from "./EnrollmentInsightsWidgets";
 import { mapSystemStatusItems } from "./enrollmentMappers";
 import { useEnrollmentDashboard } from "../../context/EnrollmentDashboardContext";
 
@@ -38,6 +39,7 @@ const EnrollmentDashboard = ({ onViewBatch }: Props) => {
       </Box>
 
       <EnrollmentWorkflowCard />
+      <EnrollmentInsightsWidgets />
       <EnrollmentStatistics />
       <EnrollmentBatchGrid onViewBatch={onViewBatch} />
 

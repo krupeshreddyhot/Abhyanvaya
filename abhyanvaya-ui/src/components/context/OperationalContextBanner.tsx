@@ -1,27 +1,39 @@
 import { Alert, Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
-import { useMemo } from "react";
+import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
+import SchoolOutlinedIcon from "@mui/icons-material/SchoolOutlined";
+import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
+import AccessTimeOutlinedIcon from "@mui/icons-material/AccessTimeOutlined";
+import { useEffect, useMemo, useState } from "react";
 import { useTenantContext } from "../../context/TenantContextProvider";
+import { getTenantCollege } from "../../services/adminService";
+import {
+  formatContextRemaining,
+  formatContextSelectedLabel,
+  formatContextValidUntil,
+} from "../../utils/contextFormatUtils";
 
 type Props = {
   onChangeContext?: () => void;
+  universityName?: string | null;
 };
 
-const formatAge = (createdUtc?: string | null, expiresUtc?: string | null) => {
-  if (!createdUtc) return "—";
-  const created = new Date(createdUtc);
-  const ageMinutes = Math.floor((Date.now() - created.getTime()) / 60000);
-  if (expiresUtc) {
-    const remaining = Math.max(0, Math.floor((new Date(expiresUtc).getTime() - Date.now()) / 60000));
-    return `${ageMinutes}m old · ${remaining}m remaining`;
-  }
-  return `${ageMinutes}m old`;
-};
-
-const OperationalContextBanner = ({ onChangeContext }: Props) => {
+const OperationalContextBanner = ({ onChangeContext, universityName: universityNameProp }: Props) => {
   const { context, isSuperAdmin, hasOperationalContext, clearOperationalContext, loading, renewOperationalContext } =
     useTenantContext();
+  const [universityName, setUniversityName] = useState<string | null>(universityNameProp ?? null);
+
+  useEffect(() => {
+    if (universityNameProp) {
+      setUniversityName(universityNameProp);
+      return;
+    }
+    if (!hasOperationalContext) return;
+    void getTenantCollege()
+      .then((res) => setUniversityName(res.data.universityName))
+      .catch(() => setUniversityName(null));
+  }, [hasOperationalContext, universityNameProp, context?.selectedCollegeId]);
 
   const contextTypeLabel = useMemo(() => {
     if (!context) return "Unknown";
@@ -45,43 +57,62 @@ const OperationalContextBanner = ({ onChangeContext }: Props) => {
     return null;
   }
 
-  const collegeLabel = context?.selectedCollegeName
-    ? `${context.selectedCollegeName} (${context.selectedCollegeCode ?? context.selectedCollegeId})`
-    : context?.isGlobal
-      ? "Global scope"
-      : "College scope";
+  const collegeLabel = context?.selectedCollegeName ?? "College scope";
 
   return (
-    <Paper variant="outlined" sx={{ p: 1.5 }} role="status">
-      <Stack direction={{ xs: "column", md: "row" }} spacing={1} sx={{ alignItems: { md: "center" }, justifyContent: "space-between" }}>
-        <Box>
-          <Typography variant="caption" color="text.secondary">
-            Operational context
+    <Paper variant="outlined" sx={{ p: 2 }} role="status" aria-label="Operational context">
+      <Stack
+        direction={{ xs: "column", lg: "row" }}
+        spacing={2}
+        sx={{ alignItems: { lg: "center" }, justifyContent: "space-between" }}
+      >
+        <Box sx={{ flex: 1 }}>
+          <Typography variant="overline" color="text.secondary">
+            Operational Context
           </Typography>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", mt: 0.5 }}>
-            <Chip size="small" label={`College: ${collegeLabel}`} color="primary" variant="outlined" />
-            <Chip size="small" label={`Tenant: ${context?.tenantId ?? 0}`} variant="outlined" />
-            <Chip size="small" label={`Type: ${contextTypeLabel}`} variant="outlined" />
-            <Chip size="small" label={`Age: ${formatAge(context?.createdUtc, context?.expiresUtc)}`} variant="outlined" />
+          <Stack spacing={1.25} sx={{ mt: 0.5 }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+              <SchoolOutlinedIcon fontSize="small" color="primary" aria-hidden />
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                {collegeLabel}
+              </Typography>
+              {context?.selectedCollegeCode ? (
+                <Chip size="small" label={context.selectedCollegeCode} variant="outlined" />
+              ) : null}
+            </Stack>
+            {universityName ? (
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                <AccountBalanceOutlinedIcon fontSize="small" color="action" aria-hidden />
+                <Typography variant="body2" color="text.secondary">
+                  {universityName}
+                </Typography>
+              </Stack>
+            ) : null}
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 0.5 }}>
+              <Chip size="small" icon={<AccessTimeOutlinedIcon />} label={formatContextSelectedLabel(context?.createdUtc)} variant="outlined" />
+              <Chip size="small" label={`Valid until ${formatContextValidUntil(context?.expiresUtc)}`} variant="outlined" />
+              <Chip size="small" label={`Expires in ${formatContextRemaining(context?.expiresUtc)}`} color="info" variant="outlined" />
+              <Chip size="small" label={`Type: ${contextTypeLabel}`} variant="outlined" />
+            </Stack>
           </Stack>
         </Box>
         {isSuperAdmin ? (
-          <Stack direction="row" spacing={1}>
-            <Button size="small" startIcon={<SwapHorizIcon />} onClick={onChangeContext}>
-              Change
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+            <Button size="small" variant="outlined" startIcon={<SwapHorizIcon />} onClick={onChangeContext}>
+              Change Context
             </Button>
-            <Button size="small" onClick={() => void renewOperationalContext()}>
-              Renew
+            <Button size="small" variant="outlined" startIcon={<RefreshOutlinedIcon />} onClick={() => void renewOperationalContext()}>
+              Refresh Context
             </Button>
             {!context?.isGlobal ? (
-              <Chip
+              <Button
                 size="small"
-                label="Clear"
+                color="inherit"
+                startIcon={<CloseIcon />}
                 onClick={() => void clearOperationalContext()}
-                onDelete={() => void clearOperationalContext()}
-                deleteIcon={<CloseIcon />}
-                variant="outlined"
-              />
+              >
+                Clear Context
+              </Button>
             ) : null}
           </Stack>
         ) : null}
