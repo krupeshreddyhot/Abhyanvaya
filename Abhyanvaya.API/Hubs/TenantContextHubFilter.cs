@@ -14,9 +14,17 @@ public sealed class TenantContextHubFilter : IHubFilter
     {
         if (invocationContext.Context.User.Identity?.IsAuthenticated == true)
         {
+            var httpContext = invocationContext.Context.GetHttpContext();
+            if (httpContext is not null
+                && invocationContext.Context.User.Identity.IsAuthenticated
+                && httpContext.User?.Identity?.IsAuthenticated != true)
+            {
+                httpContext.User = invocationContext.Context.User;
+            }
+
             var tenantContextService = invocationContext.ServiceProvider.GetRequiredService<ITenantContextService>();
-            await tenantContextService.GetCurrentContextAsync(invocationContext.Hub.Context.ConnectionAborted);
-            await tenantContextService.ApplyOperationalTenantAsync(invocationContext.Hub.Context.ConnectionAborted);
+            await tenantContextService.GetCurrentContextAsync(invocationContext.Context.ConnectionAborted);
+            await tenantContextService.ApplyOperationalTenantAsync(invocationContext.Context.ConnectionAborted);
         }
 
         return await next(invocationContext);

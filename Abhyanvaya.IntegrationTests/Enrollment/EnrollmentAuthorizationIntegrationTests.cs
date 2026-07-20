@@ -114,6 +114,7 @@ public sealed class EnrollmentAuthorizationIntegrationTests
 
         return new EnrollmentAuthorizationService(
             tenantContext.Object,
+            currentUser,
             batchRepository,
             permissions.Object,
             new EnrollmentAuthorizationTelemetry(NullLogger<EnrollmentAuthorizationTelemetry>.Instance),
