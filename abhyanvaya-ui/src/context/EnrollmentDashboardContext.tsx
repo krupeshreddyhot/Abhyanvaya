@@ -185,11 +185,22 @@ export const EnrollmentDashboardProvider = ({ children }: { children: ReactNode 
     try {
       const res = await enrollmentApiClient.getBatch(batchId);
       dispatch({ type: "SET_SELECTED_BATCH", batch: res.data });
-      await enrollmentApiClient.subscribeBatch(batchId);
+      try {
+        if (hasOperationalContext) {
+          await enrollmentApiClient.subscribeTenant();
+        }
+        await enrollmentApiClient.subscribeBatch(batchId);
+      } catch (subscribeErr) {
+        dispatch({
+          type: "SHOW_TOAST",
+          message: getApiErrorMessage(subscribeErr),
+          severity: "info",
+        });
+      }
     } catch (err) {
       dispatch({ type: "SHOW_TOAST", message: getApiErrorMessage(err), severity: "error" });
     }
-  }, []);
+  }, [hasOperationalContext]);
 
   const createBatch = useCallback(
     async (request: CreateEnrollmentBatchApiRequest) => {

@@ -1,5 +1,6 @@
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.EnrollmentApi;
+using Abhyanvaya.Domain.Enums;
 using Microsoft.Extensions.Logging;
 
 namespace Abhyanvaya.Infrastructure.EnrollmentApi;
@@ -9,6 +10,7 @@ public sealed class EnrollmentAuthorizationService : IEnrollmentAuthorizationSer
     private const string AccessDeniedMessage = "Access denied.";
 
     private readonly ITenantContextService _tenantContextService;
+    private readonly ICurrentUserService _currentUser;
     private readonly IStudentEnrollmentBatchRepository _batchRepository;
     private readonly IEnrollmentActorPermissions _permissions;
     private readonly IEnrollmentAuthorizationTelemetry _telemetry;
@@ -17,6 +19,7 @@ public sealed class EnrollmentAuthorizationService : IEnrollmentAuthorizationSer
 
     public EnrollmentAuthorizationService(
         ITenantContextService tenantContextService,
+        ICurrentUserService currentUser,
         IStudentEnrollmentBatchRepository batchRepository,
         IEnrollmentActorPermissions permissions,
         IEnrollmentAuthorizationTelemetry telemetry,
@@ -24,6 +27,7 @@ public sealed class EnrollmentAuthorizationService : IEnrollmentAuthorizationSer
         ILogger<EnrollmentAuthorizationService> logger)
     {
         _tenantContextService = tenantContextService;
+        _currentUser = currentUser;
         _batchRepository = batchRepository;
         _permissions = permissions;
         _telemetry = telemetry;
@@ -98,13 +102,29 @@ public sealed class EnrollmentAuthorizationService : IEnrollmentAuthorizationSer
         CancellationToken cancellationToken)
     {
         var resolution = _tenantContextService.ResolveForOperation();
-        if (!resolution.IsResolved)
+        int tenantId;
+        if (resolution.IsResolved)
+        {
+            tenantId = resolution.EffectiveTenantId;
+        }
+        else if (IsSuperAdmin())
+        {
+            var crossTenantBatch = await _batchRepository.GetBatchAsync(batchId, cancellationToken);
+            if (crossTenantBatch is null)
+            {
+                RecordViolation(operation, batchId, resolution.EffectiveTenantId, AccessDeniedMessage);
+                _telemetry.RecordSubscriptionFailure(batchId, AccessDeniedMessage);
+                return EnrollmentAuthorizationResult.Forbidden();
+            }
+
+            tenantId = crossTenantBatch.TenantId;
+        }
+        else
         {
             RecordViolation(operation, batchId, resolution.EffectiveTenantId, resolution.Message ?? "Context required.");
             return EnrollmentAuthorizationResult.ContextRequired(resolution.Message ?? "A college context is required for this operation.");
         }
 
-        var tenantId = resolution.EffectiveTenantId;
         var batch = await _batchRepository.GetBatchAsync(batchId, tenantId, cancellationToken);
 
         if (batch is null)
@@ -116,6 +136,9 @@ public sealed class EnrollmentAuthorizationService : IEnrollmentAuthorizationSer
 
         return EnrollmentAuthorizationResult.Allowed(tenantId, batchId);
     }
+
+    private bool IsSuperAdmin() =>
+        string.Equals(_currentUser.Role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase);
 
     private void RecordViolation(string operation, Guid? batchId, int? tenantId, string reason)
     {
