@@ -18,31 +18,45 @@ import {
 } from "@mui/material";
 import { useEffect, useMemo, useState } from "react";
 import { enrollmentApiClient } from "../../api/enrollmentApiClient";
-import { getTenantCollege } from "../../services/adminService";
+import { getTenantCollege, type TenantCollegeDto } from "../../services/adminService";
 import { listMasterCourses, listMasterGroups, listSemesters } from "../../services/setupService";
 import { useEnrollmentDashboard } from "../../context/EnrollmentDashboardContext";
+import { useTenantContext } from "../../context/TenantContextProvider";
 import { useAuth } from "../../context/AuthContext";
 import type { CreateEnrollmentBatchApiRequest } from "../../types/enrollment";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
+import { WIZARD_STEPS, buildScopeFilters, type WizardScopeSelection } from "../../utils/enrollmentWizardUtils";
+import WizardContextHeader from "./WizardContextHeader";
+import EnrollmentSummaryPreview from "./EnrollmentSummaryPreview";
 
 type Props = {
   open: boolean;
   onClose: () => void;
 };
 
-const steps = ["College", "Academic Year", "Scope", "Preview", "Confirm"];
-
 const EnrollmentBatchWizard = ({ open, onClose }: Props) => {
-  const { createBatch, refreshReadiness, academicYear } = useEnrollmentDashboard();
+  const {
+    createBatch,
+    refreshReadiness,
+    academicYear,
+    configuration,
+    dashboard,
+    systemStatus,
+    readiness,
+    collegeId: contextCollegeId,
+  } = useEnrollmentDashboard();
+  const { context, hasOperationalContext } = useTenantContext();
   const { user } = useAuth();
+
   const [activeStep, setActiveStep] = useState(0);
-  const [universityId, setUniversityId] = useState<number | "">("");
-  const [collegeId, setCollegeId] = useState<number | "">("");
+  const [collegeProfile, setCollegeProfile] = useState<TenantCollegeDto | null>(null);
   const [year, setYear] = useState(academicYear);
-  const [courseId, setCourseId] = useState<number | "">("");
-  const [groupId, setGroupId] = useState<number | "">("");
-  const [semesterId, setSemesterId] = useState<number | "">("");
-  const [batch, setBatch] = useState<number | "">("");
+  const [scope, setScope] = useState<WizardScopeSelection>({
+    courseId: "",
+    groupId: "",
+    semesterId: "",
+    batch: "",
+  });
   const [previewCount, setPreviewCount] = useState<number | null>(null);
   const [sampleNumbers, setSampleNumbers] = useState<string[]>([]);
   const [courses, setCourses] = useState<Array<{ id: number; name: string }>>([]);
@@ -51,74 +65,83 @@ const EnrollmentBatchWizard = ({ open, onClose }: Props) => {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const collegeId = contextCollegeId ?? collegeProfile?.id ?? null;
+  const universityId = collegeProfile?.universityId ?? null;
+  const collegeName = context?.selectedCollegeName ?? collegeProfile?.name ?? "Selected college";
+  const universityName = collegeProfile?.universityName ?? "University";
+
   useEffect(() => {
-    if (!open) return;
+    if (!open || !hasOperationalContext) return;
     void (async () => {
       try {
-        const [courseRes, groupRes, semesterRes] = await Promise.all([
+        const [courseRes, groupRes, semesterRes, collegeRes] = await Promise.all([
           listMasterCourses(),
           listMasterGroups(),
           listSemesters(),
+          getTenantCollege().catch(() => null),
         ]);
         setCourses(courseRes.data);
         setGroups(groupRes.data);
         setSemesters(semesterRes.data);
-        if (user?.tenantId) {
-          const college = await getTenantCollege();
-          setCollegeId(college.data.id);
-          setUniversityId(college.data.universityId);
-        }
+        if (collegeRes?.data) setCollegeProfile(collegeRes.data);
       } catch (err) {
         setError(getApiErrorMessage(err));
       }
     })();
-  }, [open, user?.tenantId]);
+  }, [open, hasOperationalContext]);
+
+  useEffect(() => {
+    if (open) setYear(academicYear);
+  }, [open, academicYear]);
 
   const filteredGroups = useMemo(
-    () => (courseId ? groups.filter((g) => g.courseId === courseId) : groups),
-    [courseId, groups],
+    () => (scope.courseId ? groups.filter((g) => g.courseId === scope.courseId) : groups),
+    [scope.courseId, groups],
   );
 
   const filteredSemesters = useMemo(
     () =>
       semesters.filter((s) => {
-        if (courseId && s.courseId !== courseId) return false;
-        if (groupId && s.groupId !== groupId) return false;
+        if (scope.courseId && s.courseId !== scope.courseId) return false;
+        if (scope.groupId && s.groupId !== scope.groupId) return false;
         return true;
       }),
-    [semesters, courseId, groupId],
+    [semesters, scope.courseId, scope.groupId],
+  );
+
+  const scopeLabels = useMemo(
+    () => ({
+      course: courses.find((c) => c.id === scope.courseId)?.name,
+      group: groups.find((g) => g.id === scope.groupId)?.name,
+      semester: semesters.find((s) => s.id === scope.semesterId)?.name,
+    }),
+    [courses, groups, semesters, scope],
   );
 
   const loadPreview = async () => {
     if (!collegeId || !year) return;
     setError(null);
+    const filters = buildScopeFilters(collegeId, year, scope);
     try {
       const res = await enrollmentApiClient.previewBatch({
-        tenantId: user?.tenantId ?? 0,
-        collegeId: Number(collegeId),
+        tenantId: user?.tenantId ?? context?.tenantId ?? 0,
+        collegeId,
         academicYear: year,
-        courseId: courseId ? Number(courseId) : undefined,
-        groupId: groupId ? Number(groupId) : undefined,
-        batch: batch ? Number(batch) : undefined,
-        subjectId: semesterId ? Number(semesterId) : undefined,
+        courseId: filters.courseId,
+        groupId: filters.groupId,
+        batch: filters.batch,
+        subjectId: filters.subjectId,
       });
       setPreviewCount(res.data.eligibleStudentCount);
       setSampleNumbers(res.data.sampleStudentNumbers);
-      await refreshReadiness({
-        collegeId: Number(collegeId),
-        academicYear: year,
-        courseId: courseId ? Number(courseId) : undefined,
-        groupId: groupId ? Number(groupId) : undefined,
-        batch: batch ? Number(batch) : undefined,
-        subjectId: semesterId ? Number(semesterId) : undefined,
-      });
+      await refreshReadiness(filters);
     } catch (err) {
       setError(getApiErrorMessage(err));
     }
   };
 
   const handleNext = async () => {
-    if (activeStep === 3) {
+    if (activeStep === 1) {
       await loadPreview();
     }
     setActiveStep((s) => s + 1);
@@ -126,23 +149,32 @@ const EnrollmentBatchWizard = ({ open, onClose }: Props) => {
 
   const handleBack = () => setActiveStep((s) => s - 1);
 
+  const resetWizard = () => {
+    setActiveStep(0);
+    setScope({ courseId: "", groupId: "", semesterId: "", batch: "" });
+    setPreviewCount(null);
+    setSampleNumbers([]);
+    setError(null);
+  };
+
   const handleSubmit = async () => {
     if (!collegeId || !universityId) return;
     setSubmitting(true);
+    const filters = buildScopeFilters(collegeId, year, scope);
     const payload: CreateEnrollmentBatchApiRequest = {
-      universityId: Number(universityId),
-      collegeId: Number(collegeId),
+      universityId,
+      collegeId,
       academicYear: year,
-      courseId: courseId ? Number(courseId) : undefined,
-      groupId: groupId ? Number(groupId) : undefined,
-      batch: batch ? Number(batch) : undefined,
-      subjectId: semesterId ? Number(semesterId) : undefined,
+      courseId: filters.courseId,
+      groupId: filters.groupId,
+      batch: filters.batch,
+      subjectId: filters.subjectId,
     };
     const ok = await createBatch(payload);
     setSubmitting(false);
     if (ok) {
+      resetWizard();
       onClose();
-      setActiveStep(0);
     }
   };
 
@@ -150,35 +182,17 @@ const EnrollmentBatchWizard = ({ open, onClose }: Props) => {
     switch (activeStep) {
       case 0:
         return (
-          <Stack spacing={2}>
-            <TextField
-              label="College ID"
-              type="number"
-              value={collegeId}
-              onChange={(e) => setCollegeId(Number(e.target.value))}
-              helperText="Tenant college identifier from your organization profile."
-              fullWidth
-            />
-            <TextField
-              label="University ID"
-              type="number"
-              value={universityId}
-              onChange={(e) => setUniversityId(Number(e.target.value))}
-              fullWidth
-            />
-          </Stack>
-        );
-      case 1:
-        return (
           <TextField
             label="Academic Year"
             type="number"
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
             fullWidth
+            slotProps={{ htmlInput: { "aria-label": "Academic year" } }}
+            helperText="First business decision — which academic year to enroll."
           />
         );
-      case 2:
+      case 1:
         return (
           <Stack spacing={2}>
             <FormControl fullWidth>
@@ -186,12 +200,10 @@ const EnrollmentBatchWizard = ({ open, onClose }: Props) => {
               <Select
                 labelId="course-label"
                 label="Course"
-                value={courseId}
-                onChange={(e) => {
-                  setCourseId(Number(e.target.value));
-                  setGroupId("");
-                  setSemesterId("");
-                }}
+                value={scope.courseId}
+                onChange={(e) =>
+                  setScope({ courseId: Number(e.target.value), groupId: "", semesterId: "", batch: scope.batch })
+                }
               >
                 <MenuItem value="">All courses</MenuItem>
                 {courses.map((c) => (
@@ -206,8 +218,8 @@ const EnrollmentBatchWizard = ({ open, onClose }: Props) => {
               <Select
                 labelId="group-label"
                 label="Group"
-                value={groupId}
-                onChange={(e) => setGroupId(Number(e.target.value))}
+                value={scope.groupId}
+                onChange={(e) => setScope({ ...scope, groupId: Number(e.target.value) })}
               >
                 <MenuItem value="">All groups</MenuItem>
                 {filteredGroups.map((g) => (
@@ -222,8 +234,8 @@ const EnrollmentBatchWizard = ({ open, onClose }: Props) => {
               <Select
                 labelId="semester-label"
                 label="Semester"
-                value={semesterId}
-                onChange={(e) => setSemesterId(Number(e.target.value))}
+                value={scope.semesterId}
+                onChange={(e) => setScope({ ...scope, semesterId: Number(e.target.value) })}
               >
                 <MenuItem value="">All semesters</MenuItem>
                 {filteredSemesters.map((s) => (
@@ -236,34 +248,48 @@ const EnrollmentBatchWizard = ({ open, onClose }: Props) => {
             <TextField
               label="Section / Batch"
               type="number"
-              value={batch}
-              onChange={(e) => setBatch(Number(e.target.value))}
+              value={scope.batch}
+              onChange={(e) => setScope({ ...scope, batch: Number(e.target.value) })}
               fullWidth
             />
           </Stack>
         );
-      case 3:
+      case 2:
         return (
-          <Stack spacing={1}>
-            <Typography variant="body1">
-              Eligible students: {previewCount ?? "—"}
-            </Typography>
+          <Stack spacing={2}>
+            <EnrollmentSummaryPreview
+              collegeName={collegeName}
+              universityName={universityName}
+              academicYear={year}
+              scope={scope}
+              scopeLabels={scopeLabels}
+              eligibleCount={previewCount}
+              readiness={readiness}
+              configuration={configuration}
+              dashboard={dashboard}
+              systemStatus={systemStatus}
+            />
             {sampleNumbers.length > 0 ? (
-              <Box component="ul" sx={{ m: 0, pl: 2 }}>
-                {sampleNumbers.map((n) => (
-                  <li key={n}>
-                    <Typography variant="caption">{n}</Typography>
-                  </li>
-                ))}
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Sample student numbers
+                </Typography>
+                <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                  {sampleNumbers.map((n) => (
+                    <li key={n}>
+                      <Typography variant="caption">{n}</Typography>
+                    </li>
+                  ))}
+                </Box>
               </Box>
             ) : null}
           </Stack>
         );
-      case 4:
+      case 3:
         return (
           <Typography variant="body2">
-            Confirm creation of an enrollment batch for {previewCount ?? 0} students. Processing runs in background
-            workers — no AI executes in the browser.
+            Confirm creation of an enrollment batch for {previewCount ?? 0} students at {collegeName}. Processing
+            runs in background workers — no AI executes in the browser.
           </Typography>
         );
       default:
@@ -275,31 +301,41 @@ const EnrollmentBatchWizard = ({ open, onClose }: Props) => {
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md" aria-labelledby="enrollment-wizard-title">
       <DialogTitle id="enrollment-wizard-title">Start Enrollment Batch</DialogTitle>
       <DialogContent dividers>
+        <WizardContextHeader
+          collegeName={collegeName}
+          collegeCode={context?.selectedCollegeCode ?? collegeProfile?.code}
+          universityName={universityName}
+          contextCreatedUtc={context?.createdUtc}
+        />
         <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 3 }}>
-          {steps.map((label) => (
+          {WIZARD_STEPS.map((label) => (
             <Step key={label}>
               <StepLabel>{label}</StepLabel>
             </Step>
           ))}
         </Stepper>
         {error ? (
-          <Typography variant="body2" color="error" sx={{ mb: 2 }}>
+          <Typography variant="body2" color="error" sx={{ mb: 2 }} role="alert">
             {error}
           </Typography>
         ) : null}
-        {stepContent()}
+        {!hasOperationalContext ? (
+          <Typography variant="body2" color="warning.main" role="alert">
+            Select an operational college context before starting enrollment.
+          </Typography>
+        ) : (
+          stepContent()
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        {activeStep > 0 ? (
-          <Button onClick={handleBack}>Back</Button>
-        ) : null}
-        {activeStep < steps.length - 1 ? (
-          <Button variant="contained" onClick={() => void handleNext()}>
+        {activeStep > 0 ? <Button onClick={handleBack}>Back</Button> : null}
+        {activeStep < WIZARD_STEPS.length - 1 ? (
+          <Button variant="contained" onClick={() => void handleNext()} disabled={!hasOperationalContext || !collegeId}>
             Next
           </Button>
         ) : (
-          <Button variant="contained" onClick={() => void handleSubmit()} disabled={submitting}>
+          <Button variant="contained" onClick={() => void handleSubmit()} disabled={submitting || !collegeId}>
             Confirm & Create
           </Button>
         )}
