@@ -79,7 +79,9 @@ public sealed class EnrollmentWorkRepository : IEnrollmentWorkRepository
         FailureCategory? failureCategory,
         CancellationToken cancellationToken = default)
     {
-        var item = await _context.StudentEnrollmentItems.FirstOrDefaultAsync(i => i.Id == itemId, cancellationToken);
+        var item = await _context.StudentEnrollmentItems
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(i => i.Id == itemId, cancellationToken);
         if (item == null)
         {
             return;
@@ -114,6 +116,7 @@ public sealed class EnrollmentWorkRepository : IEnrollmentWorkRepository
 
         var itemIds = await _context.StudentEnrollmentItems
             .AsNoTracking()
+            .IgnoreQueryFilters()
             .Where(i => stuckStatuses.Contains(i.Status)
                         && i.LastAttemptUtc != null
                         && i.LastAttemptUtc < staleBeforeUtc)
@@ -137,7 +140,9 @@ public sealed class EnrollmentWorkRepository : IEnrollmentWorkRepository
 
     public async Task RequeueAsync(Guid itemId, CancellationToken cancellationToken = default)
     {
-        var item = await _context.StudentEnrollmentItems.FirstOrDefaultAsync(i => i.Id == itemId, cancellationToken);
+        var item = await _context.StudentEnrollmentItems
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(i => i.Id == itemId, cancellationToken);
         if (item == null)
         {
             return;
@@ -159,6 +164,7 @@ public sealed class EnrollmentWorkRepository : IEnrollmentWorkRepository
     {
         var row = await _context.StudentEnrollmentItems
             .AsNoTracking()
+            .IgnoreQueryFilters()
             .Where(i => i.Id == itemId)
             .Select(i => new
             {

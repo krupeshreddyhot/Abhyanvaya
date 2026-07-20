@@ -52,6 +52,7 @@ public sealed class EnrollmentProgressBroadcastService : BackgroundService
 
         var activeBatchIds = await context.StudentEnrollmentBatches
             .AsNoTracking()
+            .IgnoreQueryFilters()
             .Where(b => b.Status == BatchStatus.Created || b.Status == BatchStatus.Running)
             .Select(b => new { b.Id, b.TenantId })
             .ToListAsync(cancellationToken);
