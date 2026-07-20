@@ -7,6 +7,8 @@ public sealed record EnrollmentDashboardDto
     public required int TotalStudents { get; init; }
     public required int EligibleStudents { get; init; }
     public required int Embedded { get; init; }
+    /// <summary>Completed enrollment items with a profile photo but no face embedding.</summary>
+    public required int UploadedWithoutEmbedding { get; init; }
     public required int Pending { get; init; }
     public required int Failed { get; init; }
     public required int ProcessedToday { get; init; }
@@ -83,6 +85,7 @@ public record BatchSummary
     public required BatchStatus Status { get; init; }
     public required int TotalStudents { get; init; }
     public required int CompletedCount { get; init; }
+    public required int UploadedWithoutEmbedding { get; init; }
     public required int FailedCount { get; init; }
     public required int PendingCount { get; init; }
     public required int CollegeId { get; init; }
@@ -114,6 +117,7 @@ public sealed record BatchProgressDto
     public required int Validating { get; init; }
     public required int Embedding { get; init; }
     public required int Completed { get; init; }
+    public required int UploadedWithoutEmbedding { get; init; }
     public required int Failed { get; init; }
     public required int Cancelled { get; init; }
 }

@@ -3,16 +3,21 @@ using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Enrollment.Orchestration;
 using Abhyanvaya.Application.Enrollment.Pipeline;
 using Abhyanvaya.Application.Enrollment.Storage;
+using Abhyanvaya.Domain.Enums;
 
 namespace Abhyanvaya.Infrastructure.Enrollment.Orchestration.Stages;
 
 public sealed class StorageEnrollmentPipelineStage : IEnrollmentPipelineStage
 {
     private readonly IEnrollmentStorageService _storageService;
+    private readonly IEnrollmentStudentPhotoPublisher _studentPhotoPublisher;
 
-    public StorageEnrollmentPipelineStage(IEnrollmentStorageService storageService)
+    public StorageEnrollmentPipelineStage(
+        IEnrollmentStorageService storageService,
+        IEnrollmentStudentPhotoPublisher studentPhotoPublisher)
     {
         _storageService = storageService;
+        _studentPhotoPublisher = studentPhotoPublisher;
     }
 
     public EnrollmentPipelineStage? ManifestStage => EnrollmentPipelineStage.Storage;
@@ -64,6 +69,41 @@ public sealed class StorageEnrollmentPipelineStage : IEnrollmentPipelineStage
                 stopwatch.Elapsed,
                 "storage.failure",
                 storageResult.FailureReason ?? "Storage failed.",
+                Domain.Enums.FailureCategory.StorageUploadFailed,
+                isRetryable: true);
+        }
+
+        if (context.PhotoBytes is not { Length: > 0 })
+        {
+            stopwatch.Stop();
+            return EnrollmentPipelineStageExecutionResult.Failed(
+                context with { State = EnrollmentPipelineState.Failed, StorageResult = storageResult },
+                stopwatch.Elapsed,
+                EnrollmentPipelineFailureCodes.StageFailed,
+                "Student photo publish requires downloaded photo bytes.",
+                isRetryable: false);
+        }
+
+        var publishResult = await _studentPhotoPublisher.PublishAsync(
+            new EnrollmentStudentPhotoPublishRequest
+            {
+                TenantId = itemContext.TenantId,
+                StudentId = itemContext.StudentId,
+                BatchId = itemContext.BatchId,
+                ItemId = itemContext.ItemId,
+                PhotoBytes = context.PhotoBytes,
+                ContentType = context.ContentType,
+            },
+            cancellationToken);
+
+        if (!publishResult.Success)
+        {
+            stopwatch.Stop();
+            return EnrollmentPipelineStageExecutionResult.Failed(
+                context with { State = EnrollmentPipelineState.Failed, StorageResult = storageResult },
+                stopwatch.Elapsed,
+                "student_photo.failure",
+                publishResult.FailureReason ?? "Student profile photo publish failed.",
                 Domain.Enums.FailureCategory.StorageUploadFailed,
                 isRetryable: true);
         }

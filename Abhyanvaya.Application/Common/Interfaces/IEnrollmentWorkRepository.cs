@@ -22,4 +22,9 @@ public interface IEnrollmentWorkRepository
         CancellationToken cancellationToken = default);
 
     Task RequeueAsync(Guid itemId, CancellationToken cancellationToken = default);
+
+    Task<int> RequeueUnleasedInFlightItemsAsync(
+        DateTime utcNow,
+        int limit,
+        CancellationToken cancellationToken = default);
 }

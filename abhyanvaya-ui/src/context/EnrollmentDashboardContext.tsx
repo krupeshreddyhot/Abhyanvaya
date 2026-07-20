@@ -104,6 +104,7 @@ const reducer = (state: EnrollmentState, action: EnrollmentAction): EnrollmentSt
             ? {
                 ...batch,
                 completedCount: progress.completed,
+                uploadedWithoutEmbedding: progress.uploadedWithoutEmbedding,
                 failedCount: progress.failed,
                 pendingCount: pending,
                 progressPercent: batch.totalStudents

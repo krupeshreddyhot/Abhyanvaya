@@ -1,8 +1,12 @@
 namespace Abhyanvaya.Infrastructure.Enrollment.Validation;
 
+using Abhyanvaya.Application.Enrollment.Validation;
+
 public sealed class EnrollmentValidationOptions
 {
     public const string SectionName = "EnrollmentValidation";
+
+    public ValidationProfileKind DefaultProfile { get; set; } = ValidationProfileKind.PhotoCapture;
 
     public long MaxImageBytes { get; set; } = 15 * 1024 * 1024;
 

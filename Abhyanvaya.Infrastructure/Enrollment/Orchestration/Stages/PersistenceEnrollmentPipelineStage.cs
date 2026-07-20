@@ -32,6 +32,13 @@ public sealed class PersistenceEnrollmentPipelineStage : IEnrollmentPipelineStag
         if (context.EmbeddingArtifact is null)
         {
             stopwatch.Stop();
+            if (!context.EmbeddingEligible)
+            {
+                return EnrollmentPipelineStageExecutionResult.Succeeded(
+                    context with { State = EnrollmentPipelineState.Persisted },
+                    stopwatch.Elapsed);
+            }
+
             return EnrollmentPipelineStageExecutionResult.Failed(
                 context with { State = EnrollmentPipelineState.Failed },
                 stopwatch.Elapsed,

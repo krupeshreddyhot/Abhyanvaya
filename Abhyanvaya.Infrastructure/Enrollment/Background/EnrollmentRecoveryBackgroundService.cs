@@ -89,9 +89,20 @@ public sealed class EnrollmentRecoveryService : IEnrollmentRecoveryService
     public async Task<EnrollmentRecoveryResult> RecoverAsync(CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
+        var utcNow = _clock.GetUtcNow().UtcDateTime;
         var expiredLeases = await _leaseManager.ExpireAbandonedLeasesAsync(cancellationToken);
 
-        var cutoff = _clock.GetUtcNow().UtcDateTime.AddMinutes(-Math.Max(1, _options.TimeoutMinutes));
+        var unleasedRequeued = await _workRepository.RequeueUnleasedInFlightItemsAsync(
+            utcNow,
+            Math.Max(1, _options.MaxRecoveriesPerRun),
+            cancellationToken);
+
+        if (unleasedRequeued > 0)
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        var cutoff = utcNow.AddMinutes(-Math.Max(1, _options.TimeoutMinutes));
         var stuckItems = await _workRepository.GetStuckInFlightItemsAsync(
             cutoff,
             Math.Max(1, _options.MaxRecoveriesPerRun),
@@ -114,16 +125,19 @@ public sealed class EnrollmentRecoveryService : IEnrollmentRecoveryService
             requeued++;
         }
 
+        requeued += unleasedRequeued;
+
         stopwatch.Stop();
-        _metrics.RecordRecovery(expiredLeases, stuckItems.Count, requeued);
-        _ = new RecoveryExecuted(expiredLeases, stuckItems.Count, requeued, stopwatch.ElapsedMilliseconds);
+        _metrics.RecordRecovery(expiredLeases, stuckItems.Count + unleasedRequeued, requeued);
+        _ = new RecoveryExecuted(expiredLeases, stuckItems.Count + unleasedRequeued, requeued, stopwatch.ElapsedMilliseconds);
 
         if (expiredLeases > 0 || requeued > 0)
         {
             _logger.LogWarning(
-                "Enrollment recovery executed. ExpiredLeases={ExpiredLeases} StuckItems={StuckItems} Requeued={Requeued} DurationMs={DurationMs}",
+                "Enrollment recovery executed. ExpiredLeases={ExpiredLeases} StuckItems={StuckItems} UnleasedRequeued={UnleasedRequeued} Requeued={Requeued} DurationMs={DurationMs}",
                 expiredLeases,
                 stuckItems.Count,
+                unleasedRequeued,
                 requeued,
                 stopwatch.ElapsedMilliseconds);
         }
@@ -131,7 +145,7 @@ public sealed class EnrollmentRecoveryService : IEnrollmentRecoveryService
         return new EnrollmentRecoveryResult
         {
             ExpiredLeasesRecovered = expiredLeases,
-            StuckItemsRecovered = stuckItems.Count,
+            StuckItemsRecovered = stuckItems.Count + unleasedRequeued,
             RequeuedItems = requeued,
             Duration = stopwatch.Elapsed,
         };

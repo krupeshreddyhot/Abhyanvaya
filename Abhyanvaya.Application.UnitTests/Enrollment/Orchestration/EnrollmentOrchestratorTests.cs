@@ -20,6 +20,7 @@ public sealed class EnrollmentOrchestratorTests
 {
     private readonly Mock<IEnrollmentValidationService> _validationService = new();
     private readonly Mock<IEnrollmentStorageService> _storageService = new();
+    private readonly Mock<IEnrollmentStudentPhotoPublisher> _studentPhotoPublisher = new();
     private readonly Mock<IEnrollmentEmbeddingService> _embeddingService = new();
     private readonly Mock<IEnrollmentResultWriter> _resultWriter = new();
     private readonly Mock<IEnrollmentProgressReporter> _progressReporter = new();
@@ -47,6 +48,9 @@ public sealed class EnrollmentOrchestratorTests
             .ReturnsAsync((EnrollmentProgressDetail?)null);
         _progressReporter.Setup(p => p.FinalizeBatchIfCompleteAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+
+        _studentPhotoPublisher.Setup(p => p.PublishAsync(It.IsAny<EnrollmentStudentPhotoPublishRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(EnrollmentStudentPhotoPublishResult.Succeeded("students/1/42", DateTime.UtcNow));
     }
 
     [Fact]
@@ -337,7 +341,7 @@ public sealed class EnrollmentOrchestratorTests
         [
             new DownloadEnrollmentPipelineStage(_photoProviderFactory.Object, _progressReporter.Object),
             new ValidationEnrollmentPipelineStage(_validationService.Object, _progressReporter.Object),
-            new StorageEnrollmentPipelineStage(_storageService.Object),
+            new StorageEnrollmentPipelineStage(_storageService.Object, _studentPhotoPublisher.Object),
             new EmbeddingEnrollmentPipelineStage(_embeddingService.Object),
             new PersistenceEnrollmentPipelineStage(_resultWriter.Object),
             new ProgressEnrollmentPipelineStage(_progressReporter.Object),
@@ -382,6 +386,7 @@ public sealed class EnrollmentOrchestratorTests
             RuleResults = [],
             ValidationFailures = [],
             Warnings = [],
+            EmbeddingEligible = true,
             SeveritySummary = new ValidationSeveritySummary
             {
                 PassCount = 1,

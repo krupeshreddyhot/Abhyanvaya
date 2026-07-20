@@ -21,6 +21,7 @@ public sealed class EnrollmentValidationServiceTests
     private static EnrollmentValidationOptions CreateDefaultOptions() =>
         new()
         {
+            DefaultProfile = ValidationProfileKind.Default,
             BlurThreshold = 0,
             MinimumBrightness = 0,
             MaximumBrightness = 1.0,

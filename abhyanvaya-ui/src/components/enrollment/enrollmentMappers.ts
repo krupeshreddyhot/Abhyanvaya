@@ -86,15 +86,18 @@ export const resolveBatchProgressPercent = (
 };
 
 export const resolveBatchStudentCounts = (
-  batch: Pick<BatchSummary, "completedCount" | "failedCount" | "totalStudents">,
+  batch: Pick<BatchSummary, "completedCount" | "failedCount" | "totalStudents" | "uploadedWithoutEmbedding">,
   progress?: BatchProgressDto,
 ) => {
+  const photoOnly = progress?.uploadedWithoutEmbedding ?? batch.uploadedWithoutEmbedding ?? 0;
+
   if (!progress) {
     const processed = batch.completedCount + batch.failedCount;
     return {
       processed,
       completed: batch.completedCount,
       failed: batch.failedCount,
+      photoOnly,
       label: `${processed}/${batch.totalStudents}`,
     };
   }
@@ -104,6 +107,7 @@ export const resolveBatchStudentCounts = (
     processed,
     completed: progress.completed,
     failed: progress.failed,
+    photoOnly,
     label: `${processed}/${batch.totalStudents}`,
   };
 };
