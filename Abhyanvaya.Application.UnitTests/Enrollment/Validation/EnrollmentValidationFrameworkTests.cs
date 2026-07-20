@@ -44,7 +44,7 @@ public sealed class EnrollmentValidationFrameworkTests
     }
 
     [Fact]
-    public async Task Policy_DefaultProfile_UsesConfiguredOptions()
+    public async Task Policy_PhotoCaptureProfile_IsDefaultForEnrollment()
     {
         var policy = new DefaultEnrollmentValidationPolicy(
             Options.Create(new EnrollmentValidationOptions { BlurThreshold = 222 }),
@@ -52,8 +52,8 @@ public sealed class EnrollmentValidationFrameworkTests
 
         var decision = await policy.ResolveAsync(new EnrollmentValidationPolicyRequest { TenantId = 1 });
 
-        Assert.Equal(ValidationProfileKind.Default, decision.Profile.Kind);
-        Assert.Equal(222, decision.Thresholds.BlurThreshold);
+        Assert.Equal(ValidationProfileKind.PhotoCapture, decision.Profile.Kind);
+        Assert.Equal(0, decision.Thresholds.BlurThreshold);
     }
 
     [Fact]

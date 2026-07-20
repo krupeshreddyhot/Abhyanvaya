@@ -30,6 +30,22 @@ public sealed class EmbeddingEnrollmentPipelineStage : IEnrollmentPipelineStage
         var stopwatch = Stopwatch.StartNew();
         var itemContext = context.ItemContext;
 
+        if (!context.EmbeddingEligible)
+        {
+            stopwatch.Stop();
+            var skipWarnings = MergeWarnings(
+                context.Warnings,
+                ["Face embedding skipped because the photo is not suitable for recognition."]);
+            return EnrollmentPipelineStageExecutionResult.Succeeded(
+                context with
+                {
+                    State = EnrollmentPipelineState.Pending,
+                    CurrentStage = EnrollmentPipelineStage.Embedding,
+                    Warnings = skipWarnings,
+                },
+                stopwatch.Elapsed);
+        }
+
         if (context.StorageManifest is null)
         {
             stopwatch.Stop();

@@ -3,6 +3,7 @@ import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import TodayIcon from "@mui/icons-material/Today";
+import PhotoCameraOutlinedIcon from "@mui/icons-material/PhotoCameraOutlined";
 import { Box, Skeleton } from "@mui/material";
 import StatCard from "../common/StatCard";
 import { useEnrollmentDashboard } from "../../context/EnrollmentDashboardContext";
@@ -15,11 +16,11 @@ const EnrollmentStatistics = () => {
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(3, 1fr)", md: "repeat(5, 1fr)" },
+          gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(3, 1fr)", md: "repeat(6, 1fr)" },
           gap: 1.5,
         }}
       >
-        {Array.from({ length: 5 }).map((_, i) => (
+        {Array.from({ length: 6 }).map((_, i) => (
           <Skeleton key={i} variant="rounded" height={88} aria-hidden />
         ))}
       </Box>
@@ -29,6 +30,12 @@ const EnrollmentStatistics = () => {
   const stats = [
     { label: "Total Students", value: dashboard?.totalStudents ?? 0, icon: <GroupsOutlinedIcon fontSize="small" /> },
     { label: "Embedded", value: dashboard?.embedded ?? 0, icon: <CheckCircleOutlineIcon fontSize="small" /> },
+    {
+      label: "No Embedding",
+      value: dashboard?.uploadedWithoutEmbedding ?? 0,
+      icon: <PhotoCameraOutlinedIcon fontSize="small" />,
+      valueColor: dashboard?.uploadedWithoutEmbedding ? "warning.main" : undefined,
+    },
     { label: "Pending", value: dashboard?.pending ?? 0, icon: <HourglassEmptyIcon fontSize="small" /> },
     {
       label: "Failed",
@@ -43,7 +50,7 @@ const EnrollmentStatistics = () => {
     <Box
       sx={{
         display: "grid",
-        gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(3, 1fr)", md: "repeat(5, 1fr)" },
+        gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(3, 1fr)", md: "repeat(6, 1fr)" },
         gap: 1.5,
       }}
     >

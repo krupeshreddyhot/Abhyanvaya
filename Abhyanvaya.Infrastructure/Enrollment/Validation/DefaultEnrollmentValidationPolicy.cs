@@ -22,7 +22,7 @@ internal sealed class DefaultEnrollmentValidationPolicy : IEnrollmentValidationP
         EnrollmentValidationPolicyRequest request,
         CancellationToken cancellationToken = default)
     {
-        var profileKind = request.RequestedProfile ?? ValidationProfileKind.Default;
+        var profileKind = request.RequestedProfile ?? _options.DefaultProfile;
         var profile = ValidationProfiles.Resolve(profileKind);
         var baseline = EnrollmentValidationThresholdMapper.FromOptions(_options, _insightFaceOptions);
         var thresholds = EnrollmentValidationThresholdMapper.ApplyProfile(baseline, profile);

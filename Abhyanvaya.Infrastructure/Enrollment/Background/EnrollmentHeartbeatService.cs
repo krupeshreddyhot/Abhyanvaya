@@ -27,6 +27,7 @@ public sealed class EnrollmentHeartbeatService : IEnrollmentHeartbeatService
         CancellationToken cancellationToken = default)
     {
         var entity = await _context.EnrollmentWorkLeases
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(l => l.Id == lease.LeaseId && l.IsActive, cancellationToken);
 
         if (entity == null || entity.WorkerId != lease.WorkerId)

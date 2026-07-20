@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Abhyanvaya.Application.Enrollment.Storage;
 using Abhyanvaya.Application.Enrollment.Validation;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
 
 namespace Abhyanvaya.Infrastructure.Enrollment.Storage.ArtifactTypes;
 
@@ -16,23 +18,43 @@ internal sealed class AlignedFaceArtifactTypeDefinition : IEnrollmentArtifactTyp
 
     public bool IsPrimary => true;
 
-    public Task<EnrollmentArtifactPayload?> TryCreatePayloadAsync(
+    public async Task<EnrollmentArtifactPayload?> TryCreatePayloadAsync(
         EnrollmentValidationArtifact artifact,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (artifact.AlignedFaceImage is null || artifact.AlignedFaceImage.Length == 0)
+        if (artifact.AlignedFaceImage is { Length: > 0 })
         {
-            return Task.FromResult<EnrollmentArtifactPayload?>(null);
+            return new EnrollmentArtifactPayload
+            {
+                Bytes = artifact.AlignedFaceImage,
+                ImageWidth = artifact.Report.FaceWidth ?? 112,
+                ImageHeight = artifact.Report.FaceHeight ?? 112,
+            };
         }
 
-        return Task.FromResult<EnrollmentArtifactPayload?>(new EnrollmentArtifactPayload
+        var sourceBytes = artifact.SourcePhotoImage ?? artifact.DiagnosticImages?.OriginalImage;
+        if (sourceBytes is not { Length: > 0 })
         {
-            Bytes = artifact.AlignedFaceImage,
-            ImageWidth = artifact.Report.FaceWidth ?? 112,
-            ImageHeight = artifact.Report.FaceHeight ?? 112,
-        });
+            return null;
+        }
+
+        var webpBytes = await ConvertToWebpAsync(sourceBytes, cancellationToken);
+        return new EnrollmentArtifactPayload
+        {
+            Bytes = webpBytes,
+            ImageWidth = artifact.Report.SourceWidth ?? 0,
+            ImageHeight = artifact.Report.SourceHeight ?? 0,
+        };
+    }
+
+    private static async Task<byte[]> ConvertToWebpAsync(byte[] sourceBytes, CancellationToken cancellationToken)
+    {
+        using var image = await Image.LoadAsync(new MemoryStream(sourceBytes, writable: false), cancellationToken);
+        await using var output = new MemoryStream();
+        await image.SaveAsWebpAsync(output, cancellationToken);
+        return output.ToArray();
     }
 }
 

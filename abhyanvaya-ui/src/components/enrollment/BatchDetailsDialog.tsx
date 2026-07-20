@@ -54,6 +54,9 @@ const BatchDetailsDialog = ({ open, batchId, onClose }: Props) => {
           <Stack spacing={2}>
             <Typography variant="body2" color="text.secondary">
               Status: {batchStatusLabel(selectedBatch.status)} · Pipeline v{selectedBatch.pipelineVersion}
+              {(selectedBatch.uploadedWithoutEmbedding > 0 || (progress?.uploadedWithoutEmbedding ?? 0) > 0)
+                ? ` · ${progress?.uploadedWithoutEmbedding ?? selectedBatch.uploadedWithoutEmbedding} photo-only (no embedding)`
+                : ""}
             </Typography>
             {progress ? (
               <EnrollmentStageProgress

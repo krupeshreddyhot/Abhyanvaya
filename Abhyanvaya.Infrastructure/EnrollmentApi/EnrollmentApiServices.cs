@@ -14,6 +14,64 @@ using Microsoft.Extensions.Options;
 
 namespace Abhyanvaya.Infrastructure.EnrollmentApi;
 
+internal static class EnrollmentPhotoOnlyMetrics
+{
+    public static IQueryable<Domain.Entities.StudentEnrollmentItem> PhotoOnlyCompleted(
+        IQueryable<Domain.Entities.StudentEnrollmentItem> query) =>
+        query.Where(i =>
+            i.Status == EnrollmentStatus.Completed
+            && i.PhotoKey != null
+            && i.PhotoKey != ""
+            && i.StudentFaceEmbeddingId == null);
+
+    public static async Task<int> CountForTenantAsync(
+        IApplicationDbContext context,
+        int tenantId,
+        int? collegeId,
+        CancellationToken cancellationToken)
+    {
+        var query = PhotoOnlyCompleted(context.StudentEnrollmentItems.AsNoTracking());
+        if (tenantId > 0)
+        {
+            query = query.Where(i => i.TenantId == tenantId);
+        }
+
+        if (collegeId is > 0)
+        {
+            var batchIds = context.StudentEnrollmentBatches.AsNoTracking()
+                .Where(b => b.CollegeId == collegeId && (tenantId <= 0 || b.TenantId == tenantId))
+                .Select(b => b.Id);
+            query = query.Where(i => batchIds.Contains(i.BatchId));
+        }
+
+        return await query.CountAsync(cancellationToken);
+    }
+
+    public static Task<int> CountForBatchAsync(
+        IApplicationDbContext context,
+        Guid batchId,
+        CancellationToken cancellationToken) =>
+        PhotoOnlyCompleted(context.StudentEnrollmentItems.AsNoTracking().Where(i => i.BatchId == batchId))
+            .CountAsync(cancellationToken);
+
+    public static async Task<Dictionary<Guid, int>> CountByBatchAsync(
+        IApplicationDbContext context,
+        IReadOnlyCollection<Guid> batchIds,
+        CancellationToken cancellationToken)
+    {
+        if (batchIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await PhotoOnlyCompleted(
+                context.StudentEnrollmentItems.AsNoTracking().Where(i => batchIds.Contains(i.BatchId)))
+            .GroupBy(i => i.BatchId)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count, cancellationToken);
+    }
+}
+
 public sealed class EnrollmentDashboardService : IEnrollmentDashboardService
 {
     private readonly IApplicationDbContext _context;
@@ -84,6 +142,11 @@ public sealed class EnrollmentDashboardService : IEnrollmentDashboardService
             .Sum(b => b.CompletedCount);
 
         var successRate = completed + failed == 0 ? 0m : (decimal)completed / (completed + failed);
+        var uploadedWithoutEmbedding = await EnrollmentPhotoOnlyMetrics.CountForTenantAsync(
+            _context,
+            tenantId,
+            collegeId,
+            cancellationToken);
 
         var health = await _healthService.GetPlatformHealthAsync(cancellationToken);
         var systemStatus = MapSystemStatus(
@@ -98,6 +161,7 @@ public sealed class EnrollmentDashboardService : IEnrollmentDashboardService
                 TotalStudents = totalStudents,
                 EligibleStudents = Math.Max(0, totalStudents - embedded),
                 Embedded = embedded,
+                UploadedWithoutEmbedding = uploadedWithoutEmbedding,
                 Pending = pending,
                 Failed = failed,
                 ProcessedToday = processedToday,
@@ -310,9 +374,14 @@ public sealed class EnrollmentHistoryService : IEnrollmentHistoryService
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
+        var photoOnlyByBatch = await EnrollmentPhotoOnlyMetrics.CountByBatchAsync(
+            _context,
+            items.Select(b => b.Id).ToList(),
+            cancellationToken);
+
         return new PagedResult<BatchSummary>
         {
-            Items = items.Select(MapSummary).ToList(),
+            Items = items.Select(b => MapSummary(b, photoOnlyByBatch.GetValueOrDefault(b.Id))).ToList(),
             TotalCount = total,
             Page = page,
             PageSize = pageSize,
@@ -331,7 +400,8 @@ public sealed class EnrollmentHistoryService : IEnrollmentHistoryService
         }
 
         var progressDetail = await _progressReporter.UpdateProgressAsync(batchId, batch.TenantId, cancellationToken);
-        var summary = MapSummary(batch);
+        var uploadedWithoutEmbedding = await EnrollmentPhotoOnlyMetrics.CountForBatchAsync(_context, batchId, cancellationToken);
+        var summary = MapSummary(batch, uploadedWithoutEmbedding);
 
         return new BatchDetailDto
         {
@@ -339,6 +409,7 @@ public sealed class EnrollmentHistoryService : IEnrollmentHistoryService
             Status = summary.Status,
             TotalStudents = summary.TotalStudents,
             CompletedCount = summary.CompletedCount,
+            UploadedWithoutEmbedding = summary.UploadedWithoutEmbedding,
             FailedCount = summary.FailedCount,
             PendingCount = summary.PendingCount,
             CollegeId = summary.CollegeId,
@@ -371,6 +442,7 @@ public sealed class EnrollmentHistoryService : IEnrollmentHistoryService
 
         var progressDetail = await _progressReporter.UpdateProgressAsync(batchId, batch.TenantId, cancellationToken);
         var percent = progressDetail?.Metrics.CompletionPercentage ?? CalculateBatchProgressPercent(batch);
+        var uploadedWithoutEmbedding = await EnrollmentPhotoOnlyMetrics.CountForBatchAsync(_context, batchId, cancellationToken);
 
         return new BatchProgressDto
         {
@@ -385,6 +457,7 @@ public sealed class EnrollmentHistoryService : IEnrollmentHistoryService
             Validating = batch.ValidatingCount,
             Embedding = batch.EmbeddingCount,
             Completed = batch.CompletedCount,
+            UploadedWithoutEmbedding = uploadedWithoutEmbedding,
             Failed = batch.FailedCount,
             Cancelled = batch.CancelledCount,
         };
@@ -487,13 +560,14 @@ public sealed class EnrollmentHistoryService : IEnrollmentHistoryService
         };
     }
 
-    private static BatchSummary MapSummary(Domain.Entities.StudentEnrollmentBatch batch) =>
+    private static BatchSummary MapSummary(Domain.Entities.StudentEnrollmentBatch batch, int uploadedWithoutEmbedding = 0) =>
         new()
         {
             BatchId = batch.Id,
             Status = batch.Status,
             TotalStudents = batch.TotalStudents,
             CompletedCount = batch.CompletedCount,
+            UploadedWithoutEmbedding = uploadedWithoutEmbedding,
             FailedCount = batch.FailedCount,
             PendingCount = batch.PendingCount + batch.DownloadingCount + batch.ValidatingCount + batch.EmbeddingCount,
             CollegeId = batch.CollegeId,

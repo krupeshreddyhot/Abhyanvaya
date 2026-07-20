@@ -296,6 +296,7 @@ namespace Abhyanvaya.Infrastructure
             services.AddSingleton<IEnrollmentArtifactCache, NoOpEnrollmentArtifactCache>();
             RegisterEnrollmentStoragePipeline(services);
             services.AddScoped<IEnrollmentStorageService, EnrollmentStorageService>();
+            services.AddScoped<IEnrollmentStudentPhotoPublisher, EnrollmentStudentPhotoPublisher>();
 
             // AI20.PHASE2.1.5A: enrollment artifact resolver (sole artifact read owner).
             services.AddScoped<IEnrollmentArtifactResolver, EnrollmentArtifactResolver>();

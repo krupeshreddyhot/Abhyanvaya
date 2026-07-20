@@ -89,8 +89,13 @@ const EnrollmentBatchGrid = ({ onViewBatch }: Props) => {
                   </TableCell>
                   <TableCell align="right">
                     <Typography variant="body2">{counts.label}</Typography>
+                    {counts.photoOnly > 0 ? (
+                      <Typography variant="caption" color="warning.main" sx={{ display: "block" }}>
+                        {counts.photoOnly} without embedding
+                      </Typography>
+                    ) : null}
                     {counts.failed > 0 ? (
-                      <Typography variant="caption" color="error.main">
+                      <Typography variant="caption" color="error.main" sx={{ display: "block" }}>
                         {counts.failed} failed
                       </Typography>
                     ) : null}
