@@ -12,6 +12,7 @@ namespace Abhyanvaya.Application.UnitTests.EnrollmentApi;
 public sealed class EnrollmentAuthorizationServiceTests
 {
     private readonly Mock<ITenantContextService> _tenantContext = new();
+    private readonly Mock<ICurrentUserService> _currentUser = new();
     private readonly Mock<IStudentEnrollmentBatchRepository> _batchRepository = new();
     private readonly Mock<IEnrollmentActorPermissions> _permissions = new();
     private readonly Mock<IEnrollmentAuthorizationTelemetry> _telemetry = new();
@@ -33,6 +34,7 @@ public sealed class EnrollmentAuthorizationServiceTests
 
         _service = new EnrollmentAuthorizationService(
             _tenantContext.Object,
+            _currentUser.Object,
             _batchRepository.Object,
             _permissions.Object,
             _telemetry.Object,
@@ -67,9 +69,39 @@ public sealed class EnrollmentAuthorizationServiceTests
     }
 
     [Fact]
-    public async Task CanSubscribeBatch_Requires_operational_context_for_super_admin()
+    public async Task CanSubscribeBatch_Allows_super_admin_via_batch_tenant_when_context_missing()
     {
         var batchId = Guid.NewGuid();
+        _currentUser.SetupGet(u => u.Role).Returns(nameof(UserRole.SuperAdmin));
+        _tenantContext.Setup(t => t.ResolveForOperation())
+            .Returns(TenantContextResolution.ContextRequired());
+        _batchRepository.Setup(r => r.GetBatchAsync(batchId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StudentEnrollmentBatch
+            {
+                Id = batchId,
+                TenantId = 1,
+                CollegeId = 10,
+                UniversityId = 1,
+                AcademicYear = 2025,
+                Status = BatchStatus.Running,
+                CreatedUtc = DateTime.UtcNow,
+                CreatedBy = 100,
+                TotalStudents = 1,
+                PhotoProviderName = "ExamBranch",
+            });
+        SetupBatch(batchId, 1);
+
+        var result = await _service.CanSubscribeBatchAsync(batchId);
+
+        Assert.True(result.IsAllowed);
+        Assert.Equal(1, result.TenantId);
+    }
+
+    [Fact]
+    public async Task CanSubscribeBatch_Requires_operational_context_for_non_super_admin()
+    {
+        var batchId = Guid.NewGuid();
+        _currentUser.SetupGet(u => u.Role).Returns(nameof(UserRole.Admin));
         _tenantContext.Setup(t => t.ResolveForOperation())
             .Returns(TenantContextResolution.ContextRequired());
 
@@ -104,6 +136,7 @@ public sealed class EnrollmentAuthorizationServiceTests
 
     private void SetupTenant(int tenantId, int userId)
     {
+        _currentUser.SetupGet(u => u.Role).Returns(nameof(UserRole.Admin));
         _tenantContext.Setup(t => t.ResolveForOperation())
             .Returns(TenantContextResolution.FromContext(new TenantContextSnapshot
             {
