@@ -1,5 +1,5 @@
 import type { AiSystemStatusItem, AiSystemStatusLevel } from "../ai/AiSystemStatusCard";
-import type { EnrollmentSystemStatusDto } from "../../types/enrollment";
+import type { BatchProgressDto, BatchSummary, EnrollmentSystemStatusDto } from "../../types/enrollment";
 
 const mapHealthStatus = (status: string): AiSystemStatusLevel => {
   const normalized = status.toLowerCase();
@@ -63,4 +63,47 @@ export const batchStatusLabel = (status: number): string => {
     default:
       return "Unknown";
   }
+};
+
+/** Processed = completed + failed + cancelled (matches backend CompletionPercentage). */
+export const computeBatchProgressPercent = (
+  progress: Pick<BatchProgressDto, "completed" | "failed" | "cancelled">,
+  totalStudents: number,
+): number => {
+  if (totalStudents <= 0) return 0;
+  const terminal = progress.completed + progress.failed + progress.cancelled;
+  return Math.min(100, Math.round((terminal / totalStudents) * 100));
+};
+
+export const resolveBatchProgressPercent = (
+  batch: Pick<BatchSummary, "totalStudents" | "progressPercent">,
+  progress?: BatchProgressDto,
+): number => {
+  if (progress) {
+    return computeBatchProgressPercent(progress, batch.totalStudents);
+  }
+  return Math.min(100, Math.round(batch.progressPercent));
+};
+
+export const resolveBatchStudentCounts = (
+  batch: Pick<BatchSummary, "completedCount" | "failedCount" | "totalStudents">,
+  progress?: BatchProgressDto,
+) => {
+  if (!progress) {
+    const processed = batch.completedCount + batch.failedCount;
+    return {
+      processed,
+      completed: batch.completedCount,
+      failed: batch.failedCount,
+      label: `${processed}/${batch.totalStudents}`,
+    };
+  }
+
+  const processed = progress.completed + progress.failed + progress.cancelled;
+  return {
+    processed,
+    completed: progress.completed,
+    failed: progress.failed,
+    label: `${processed}/${batch.totalStudents}`,
+  };
 };

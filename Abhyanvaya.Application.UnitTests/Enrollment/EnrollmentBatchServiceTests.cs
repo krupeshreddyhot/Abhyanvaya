@@ -232,10 +232,10 @@ public sealed class EnrollmentBatchServiceTests
                     ValidationRules = new ValidationRulesSnapshot
                     {
                         RequireExactlyOneFace = true,
-                        MinimumSourceWidth = 640,
-                        MinimumSourceHeight = 480,
-                        MinimumFaceWidth = 112,
-                        MinimumFaceHeight = 112,
+                        MinimumSourceWidth = 1,
+                        MinimumSourceHeight = 1,
+                        MinimumFaceWidth = 32,
+                        MinimumFaceHeight = 32,
                         BlurMethod = "VarianceOfLaplacian",
                         BlurThreshold = 100,
                         MaximumAbsoluteYawDegrees = 25,

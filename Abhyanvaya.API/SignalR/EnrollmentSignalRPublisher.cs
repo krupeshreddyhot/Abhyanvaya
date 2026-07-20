@@ -25,9 +25,13 @@ public sealed class EnrollmentSignalRPublisher : IEnrollmentSignalRPublisher
             .SendAsync("BatchStarted", new { batchId, tenantId }, cancellationToken);
 
     public Task PublishProgressAsync(int tenantId, BatchProgressDto progress, CancellationToken cancellationToken = default) =>
-        _hubContext.Clients
-            .Group(EnrollmentSignalRGroups.Batch(progress.BatchId))
-            .SendAsync("BatchProgress", progress, cancellationToken);
+        Task.WhenAll(
+            _hubContext.Clients
+                .Group(EnrollmentSignalRGroups.Batch(progress.BatchId))
+                .SendAsync("BatchProgress", progress, cancellationToken),
+            _hubContext.Clients
+                .Group(EnrollmentSignalRGroups.Tenant(tenantId))
+                .SendAsync("BatchProgress", progress, cancellationToken));
 
     public Task PublishCompletedAsync(int tenantId, Guid batchId, CancellationToken cancellationToken = default) =>
         PublishBatchLifecycleAsync(tenantId, batchId, "BatchCompleted", cancellationToken);
