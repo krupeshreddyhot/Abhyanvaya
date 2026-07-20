@@ -10,6 +10,7 @@ using Abhyanvaya.Infrastructure.Embedding;
 using Abhyanvaya.Infrastructure.Enrollment.Configuration;
 using Abhyanvaya.Infrastructure.Enrollment.PhotoProviders;
 using Abhyanvaya.Infrastructure.Enrollment.Pipeline;
+using Abhyanvaya.Infrastructure.Enrollment.Validation;
 using Abhyanvaya.Infrastructure.InsightFace;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
@@ -29,14 +30,18 @@ public sealed class EnrollmentConfigurationSnapshotCapture : IEnrollmentConfigur
     private readonly ExamBranchPhotoProviderOptions _examBranchOptions;
     private readonly InsightFaceOptions _insightFaceOptions;
 
+    private readonly EnrollmentValidationOptions _validationOptions;
+
     public EnrollmentConfigurationSnapshotCapture(
         IConfiguration configuration,
         IOptions<ExamBranchPhotoProviderOptions> examBranchOptions,
-        IOptions<InsightFaceOptions> insightFaceOptions)
+        IOptions<InsightFaceOptions> insightFaceOptions,
+        IOptions<EnrollmentValidationOptions> validationOptions)
     {
         _configuration = configuration;
         _examBranchOptions = examBranchOptions.Value;
         _insightFaceOptions = insightFaceOptions.Value;
+        _validationOptions = validationOptions.Value;
     }
 
     public Task<ConfigurationSnapshotCaptureResult> CaptureAsync(
@@ -128,19 +133,19 @@ public sealed class EnrollmentConfigurationSnapshotCapture : IEnrollmentConfigur
         return float.TryParse(value, out var parsed) ? parsed : fallback;
     }
 
-    private static ValidationRulesSnapshot BuildValidationRules() =>
+    private ValidationRulesSnapshot BuildValidationRules() =>
         new()
         {
             RequireExactlyOneFace = true,
-            MinimumSourceWidth = 640,
-            MinimumSourceHeight = 480,
-            MinimumFaceWidth = 112,
-            MinimumFaceHeight = 112,
+            MinimumSourceWidth = _validationOptions.MinimumSourceWidth,
+            MinimumSourceHeight = _validationOptions.MinimumSourceHeight,
+            MinimumFaceWidth = _validationOptions.MinimumFaceWidth,
+            MinimumFaceHeight = _validationOptions.MinimumFaceHeight,
             BlurMethod = "VarianceOfLaplacian",
-            BlurThreshold = 100.0,
-            MaximumAbsoluteYawDegrees = 25.0,
-            MaximumAbsolutePitchDegrees = 25.0,
-            MaximumAbsoluteRollDegrees = 25.0,
+            BlurThreshold = _validationOptions.BlurThreshold,
+            MaximumAbsoluteYawDegrees = _validationOptions.MaximumAbsoluteYawDegrees,
+            MaximumAbsolutePitchDegrees = _validationOptions.MaximumAbsolutePitchDegrees,
+            MaximumAbsoluteRollDegrees = _validationOptions.MaximumAbsoluteRollDegrees,
             CompositeQualityIsAdvisory = true,
             CompositeQualityWeights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
             {

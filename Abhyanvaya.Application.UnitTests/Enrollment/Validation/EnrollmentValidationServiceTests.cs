@@ -188,16 +188,32 @@ public sealed class EnrollmentValidationServiceTests
     }
 
     [Fact]
-    public async Task ValidateAsync_Fails_WhenSourceResolutionTooLow()
+    public async Task ValidateAsync_Fails_WhenSourceResolutionBelowConfiguredMinimum()
     {
+        var options = CreateDefaultOptions();
+        options.MinimumSourceWidth = 640;
+        options.MinimumSourceHeight = 480;
         await using var stream = await CreateJpegStreamAsync(320, 240);
 
-        var result = await CreateService().ValidateAsync(CreateRequest(stream, byteSize: stream.Length));
+        var result = await CreateService(options).ValidateAsync(CreateRequest(stream, byteSize: stream.Length));
 
         Assert.False(result.ValidationPassed);
         Assert.Equal(FailureCategory.LowResolutionRejected, result.FailureCategory);
         Assert.Equal(EnrollmentValidationDiagnosticCodes.SourceResTooLow, result.DiagnosticCode);
         _faceAnalysis.Verify(s => s.AnalyzeAsync(It.IsAny<byte[]>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ValidateAsync_AllowsExamBranchSizedSourceResolution()
+    {
+        await using var stream = await CreateJpegStreamAsync(150, 194);
+        SetupFaceAnalysis(150, 194, [CreateDetectedFace(bboxWidth: 80, bboxHeight: 100)], CreateAlignedWebp(blurry: false));
+
+        var result = await CreateService().ValidateAsync(CreateRequest(stream, byteSize: stream.Length));
+
+        Assert.DoesNotContain(
+            result.Report.RuleResults,
+            r => r.RuleId == EnrollmentValidationRuleIds.MinimumSourceResolution && r.Outcome == ValidationRuleOutcome.Fail);
     }
 
     [Fact]

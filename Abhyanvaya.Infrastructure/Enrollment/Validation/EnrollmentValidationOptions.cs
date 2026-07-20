@@ -6,13 +6,13 @@ public sealed class EnrollmentValidationOptions
 
     public long MaxImageBytes { get; set; } = 15 * 1024 * 1024;
 
-    public int MinimumSourceWidth { get; set; } = 640;
-    public int MinimumSourceHeight { get; set; } = 480;
+    public int MinimumSourceWidth { get; set; } = 1;
+    public int MinimumSourceHeight { get; set; } = 1;
     public int MaximumSourceWidth { get; set; } = 8192;
     public int MaximumSourceHeight { get; set; } = 8192;
 
-    public int MinimumFaceWidth { get; set; } = 112;
-    public int MinimumFaceHeight { get; set; } = 112;
+    public int MinimumFaceWidth { get; set; } = 32;
+    public int MinimumFaceHeight { get; set; } = 32;
     public double MinimumFaceCoverageRatio { get; set; } = 0.05;
 
     public double BlurThreshold { get; set; } = 100.0;

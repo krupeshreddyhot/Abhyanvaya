@@ -1,6 +1,7 @@
 using Abhyanvaya.Application.ArtifactStorage;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Enrollment;
+using Abhyanvaya.Application.Enrollment.Progress;
 using Abhyanvaya.Application.EnrollmentApi;
 using Abhyanvaya.Domain.Enums;
 using Abhyanvaya.Infrastructure.ArtifactStorage;
@@ -369,7 +370,7 @@ public sealed class EnrollmentHistoryService : IEnrollmentHistoryService
         }
 
         var progressDetail = await _progressReporter.UpdateProgressAsync(batchId, batch.TenantId, cancellationToken);
-        var percent = batch.TotalStudents == 0 ? 0m : (decimal)batch.CompletedCount / batch.TotalStudents * 100m;
+        var percent = progressDetail?.Metrics.CompletionPercentage ?? CalculateBatchProgressPercent(batch);
 
         return new BatchProgressDto
         {
@@ -486,10 +487,8 @@ public sealed class EnrollmentHistoryService : IEnrollmentHistoryService
         };
     }
 
-    private static BatchSummary MapSummary(Domain.Entities.StudentEnrollmentBatch batch)
-    {
-        var percent = batch.TotalStudents == 0 ? 0m : (decimal)batch.CompletedCount / batch.TotalStudents * 100m;
-        return new BatchSummary
+    private static BatchSummary MapSummary(Domain.Entities.StudentEnrollmentBatch batch) =>
+        new()
         {
             BatchId = batch.Id,
             Status = batch.Status,
@@ -501,10 +500,26 @@ public sealed class EnrollmentHistoryService : IEnrollmentHistoryService
             AcademicYear = batch.AcademicYear,
             CreatedUtc = batch.CreatedUtc,
             CompletedUtc = batch.CompletedUtc,
-            ProgressPercent = percent,
+            ProgressPercent = CalculateBatchProgressPercent(batch),
             PhotoProviderName = batch.PhotoProviderName,
         };
-    }
+
+    private static decimal CalculateBatchProgressPercent(Domain.Entities.StudentEnrollmentBatch batch) =>
+        EnrollmentProgressCalculator.MapStatistics(MapBatchCounters(batch)).CompletionPercentage;
+
+    private static StudentEnrollmentBatchCounters MapBatchCounters(Domain.Entities.StudentEnrollmentBatch batch) =>
+        new()
+        {
+            TotalStudents = batch.TotalStudents,
+            PendingCount = batch.PendingCount,
+            DownloadingCount = batch.DownloadingCount,
+            ValidatingCount = batch.ValidatingCount,
+            EmbeddingCount = batch.EmbeddingCount,
+            CompletedCount = batch.CompletedCount,
+            FailedCount = batch.FailedCount,
+            RetryRequiredCount = batch.RetryRequiredCount,
+            CancelledCount = batch.CancelledCount,
+        };
 
     private static BatchProgressState MapProgressState(BatchStatus status) => status switch
     {
