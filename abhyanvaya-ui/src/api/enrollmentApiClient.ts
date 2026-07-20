@@ -21,6 +21,14 @@ const resolveHubBaseUrl = (): string => {
   return apiBase.replace(/\/api\/?$/, "");
 };
 
+/** SignalR and REST may return different GUID casing; normalize for map keys. */
+export const normalizeEnrollmentBatchId = (batchId: string): string => batchId.toLowerCase();
+
+export const normalizeBatchProgress = (progress: BatchProgressDto): BatchProgressDto => ({
+  ...progress,
+  batchId: normalizeEnrollmentBatchId(progress.batchId),
+});
+
 export class EnrollmentApiClient {
   private hubConnection: signalR.HubConnection | null = null;
 
@@ -74,6 +82,7 @@ export class EnrollmentApiClient {
       onBatchCompleted?: (payload: { batchId: string }) => void;
       onBatchFailed?: (payload: { batchId: string; reason: string }) => void;
       onBatchCancelled?: (payload: { batchId: string }) => void;
+      onReconnected?: () => void | Promise<void>;
     },
   ): Promise<void> {
     await this.disconnectSignalR();
@@ -86,6 +95,12 @@ export class EnrollmentApiClient {
       .withAutomaticReconnect()
       .build();
 
+    if (handlers.onReconnected) {
+      this.hubConnection.onreconnected(async () => {
+        await handlers.onReconnected?.();
+      });
+    }
+
     if (handlers.onBatchCreated) {
       this.hubConnection.on("BatchCreated", handlers.onBatchCreated);
     }
@@ -93,7 +108,9 @@ export class EnrollmentApiClient {
       this.hubConnection.on("BatchStarted", handlers.onBatchStarted);
     }
     if (handlers.onBatchProgress) {
-      this.hubConnection.on("BatchProgress", handlers.onBatchProgress);
+      this.hubConnection.on("BatchProgress", (progress: BatchProgressDto) => {
+        handlers.onBatchProgress?.(normalizeBatchProgress(progress));
+      });
     }
     if (handlers.onBatchCompleted) {
       this.hubConnection.on("BatchCompleted", handlers.onBatchCompleted);
