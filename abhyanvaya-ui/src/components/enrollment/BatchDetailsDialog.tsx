@@ -3,6 +3,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  Skeleton,
   Stack,
   Tab,
   Tabs,
@@ -12,10 +13,11 @@ import CloseIcon from "@mui/icons-material/Close";
 import { useEffect, useState } from "react";
 import { enrollmentApiClient } from "../../api/enrollmentApiClient";
 import { useEnrollmentDashboard } from "../../context/EnrollmentDashboardContext";
-import EnrollmentProgressBar from "./EnrollmentProgressBar";
+import EnrollmentStageProgress from "./EnrollmentStageProgress";
+import EnrollmentTimeline from "./EnrollmentTimeline";
 import StudentEnrollmentGrid from "./StudentEnrollmentGrid";
 import FailurePanel from "./FailurePanel";
-import { batchStatusLabel, formatDuration } from "./enrollmentMappers";
+import { batchStatusLabel } from "./enrollmentMappers";
 
 type Props = {
   open: boolean;
@@ -24,7 +26,8 @@ type Props = {
 };
 
 const BatchDetailsDialog = ({ open, batchId, onClose }: Props) => {
-  const { selectedBatch, loadBatchDetail, batchProgress } = useEnrollmentDashboard();
+  const { selectedBatch, loadBatchDetail, batchProgress, cancelBatch, retryBatch, canManage } =
+    useEnrollmentDashboard();
   const [tab, setTab] = useState(0);
 
   useEffect(() => {
@@ -34,6 +37,7 @@ const BatchDetailsDialog = ({ open, batchId, onClose }: Props) => {
   }, [open, batchId, loadBatchDetail]);
 
   const progress = batchId ? batchProgress[batchId] : undefined;
+  const loaded = selectedBatch && batchId === selectedBatch.batchId;
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg" aria-labelledby="batch-details-title">
@@ -46,15 +50,32 @@ const BatchDetailsDialog = ({ open, batchId, onClose }: Props) => {
         </Stack>
       </DialogTitle>
       <DialogContent dividers>
-        {selectedBatch && batchId === selectedBatch.batchId ? (
+        {loaded ? (
           <Stack spacing={2}>
             <Typography variant="body2" color="text.secondary">
               Status: {batchStatusLabel(selectedBatch.status)} · Pipeline v{selectedBatch.pipelineVersion}
             </Typography>
-            {progress ? <EnrollmentProgressBar progress={progress} label="Live progress" /> : null}
-            <Typography variant="body2">
-              ETA: {formatDuration(selectedBatch.estimatedRemaining)}
-            </Typography>
+            {progress ? (
+              <EnrollmentStageProgress
+                progress={progress}
+                totalStudents={selectedBatch.totalStudents}
+                canManage={canManage}
+                onCancel={batchId ? () => void cancelBatch(batchId) : undefined}
+                onRetry={batchId ? () => void retryBatch(batchId) : undefined}
+              />
+            ) : (
+              <Skeleton variant="rounded" height={120} aria-label="Loading live progress" />
+            )}
+            <EnrollmentTimeline
+              progress={progress}
+              batch={{
+                createdUtc: selectedBatch.createdUtc,
+                startedUtc: selectedBatch.startedUtc,
+                completedUtc: selectedBatch.completedUtc,
+                totalStudents: selectedBatch.totalStudents,
+                failedCount: selectedBatch.failedCount,
+              }}
+            />
             <Tabs value={tab} onChange={(_, v) => setTab(v)} aria-label="Batch detail tabs">
               <Tab label="Students" />
               <Tab label="Failures" />
@@ -68,9 +89,10 @@ const BatchDetailsDialog = ({ open, batchId, onClose }: Props) => {
             ) : null}
           </Stack>
         ) : (
-          <Typography variant="body2" color="text.secondary">
-            Loading batch details…
-          </Typography>
+          <Stack spacing={1}>
+            <Skeleton variant="text" width="40%" />
+            <Skeleton variant="rounded" height={160} />
+          </Stack>
         )}
       </DialogContent>
     </Dialog>
