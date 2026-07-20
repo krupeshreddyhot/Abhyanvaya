@@ -21,7 +21,7 @@ import {
   getCurrentStageIndex,
   getStagePercentage,
 } from "../../utils/enrollmentStageUtils";
-import { formatDuration } from "./enrollmentMappers";
+import { formatDuration, computeBatchProgressPercent } from "./enrollmentMappers";
 
 type Props = {
   progress: BatchProgressDto;
@@ -41,6 +41,7 @@ const EnrollmentStageProgress = ({
   canManage = false,
 }: Props) => {
   const currentIdx = getCurrentStageIndex(progress.state);
+  const overallPercent = computeBatchProgressPercent(progress, totalStudents);
 
   return (
     <Stack spacing={2} aria-label="Stage-aware enrollment progress">
@@ -60,16 +61,16 @@ const EnrollmentStageProgress = ({
             </Typography>
             <Chip
               size="small"
-              label={`${progress.percentage.toFixed(0)}% overall`}
+              label={`${overallPercent}% overall`}
               color="primary"
               variant="outlined"
             />
           </Stack>
           <LinearProgress
             variant="determinate"
-            value={Math.min(100, progress.percentage)}
+            value={overallPercent}
             sx={{ mb: 1, height: 8, borderRadius: 1 }}
-            aria-valuenow={progress.percentage}
+            aria-valuenow={overallPercent}
           />
           <Typography variant="caption" color="text.secondary">
             ETA {formatDuration(progress.estimatedRemaining)} · {workerLabel}

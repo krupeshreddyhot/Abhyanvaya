@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   type ReactNode,
 } from "react";
 import { enrollmentApiClient } from "../api/enrollmentApiClient";
@@ -23,6 +24,7 @@ import type {
   PagedResult,
 } from "../types/enrollment";
 import { getApiErrorMessage, getEnrollmentApiErrorMessage } from "../utils/apiErrorMessage";
+import { BatchStatus } from "../types/enrollment";
 
 type ToastState = { open: boolean; message: string; severity: "success" | "error" | "info" };
 
@@ -89,11 +91,29 @@ const reducer = (state: EnrollmentState, action: EnrollmentAction): EnrollmentSt
       return { ...state, readiness: action.readiness };
     case "SET_BATCHES":
       return { ...state, batches: action.result.items, batchTotalCount: action.result.totalCount };
-    case "SET_PROGRESS":
+    case "SET_PROGRESS": {
+      const progress = action.progress;
+      const processed = progress.completed + progress.failed + progress.cancelled;
+      const pending =
+        progress.queued + progress.downloading + progress.validating + progress.embedding;
       return {
         ...state,
-        batchProgress: { ...state.batchProgress, [action.progress.batchId]: action.progress },
+        batchProgress: { ...state.batchProgress, [progress.batchId]: progress },
+        batches: state.batches.map((batch) =>
+          batch.batchId === progress.batchId
+            ? {
+                ...batch,
+                completedCount: progress.completed,
+                failedCount: progress.failed,
+                pendingCount: pending,
+                progressPercent: batch.totalStudents
+                  ? (processed / batch.totalStudents) * 100
+                  : batch.progressPercent,
+              }
+            : batch,
+        ),
       };
+    }
     case "SET_SELECTED_BATCH":
       return { ...state, selectedBatch: action.batch };
     case "SET_COLLEGE":
@@ -127,6 +147,7 @@ export const EnrollmentDashboardProvider = ({ children }: { children: ReactNode 
   const { token, user, hasPermission } = useAuth();
   const { context, hasOperationalContext, subscribe } = useTenantContext();
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
+  const progressRefreshTimer = useRef<number | null>(null);
   const canManage = hasPermission("Enrollment.Manage") || user?.role === "SuperAdmin";
 
   const refreshDashboard = useCallback(async () => {
@@ -174,12 +195,36 @@ export const EnrollmentDashboardProvider = ({ children }: { children: ReactNode 
           collegeId: state.collegeId ?? filters.collegeId,
         });
         dispatch({ type: "SET_BATCHES", result: res.data });
+
+        const active = res.data.items.filter(
+          (batch) => batch.status === BatchStatus.Created || batch.status === BatchStatus.Running,
+        );
+        await Promise.all(
+          active.map(async (batch) => {
+            try {
+              const progressRes = await enrollmentApiClient.getBatchProgress(batch.batchId);
+              dispatch({ type: "SET_PROGRESS", progress: progressRes.data });
+            } catch {
+              // Progress endpoint may be unavailable before batch starts; list still renders.
+            }
+          }),
+        );
       } catch (err) {
         dispatch({ type: "SET_ERROR", error: getApiErrorMessage(err) });
       }
     },
     [state.collegeId],
   );
+
+  const scheduleProgressRefresh = useCallback(() => {
+    if (progressRefreshTimer.current) {
+      window.clearTimeout(progressRefreshTimer.current);
+    }
+    progressRefreshTimer.current = window.setTimeout(() => {
+      void refreshBatches();
+      void refreshDashboard();
+    }, 3000);
+  }, [refreshBatches, refreshDashboard]);
 
   const loadBatchDetail = useCallback(async (batchId: string) => {
     try {
@@ -325,6 +370,7 @@ export const EnrollmentDashboardProvider = ({ children }: { children: ReactNode 
         },
         onBatchProgress: (progress: BatchProgressDto) => {
           dispatch({ type: "SET_PROGRESS", progress });
+          scheduleProgressRefresh();
         },
         onBatchCompleted: () => {
           void refreshBatches();
@@ -350,7 +396,7 @@ export const EnrollmentDashboardProvider = ({ children }: { children: ReactNode 
     return () => {
       void enrollmentApiClient.disconnectSignalR();
     };
-  }, [token, hasOperationalContext, refreshBatches, refreshDashboard, refreshReadiness]);
+  }, [token, hasOperationalContext, refreshBatches, refreshDashboard, refreshReadiness, scheduleProgressRefresh]);
 
   const value = useMemo<EnrollmentContextValue>(
     () => ({

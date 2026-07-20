@@ -28,12 +28,12 @@ public sealed record EnrollmentValidationThresholds
     public static EnrollmentValidationThresholds Default { get; } = new()
     {
         MaxImageBytes = 15 * 1024 * 1024,
-        MinimumSourceWidth = 640,
-        MinimumSourceHeight = 480,
+        MinimumSourceWidth = 1,
+        MinimumSourceHeight = 1,
         MaximumSourceWidth = 8192,
         MaximumSourceHeight = 8192,
-        MinimumFaceWidth = 112,
-        MinimumFaceHeight = 112,
+        MinimumFaceWidth = 32,
+        MinimumFaceHeight = 32,
         MinimumFaceCoverageRatio = 0.05,
         BlurThreshold = 100.0,
         BlurNormalizationReference = 500.0,

@@ -2,6 +2,7 @@ import {
   Box,
   Chip,
   IconButton,
+  LinearProgress,
   Paper,
   Skeleton,
   Stack,
@@ -20,7 +21,7 @@ import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 import ReplayOutlinedIcon from "@mui/icons-material/ReplayOutlined";
 import { useEnrollmentDashboard } from "../../context/EnrollmentDashboardContext";
 import EnrollmentProgressBar from "./EnrollmentProgressBar";
-import { batchStatusLabel } from "./enrollmentMappers";
+import { batchStatusLabel, resolveBatchProgressPercent, resolveBatchStudentCounts } from "./enrollmentMappers";
 import { BatchStatus } from "../../types/enrollment";
 
 type Props = {
@@ -71,6 +72,8 @@ const EnrollmentBatchGrid = ({ onViewBatch }: Props) => {
           <TableBody>
             {batches.map((batch) => {
               const progress = batchProgress[batch.batchId];
+              const counts = resolveBatchStudentCounts(batch, progress);
+              const percent = resolveBatchProgressPercent(batch, progress);
               return (
                 <TableRow key={batch.batchId} hover>
                   <TableCell>
@@ -85,13 +88,23 @@ const EnrollmentBatchGrid = ({ onViewBatch }: Props) => {
                     <Chip size="small" label={batchStatusLabel(batch.status)} variant="outlined" />
                   </TableCell>
                   <TableCell align="right">
-                    {batch.completedCount}/{batch.totalStudents}
+                    <Typography variant="body2">{counts.label}</Typography>
+                    {counts.failed > 0 ? (
+                      <Typography variant="caption" color="error.main">
+                        {counts.failed} failed
+                      </Typography>
+                    ) : null}
                   </TableCell>
                   <TableCell sx={{ minWidth: 200 }}>
                     {progress ? (
-                      <EnrollmentProgressBar progress={progress} />
+                      <EnrollmentProgressBar progress={progress} totalStudents={batch.totalStudents} />
                     ) : (
-                      <Typography variant="caption">{batch.progressPercent.toFixed(0)}%</Typography>
+                      <Stack spacing={0.5}>
+                        <LinearProgress variant="determinate" value={percent} />
+                        <Typography variant="caption" color="text.secondary">
+                          {percent}% processed
+                        </Typography>
+                      </Stack>
                     )}
                   </TableCell>
                   <TableCell align="right">
