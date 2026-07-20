@@ -8,7 +8,7 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { enrollmentApiClient } from "../api/enrollmentApiClient";
+import { enrollmentApiClient, normalizeBatchProgress, normalizeEnrollmentBatchId } from "../api/enrollmentApiClient";
 import { useAuth } from "./AuthContext";
 import { useTenantContext } from "./TenantContextProvider";
 import type {
@@ -90,9 +90,16 @@ const reducer = (state: EnrollmentState, action: EnrollmentAction): EnrollmentSt
     case "SET_READINESS":
       return { ...state, readiness: action.readiness };
     case "SET_BATCHES":
-      return { ...state, batches: action.result.items, batchTotalCount: action.result.totalCount };
+      return {
+        ...state,
+        batches: action.result.items.map((batch) => ({
+          ...batch,
+          batchId: normalizeEnrollmentBatchId(batch.batchId),
+        })),
+        batchTotalCount: action.result.totalCount,
+      };
     case "SET_PROGRESS": {
-      const progress = action.progress;
+      const progress = normalizeBatchProgress(action.progress);
       const processed = progress.completed + progress.failed + progress.cancelled;
       const pending =
         progress.queued + progress.downloading + progress.validating + progress.embedding;
@@ -116,7 +123,12 @@ const reducer = (state: EnrollmentState, action: EnrollmentAction): EnrollmentSt
       };
     }
     case "SET_SELECTED_BATCH":
-      return { ...state, selectedBatch: action.batch };
+      return {
+        ...state,
+        selectedBatch: action.batch
+          ? { ...action.batch, batchId: normalizeEnrollmentBatchId(action.batch.batchId) }
+          : null,
+      };
     case "SET_COLLEGE":
       return { ...state, collegeId: action.collegeId };
     case "SET_ACADEMIC_YEAR":
@@ -149,7 +161,29 @@ export const EnrollmentDashboardProvider = ({ children }: { children: ReactNode 
   const { context, hasOperationalContext, subscribe } = useTenantContext();
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const progressRefreshTimer = useRef<number | null>(null);
+  const batchesRef = useRef(state.batches);
+  batchesRef.current = state.batches;
   const canManage = hasPermission("Enrollment.Manage") || user?.role === "SuperAdmin";
+
+  const pollActiveBatchProgress = useCallback(async () => {
+    const active = batchesRef.current.filter(
+      (batch) => batch.status === BatchStatus.Created || batch.status === BatchStatus.Running,
+    );
+    if (active.length === 0) {
+      return;
+    }
+
+    await Promise.all(
+      active.map(async (batch) => {
+        try {
+          const progressRes = await enrollmentApiClient.getBatchProgress(batch.batchId);
+          dispatch({ type: "SET_PROGRESS", progress: progressRes.data });
+        } catch {
+          // Progress endpoint may be unavailable before batch starts.
+        }
+      }),
+    );
+  }, []);
 
   const refreshDashboard = useCallback(async () => {
     dispatch({ type: "SET_LOADING", loading: true });
@@ -361,10 +395,28 @@ export const EnrollmentDashboardProvider = ({ children }: { children: ReactNode 
   }, [token, hasOperationalContext, context?.selectedCollegeId]);
 
   useEffect(() => {
+    if (!token || !hasOperationalContext) return;
+
+    void pollActiveBatchProgress();
+    const intervalId = window.setInterval(() => {
+      void pollActiveBatchProgress();
+    }, 5000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [token, hasOperationalContext, pollActiveBatchProgress]);
+
+  useEffect(() => {
     if (!token) return;
 
     void enrollmentApiClient
       .connectSignalR(token, {
+        onReconnected: async () => {
+          if (hasOperationalContext) {
+            await enrollmentApiClient.subscribeTenant();
+          }
+        },
         onBatchCreated: () => {
           void refreshBatches();
           void refreshDashboard();
@@ -392,6 +444,13 @@ export const EnrollmentDashboardProvider = ({ children }: { children: ReactNode 
         if (hasOperationalContext) {
           await enrollmentApiClient.subscribeTenant();
         }
+      })
+      .catch((err: unknown) => {
+        dispatch({
+          type: "SHOW_TOAST",
+          message: `Live updates unavailable (${getApiErrorMessage(err)}). Progress will refresh every 5 seconds.`,
+          severity: "info",
+        });
       });
 
     return () => {

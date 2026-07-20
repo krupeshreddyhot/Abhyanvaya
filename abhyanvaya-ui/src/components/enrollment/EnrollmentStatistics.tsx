@@ -4,7 +4,7 @@ import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import TodayIcon from "@mui/icons-material/Today";
 import PhotoCameraOutlinedIcon from "@mui/icons-material/PhotoCameraOutlined";
-import { Box, Skeleton } from "@mui/material";
+import { Box, Skeleton, Typography } from "@mui/material";
 import StatCard from "../common/StatCard";
 import { useEnrollmentDashboard } from "../../context/EnrollmentDashboardContext";
 
@@ -54,6 +54,13 @@ const EnrollmentStatistics = () => {
         gap: 1.5,
       }}
     >
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ gridColumn: "1 / -1", mb: -0.5 }}
+      >
+        College totals across all enrollment batches (not limited to the running batch)
+      </Typography>
       {stats.map((stat) => (
         <StatCard key={stat.label} label={stat.label} value={stat.value} icon={stat.icon} valueColor={stat.valueColor} />
       ))}

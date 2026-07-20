@@ -75,13 +75,16 @@ const EnrollmentInsightsWidgets = () => {
   const statusItems = systemStatus ? mapSystemStatusItems(systemStatus) : [];
   const storageHealth = statusItems.find((i) => i.label.includes("R2") || i.label.includes("Storage"));
   const workerHealth = statusItems.find((i) => i.label === "Worker Status");
-  const recentFailures = batches.reduce((sum, b) => sum + b.failedCount, 0);
+  const collegeFailedTotal = dashboard?.failed ?? 0;
   const successRate = dashboard?.successRate ?? 0;
 
   return (
     <Box>
-      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
+      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
         Operational Insights
+      </Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+        College-wide metrics across all batches. See &quot;Current Batch&quot; above for live running-batch progress.
       </Typography>
       <Grid container spacing={1.5}>
         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
@@ -127,8 +130,8 @@ const EnrollmentInsightsWidgets = () => {
           <InsightCard
             icon={<MemoryOutlinedIcon />}
             label="Embedding Success"
-            value={`${Math.max(0, 100 - (recentFailures > 0 ? 5 : 0)).toFixed(0)}%`}
-            subtext="Derived from batch outcomes"
+            value={`${successRate.toFixed(0)}%`}
+            subtext="Completed vs failed across all batches"
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
@@ -174,9 +177,9 @@ const EnrollmentInsightsWidgets = () => {
         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
           <InsightCard
             icon={<ErrorOutlineIcon />}
-            label="Recent Failures"
-            value={String(recentFailures)}
-            accent={recentFailures > 0 ? "error" : "success"}
+            label="Failed (College Total)"
+            value={String(collegeFailedTotal)}
+            accent={collegeFailedTotal > 0 ? "error" : "success"}
           />
         </Grid>
       </Grid>
