@@ -144,6 +144,11 @@ public sealed class EnrollmentBackgroundFrameworkTests
     {
         var work = CreateWorkItem();
         _leaseManager.Setup(l => l.ExpireAbandonedLeasesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(2);
+        _workRepository.Setup(r => r.RequeueUnleasedInFlightItemsAsync(
+                It.IsAny<DateTime>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
         _workRepository.Setup(r => r.GetStuckInFlightItemsAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[] { work });
 

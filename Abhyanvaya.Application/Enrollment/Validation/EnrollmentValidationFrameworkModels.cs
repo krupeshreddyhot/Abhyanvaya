@@ -50,6 +50,7 @@ public sealed record EnrollmentValidationArtifact
 {
     public required ValidationReport Report { get; init; }
     public byte[]? AlignedFaceImage { get; init; }
+    public byte[]? SourcePhotoImage { get; init; }
     public EnrollmentFaceBoundingBox? BoundingBox { get; init; }
     public float[]? Landmarks { get; init; }
     public FaceQualityMetrics? FaceQualityMetrics { get; init; }

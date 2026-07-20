@@ -8,14 +8,22 @@ internal static class ValidationDiagnosticImageBuilder
         EnrollmentFaceAnalysisAccessor accessor,
         CancellationToken cancellationToken)
     {
-        var analysis = accessor.GetCachedAnalysis();
-        if (analysis?.Faces.Count != 1)
+        var originalBytes = await accessor.GetImageBytesAsync(cancellationToken);
+        if (originalBytes is not { Length: > 0 })
         {
             return null;
         }
 
+        var analysis = accessor.GetCachedAnalysis();
+        if (analysis?.Faces.Count != 1)
+        {
+            return new ValidationDiagnosticImage
+            {
+                OriginalImage = originalBytes,
+            };
+        }
+
         var face = analysis.Faces[0];
-        var originalBytes = await accessor.GetImageBytesAsync(cancellationToken);
 
         return new ValidationDiagnosticImage
         {
@@ -38,13 +46,14 @@ internal static class ValidationDiagnosticImageBuilder
         var analysis = accessor.GetCachedAnalysis();
         EnrollmentDetectedFace? face = analysis?.Faces.Count == 1 ? analysis.Faces[0] : null;
         var metrics = accessor.GetCachedQualityMetrics();
+        var sourcePhoto = diagnosticImages?.OriginalImage;
+        var alignedFace = report.EmbeddingEligible ? analysis?.AlignedFaceWebpBytes : null;
 
         return new EnrollmentValidationArtifact
         {
             Report = report,
-            AlignedFaceImage = report.OverallResult == ValidationOverallResult.Passed
-                ? analysis?.AlignedFaceWebpBytes
-                : null,
+            AlignedFaceImage = alignedFace,
+            SourcePhotoImage = sourcePhoto,
             BoundingBox = face is null
                 ? null
                 : new EnrollmentFaceBoundingBox

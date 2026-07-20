@@ -42,6 +42,9 @@ public sealed record ValidationReport
     public IReadOnlyList<string> InformationMessages { get; init; } = [];
     public ValidationSeveritySummary? SeveritySummary { get; init; }
     public EnrollmentValidationTelemetry? Telemetry { get; init; }
+
+    /// <summary>True when a face crop is available for embedding generation.</summary>
+    public bool EmbeddingEligible { get; init; }
 }
 
 public sealed record ValidationRuleResult

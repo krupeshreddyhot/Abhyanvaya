@@ -106,6 +106,15 @@ public sealed class ValidationEnrollmentPipelineStage : IEnrollmentPipelineStage
                 validationResult.FailureCategory ?? FailureCategory.Unknown);
         }
 
+        var qualityWarnings = validationResult.Report.Warnings.Count > 0
+            ? validationResult.Report.Warnings.ToList()
+            : new List<string>();
+
+        if (!validationResult.Report.EmbeddingEligible)
+        {
+            qualityWarnings.Add("Face embedding skipped: photo stored on student profile only.");
+        }
+
         var validationProgress = await _progressReporter.MarkStageCompletedAsync(
             CreateStageRequest(context, EnrollmentStatus.Validating, EnrollmentPipelineStage.Validation),
             cancellationToken);
@@ -134,7 +143,9 @@ public sealed class ValidationEnrollmentPipelineStage : IEnrollmentPipelineStage
                 CurrentStage = EnrollmentPipelineStage.Validation,
                 ValidationResult = validationResult,
                 ValidationArtifact = validationResult.Artifact,
+                EmbeddingEligible = validationResult.Report.EmbeddingEligible,
                 Request = context.Request with { ItemStatus = EnrollmentStatus.Embedding },
+                Warnings = qualityWarnings.Count > 0 ? qualityWarnings : context.Warnings,
             },
             stopwatch.Elapsed);
     }

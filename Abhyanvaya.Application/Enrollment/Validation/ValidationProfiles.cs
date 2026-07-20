@@ -16,6 +16,8 @@ public enum ValidationProfileKind
     Kiosk = 3,
     Passport = 4,
     Exam = 5,
+    /// <summary>Accept all downloadable photos for profile storage; quality rules become warnings and embedding may be skipped.</summary>
+    PhotoCapture = 6,
 }
 
 public sealed record ValidationProfileDefinition
@@ -91,6 +93,21 @@ public static class ValidationProfiles
             BlurThreshold = 90.0,
         });
 
+    public static ValidationProfileDefinition PhotoCapture { get; } = Create(
+        ValidationProfileKind.PhotoCapture,
+        "PhotoCapture",
+        enabledRules: null,
+        thresholdOverrides: EnrollmentValidationThresholds.Default with
+        {
+            MinimumSourceWidth = 1,
+            MinimumSourceHeight = 1,
+            MinimumFaceWidth = 1,
+            MinimumFaceHeight = 1,
+            MinimumFaceCoverageRatio = 0,
+            BlurThreshold = 0,
+        },
+        severityOverrides: BuildPhotoCaptureSeverityOverrides());
+
     public static IReadOnlyList<ValidationProfileDefinition> All { get; } =
     [
         Default,
@@ -99,6 +116,7 @@ public static class ValidationProfiles
         Kiosk,
         Passport,
         Exam,
+        PhotoCapture,
     ];
 
     public static ValidationProfileDefinition Resolve(ValidationProfileKind kind) =>
@@ -108,13 +126,30 @@ public static class ValidationProfiles
         ValidationProfileKind kind,
         string name,
         IReadOnlyDictionary<string, bool>? enabledRules,
-        EnrollmentValidationThresholds thresholdOverrides) =>
+        EnrollmentValidationThresholds thresholdOverrides,
+        IReadOnlyDictionary<string, ValidationRuleEnforcement>? severityOverrides = null) =>
         new()
         {
             Kind = kind,
             Name = name,
             EnabledRules = enabledRules ?? BuildAllEnabledRules(),
             ThresholdOverrides = thresholdOverrides,
+            SeverityOverrides = severityOverrides,
+        };
+
+    private static IReadOnlyDictionary<string, ValidationRuleEnforcement> BuildPhotoCaptureSeverityOverrides() =>
+        new Dictionary<string, ValidationRuleEnforcement>(StringComparer.Ordinal)
+        {
+            [EnrollmentValidationRuleIds.MinimumSourceResolution] = ValidationRuleEnforcement.Warning,
+            [EnrollmentValidationRuleIds.MaximumSourceResolution] = ValidationRuleEnforcement.Warning,
+            [EnrollmentValidationRuleIds.ExactlyOneFace] = ValidationRuleEnforcement.Warning,
+            [EnrollmentValidationRuleIds.FaceConfidence] = ValidationRuleEnforcement.Warning,
+            [EnrollmentValidationRuleIds.MinimumFaceCropResolution] = ValidationRuleEnforcement.Warning,
+            [EnrollmentValidationRuleIds.FaceSizeCoverage] = ValidationRuleEnforcement.Warning,
+            [EnrollmentValidationRuleIds.BlurScore] = ValidationRuleEnforcement.Warning,
+            [EnrollmentValidationRuleIds.Pose] = ValidationRuleEnforcement.Warning,
+            [EnrollmentValidationRuleIds.Brightness] = ValidationRuleEnforcement.Warning,
+            [EnrollmentValidationRuleIds.Contrast] = ValidationRuleEnforcement.Warning,
         };
 
     private static IReadOnlyDictionary<string, bool> BuildAllEnabledRules() =>

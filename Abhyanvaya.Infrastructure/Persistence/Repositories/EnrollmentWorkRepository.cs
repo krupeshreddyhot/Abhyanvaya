@@ -26,7 +26,9 @@ public sealed class EnrollmentWorkRepository : IEnrollmentWorkRepository
               AND NOT EXISTS (
                   SELECT 1
                   FROM "EnrollmentWorkLease" l
-                  WHERE l."ItemId" = i."Id" AND l."IsActive" = TRUE)
+                  WHERE l."ItemId" = i."Id"
+                    AND l."IsActive" = TRUE
+                    AND l."ExpiresUtc" > @utcNow)
             ORDER BY b."Priority" DESC, i."CreatedUtc"
             FOR UPDATE OF i SKIP LOCKED
             LIMIT 1
@@ -158,6 +160,43 @@ public sealed class EnrollmentWorkRepository : IEnrollmentWorkRepository
         item.LastAttemptUtc = DateTime.UtcNow;
         item.RowVersion = Guid.NewGuid().ToByteArray();
         _context.Set<StudentEnrollmentItem>().Update(item);
+    }
+
+    public async Task<int> RequeueUnleasedInFlightItemsAsync(
+        DateTime utcNow,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        if (limit <= 0)
+        {
+            return 0;
+        }
+
+        var inFlightStatuses = new[]
+        {
+            EnrollmentStatus.Downloading,
+            EnrollmentStatus.Validating,
+            EnrollmentStatus.Embedding,
+        };
+
+        var itemIds = await _context.StudentEnrollmentItems
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .Where(i => inFlightStatuses.Contains(i.Status))
+            .Where(i => !_context.EnrollmentWorkLeases
+                .IgnoreQueryFilters()
+                .Any(l => l.ItemId == i.Id && l.IsActive && l.ExpiresUtc > utcNow))
+            .OrderBy(i => i.LastAttemptUtc)
+            .Select(i => i.Id)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        foreach (var itemId in itemIds)
+        {
+            await RequeueAsync(itemId, cancellationToken);
+        }
+
+        return itemIds.Count;
     }
 
     private async Task<EnrollmentWorkItem?> LoadWorkItemAsync(Guid itemId, CancellationToken cancellationToken)

@@ -2,6 +2,7 @@ export type EnrollmentDashboardDto = {
   totalStudents: number;
   eligibleStudents: number;
   embedded: number;
+  uploadedWithoutEmbedding: number;
   pending: number;
   failed: number;
   processedToday: number;
@@ -112,6 +113,7 @@ export type BatchSummary = {
   status: BatchStatus;
   totalStudents: number;
   completedCount: number;
+  uploadedWithoutEmbedding: number;
   failedCount: number;
   pendingCount: number;
   collegeId: number;
@@ -154,6 +156,7 @@ export type BatchProgressDto = {
   validating: number;
   embedding: number;
   completed: number;
+  uploadedWithoutEmbedding: number;
   failed: number;
   cancelled: number;
 };

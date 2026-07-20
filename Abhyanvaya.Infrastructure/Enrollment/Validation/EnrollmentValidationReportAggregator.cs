@@ -110,6 +110,8 @@ internal static class EnrollmentValidationReportAggregator
             InformationMessages = information,
             SeveritySummary = severitySummary,
             Telemetry = telemetry,
+            EmbeddingEligible = validationPassed
+                && analysis?.AlignedFaceWebpBytes is { Length: > 0 },
         };
     }
 

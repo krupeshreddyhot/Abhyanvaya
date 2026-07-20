@@ -58,6 +58,33 @@ public sealed class ProgressEnrollmentPipelineStage : IEnrollmentPipelineStage
                     embeddingProgress.Reason ?? "Unable to finalize item progress.");
             }
         }
+        else if (context.StorageResult?.Success == true
+                 && !context.EmbeddingEligible
+                 && context.Request.ItemStatus == EnrollmentStatus.Embedding)
+        {
+            var photoOnlyCompletion = await _progressReporter.MarkItemCompletedAsync(
+                new EnrollmentProgressOperationRequest
+                {
+                    ItemId = itemContext.ItemId,
+                    BatchId = itemContext.BatchId,
+                    TenantId = itemContext.TenantId,
+                    ExpectedStatus = EnrollmentStatus.Embedding,
+                    CorrelationId = itemContext.CorrelationId,
+                    ExecutionTraceId = itemContext.ExecutionTraceId,
+                    PipelineVersion = itemContext.PipelineVersion,
+                },
+                cancellationToken);
+
+            if (!photoOnlyCompletion.Applied && !photoOnlyCompletion.ConcurrencyConflict)
+            {
+                stopwatch.Stop();
+                return EnrollmentPipelineStageExecutionResult.Failed(
+                    context with { State = EnrollmentPipelineState.Failed },
+                    stopwatch.Elapsed,
+                    EnrollmentPipelineFailureCodes.ProgressConflict,
+                    photoOnlyCompletion.Reason ?? "Unable to finalize photo-only enrollment.");
+            }
+        }
 
         await _progressReporter.UpdateProgressAsync(
             itemContext.BatchId,

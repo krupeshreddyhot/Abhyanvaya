@@ -256,6 +256,7 @@ public sealed record EnrollmentPipelineContext
     public EnrollmentEmbeddingResult? EmbeddingResult { get; init; }
     public EnrollmentEmbeddingArtifact? EmbeddingArtifact { get; init; }
     public EnrollmentPersistenceResult? PersistenceResult { get; init; }
+    public bool EmbeddingEligible { get; init; } = true;
     public IReadOnlyList<string> Warnings { get; init; } = [];
     public int TotalRetryCount { get; init; }
 

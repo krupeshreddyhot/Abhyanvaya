@@ -90,6 +90,7 @@ public sealed class EnrollmentLeaseManager : IEnrollmentLeaseManager
     public async Task<bool> RenewAsync(EnrollmentLease lease, CancellationToken cancellationToken = default)
     {
         var entity = await _context.EnrollmentWorkLeases
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(l => l.Id == lease.LeaseId && l.IsActive, cancellationToken);
 
         if (entity == null || entity.WorkerId != lease.WorkerId)
@@ -113,6 +114,7 @@ public sealed class EnrollmentLeaseManager : IEnrollmentLeaseManager
     public async Task ReleaseAsync(EnrollmentLease lease, CancellationToken cancellationToken = default)
     {
         var entity = await _context.EnrollmentWorkLeases
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(l => l.Id == lease.LeaseId, cancellationToken);
 
         if (entity == null)
@@ -136,6 +138,7 @@ public sealed class EnrollmentLeaseManager : IEnrollmentLeaseManager
     {
         var utcNow = _clock.GetUtcNow().UtcDateTime;
         var expired = await _context.EnrollmentWorkLeases
+            .IgnoreQueryFilters()
             .Where(l => l.IsActive && l.ExpiresUtc < utcNow)
             .ToListAsync(cancellationToken);
 

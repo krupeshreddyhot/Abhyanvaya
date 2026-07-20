@@ -19,6 +19,7 @@ import CloudOutlinedIcon from "@mui/icons-material/CloudOutlined";
 import EngineeringOutlinedIcon from "@mui/icons-material/EngineeringOutlined";
 import QueueOutlinedIcon from "@mui/icons-material/QueueOutlined";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlined";
+import PhotoCameraOutlinedIcon from "@mui/icons-material/PhotoCameraOutlined";
 import { useEnrollmentDashboard } from "../../context/EnrollmentDashboardContext";
 import { batchStatusLabel, formatDuration, mapSystemStatusItems } from "./enrollmentMappers";
 
@@ -159,6 +160,15 @@ const EnrollmentInsightsWidgets = () => {
             icon={<VerifiedOutlinedIcon />}
             label="Embedded Students"
             value={String(dashboard?.embedded ?? 0)}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+          <InsightCard
+            icon={<PhotoCameraOutlinedIcon />}
+            label="Photo Only Uploads"
+            value={String(dashboard?.uploadedWithoutEmbedding ?? 0)}
+            subtext="No face embedding generated"
+            accent={(dashboard?.uploadedWithoutEmbedding ?? 0) > 0 ? "warning" : "success"}
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
