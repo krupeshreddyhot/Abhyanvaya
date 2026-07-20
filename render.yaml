@@ -9,13 +9,13 @@ services:
   - type: web
     name: abhyanvaya-api
     runtime: docker
-    region: singapore
-    plan: starter
-    branch: AI-attandance-feature
+    region: Ohio (US East)
+    plan: Standard
+    branch: master
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health/ready
     envVars:
-      - key: ASPNETCORE_ENVIRONMENT
+      - key: ASPNETCORE__ENVIRONMENT
         value: Production
       - key: Cors__AllowCloudflarePages
         value: "true"
