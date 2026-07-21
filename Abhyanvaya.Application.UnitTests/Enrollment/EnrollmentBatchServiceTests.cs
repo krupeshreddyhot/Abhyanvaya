@@ -446,4 +446,59 @@ public sealed class EnrollmentBatchServiceTests
         Assert.Null(batch.CompletedUtc);
         _jobQueue.Verify(q => q.SignalWork(), Times.Once);
     }
+
+    [Fact]
+    public async Task ResumeBatchAsync_DoesNotRequeueCancelledItems_OnCancelledBatch()
+    {
+        var batchId = Guid.NewGuid();
+        var batch = new StudentEnrollmentBatch
+        {
+            Id = batchId,
+            TenantId = 1,
+            CollegeId = 100,
+            AcademicYear = 2026,
+            Status = BatchStatus.Cancelled,
+            FailedCount = 46,
+            CancelledCount = 174,
+            PhotoProviderName = "ExamBranch",
+            RowVersion = Guid.NewGuid().ToByteArray(),
+        };
+
+        _batchRepository
+            .Setup(r => r.GetBatchAsync(batchId, 1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(batch);
+
+        _batchRepository
+            .Setup(r => r.HasActiveBatchAsync(1, 100, 2026, batchId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        IReadOnlyCollection<EnrollmentStatus>? capturedStatuses = null;
+        _itemRepository
+            .Setup(r => r.RequeueItemsForRetryAsync(
+                batchId,
+                It.IsAny<IReadOnlyCollection<EnrollmentStatus>>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<Guid, IReadOnlyCollection<EnrollmentStatus>, CancellationToken>((_, statuses, _) =>
+                capturedStatuses = statuses)
+            .ReturnsAsync(46);
+
+        _itemRepository
+            .Setup(r => r.CountByStatusAsync(batchId, It.IsAny<EnrollmentStatus>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+        _itemRepository
+            .Setup(r => r.CountByStatusAsync(batchId, EnrollmentStatus.Pending, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(46);
+
+        _unitOfWork
+            .Setup(u => u.ExecuteInTransactionAsync(It.IsAny<Func<CancellationToken, Task>>(), It.IsAny<CancellationToken>()))
+            .Returns<Func<CancellationToken, Task>, CancellationToken>(async (action, ct) => await action(ct));
+
+        var service = CreateService();
+        var result = await service.ResumeBatchAsync(batchId, 1, 42);
+
+        Assert.True(result.Applied);
+        Assert.NotNull(capturedStatuses);
+        Assert.Contains(EnrollmentStatus.Failed, capturedStatuses!);
+        Assert.DoesNotContain(EnrollmentStatus.Cancelled, capturedStatuses!);
+    }
 }

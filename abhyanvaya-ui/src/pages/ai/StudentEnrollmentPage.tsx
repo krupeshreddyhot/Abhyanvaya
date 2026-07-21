@@ -29,9 +29,14 @@ const StudentEnrollmentPage = () => {
           <Stack
             direction={{ xs: "column", sm: "row" }}
             spacing={2}
-            sx={{ justifyContent: "space-between", alignItems: { xs: "flex-start", sm: "flex-end" } }}
+            sx={{
+              justifyContent: "space-between",
+              alignItems: { xs: "stretch", sm: "flex-start" },
+              gap: 2,
+              mb: 0.5,
+            }}
           >
-            <Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography variant="h5">Student Enrollment</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 640 }}>
                 Bulk AI enrollment downloads student photographs, validates photos, generates embeddings, and prepares

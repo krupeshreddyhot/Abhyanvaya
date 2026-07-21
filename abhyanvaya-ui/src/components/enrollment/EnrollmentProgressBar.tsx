@@ -25,7 +25,10 @@ const EnrollmentProgressBar = ({ progress, totalStudents, label }: Props) => {
       <LinearProgress variant="determinate" value={percent} />
       <Typography variant="caption" color="text.secondary">
         Processed {progress.completed + progress.failed + progress.cancelled} · Completed {progress.completed} · Failed{" "}
-        {progress.failed} · In queue {progress.queued}
+        {progress.failed} (this batch) · Pending retry {progress.queued}
+        {progress.downloading + progress.validating + progress.embedding > 0
+          ? ` · In flight ${progress.downloading + progress.validating + progress.embedding}`
+          : ""}
       </Typography>
     </Stack>
   );

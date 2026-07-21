@@ -342,13 +342,14 @@ export const EnrollmentDashboardProvider = ({ children }: { children: ReactNode 
           severity: res.data.applied ? "success" : "info",
         });
         await refreshBatches();
+        await refreshDashboard();
         return res.data.applied;
       } catch (err) {
         dispatch({ type: "SHOW_TOAST", message: getApiErrorMessage(err), severity: "error" });
         return false;
       }
     },
-    [refreshBatches],
+    [refreshBatches, refreshDashboard],
   );
 
   useEffect(() => {
