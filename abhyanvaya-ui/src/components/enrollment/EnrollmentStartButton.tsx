@@ -19,33 +19,56 @@ const EnrollmentStartButton = ({ label, icon, onClick }: Props) => {
       disabled={!enabled}
       onClick={onClick}
       aria-describedby={!enabled ? "enrollment-start-reasons" : undefined}
+      sx={{ alignSelf: { xs: "stretch", sm: "flex-end" }, whiteSpace: "nowrap" }}
     >
       {label}
     </Button>
   );
 
-  if (enabled) {
-    return button;
-  }
-
   return (
-    <Stack spacing={0.5} id="enrollment-start-reasons">
-      <Tooltip
-        title={
-          !canManage
-            ? "You do not have permission to start enrollment batches."
-            : readiness?.reasons?.join(" ") ?? "Loading readiness..."
-        }
-      >
-        <span>{button}</span>
-      </Tooltip>
-      {readiness?.reasons?.length ? (
-        <Typography variant="caption" color="text.secondary" component="ul" sx={{ m: 0, pl: 2 }}>
-          {readiness.reasons.map((reason: string) => (
-            <li key={reason}>{reason}</li>
-          ))}
-        </Typography>
-      ) : null}
+    <Stack
+      id="enrollment-start-reasons"
+      spacing={0.75}
+      sx={{
+        flexShrink: 0,
+        width: { xs: "100%", sm: "auto" },
+        maxWidth: { sm: 420 },
+        alignItems: { xs: "stretch", sm: "flex-end" },
+      }}
+    >
+      {enabled ? (
+        button
+      ) : (
+        <>
+          <Tooltip
+            title={
+              !canManage
+                ? "You do not have permission to start enrollment batches."
+                : readiness?.reasons?.join(" ") ?? "Loading readiness..."
+            }
+          >
+            <span style={{ display: "inline-flex", alignSelf: "inherit" }}>{button}</span>
+          </Tooltip>
+          {readiness?.reasons?.length ? (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              component="ul"
+              sx={{
+                m: 0,
+                pl: { xs: 2, sm: 0 },
+                pr: 0,
+                textAlign: { xs: "left", sm: "right" },
+                listStylePosition: "inside",
+              }}
+            >
+              {readiness.reasons.map((reason: string) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </Typography>
+          ) : null}
+        </>
+      )}
     </Stack>
   );
 };

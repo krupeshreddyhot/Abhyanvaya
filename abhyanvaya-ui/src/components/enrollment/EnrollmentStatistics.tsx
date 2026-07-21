@@ -37,12 +37,7 @@ const EnrollmentStatistics = () => {
       valueColor: dashboard?.uploadedWithoutEmbedding ? "warning.main" : undefined,
     },
     { label: "Pending", value: dashboard?.pending ?? 0, icon: <HourglassEmptyIcon fontSize="small" /> },
-    {
-      label: "Failed",
-      value: dashboard?.failed ?? 0,
-      icon: <ErrorOutlineIcon fontSize="small" />,
-      valueColor: dashboard?.failed ? "error.main" : undefined,
-    },
+    { label: "Failed (All Batches)", value: dashboard?.failed ?? 0, icon: <ErrorOutlineIcon fontSize="small" />, valueColor: dashboard?.failed ? "error.main" : undefined },
     { label: "Processed Today", value: dashboard?.processedToday ?? 0, icon: <TodayIcon fontSize="small" /> },
   ];
 

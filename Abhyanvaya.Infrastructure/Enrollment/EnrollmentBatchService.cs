@@ -315,11 +315,6 @@ public sealed class EnrollmentBatchService : IEnrollmentBatchService
             EnrollmentStatus.RetryRequired,
         };
 
-        if (batch.Status == BatchStatus.Cancelled)
-        {
-            statusesToRequeue.Add(EnrollmentStatus.Cancelled);
-        }
-
         var utcNow = _clock.GetUtcNow().UtcDateTime;
         var requeued = 0;
 
@@ -342,7 +337,7 @@ public sealed class EnrollmentBatchService : IEnrollmentBatchService
 
         if (requeued == 0)
         {
-            return EnrollmentCommandResult.NoOp(batch.Status, "No failed or cancelled items to retry.");
+            return EnrollmentCommandResult.NoOp(batch.Status, "No failed items to retry.");
         }
 
         _logger.LogInformation(
