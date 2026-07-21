@@ -132,8 +132,8 @@ const EnrollmentBatchGrid = ({ onViewBatch }: Props) => {
                       ) : null}
                       {canManage &&
                       (batch.status === BatchStatus.PartiallyFailed || batch.status === BatchStatus.Cancelled) ? (
-                        <Tooltip title="Retry batch">
-                          <IconButton size="small" onClick={() => void retryBatch(batch.batchId)} aria-label="Retry batch">
+                        <Tooltip title="Retry failed students only">
+                          <IconButton size="small" onClick={() => void retryBatch(batch.batchId)} aria-label="Retry failed students">
                             <ReplayOutlinedIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
