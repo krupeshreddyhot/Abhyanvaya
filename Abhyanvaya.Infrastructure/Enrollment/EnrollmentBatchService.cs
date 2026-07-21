@@ -79,7 +79,7 @@ public sealed class EnrollmentBatchService : IEnrollmentBatchService
                 request.TenantId,
                 request.CollegeId,
                 request.AcademicYear,
-                cancellationToken))
+                cancellationToken: cancellationToken))
         {
             return EnrollmentBatchCreateResult.Failure(
                 EnrollmentBatchFailureCode.ActiveBatchAlreadyRunning,
@@ -269,9 +269,114 @@ public sealed class EnrollmentBatchService : IEnrollmentBatchService
         int tenantId,
         int requestedByUserId,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(EnrollmentCommandResult.NoOp(
-            BatchStatus.Created,
-            "Resume batch is not implemented in Phase 2.1.2."));
+        ResumeBatchCoreAsync(batchId, tenantId, requestedByUserId, cancellationToken);
+
+    private async Task<EnrollmentCommandResult> ResumeBatchCoreAsync(
+        Guid batchId,
+        int tenantId,
+        int requestedByUserId,
+        CancellationToken cancellationToken)
+    {
+        var batch = await _batchRepository.GetBatchAsync(batchId, tenantId, cancellationToken);
+        if (batch is null)
+        {
+            return EnrollmentCommandResult.NoOp(BatchStatus.Created, "Batch not found.");
+        }
+
+        if (batch.Status is BatchStatus.Completed)
+        {
+            return EnrollmentCommandResult.NoOp(batch.Status, "Batch completed with no failures to retry.");
+        }
+
+        if (batch.Status is BatchStatus.Created or BatchStatus.Running)
+        {
+            var retryableNow = batch.FailedCount + batch.RetryRequiredCount;
+            if (retryableNow <= 0)
+            {
+                return EnrollmentCommandResult.NoOp(batch.Status, "Batch is already running with nothing to retry.");
+            }
+        }
+
+        if (await _batchRepository.HasActiveBatchAsync(
+                batch.TenantId,
+                batch.CollegeId,
+                batch.AcademicYear,
+                excludeBatchId: batchId,
+                cancellationToken))
+        {
+            return EnrollmentCommandResult.NoOp(
+                batch.Status,
+                "Another enrollment batch is already running for this college and academic year.");
+        }
+
+        var statusesToRequeue = new List<EnrollmentStatus>
+        {
+            EnrollmentStatus.Failed,
+            EnrollmentStatus.RetryRequired,
+        };
+
+        if (batch.Status == BatchStatus.Cancelled)
+        {
+            statusesToRequeue.Add(EnrollmentStatus.Cancelled);
+        }
+
+        var utcNow = _clock.GetUtcNow().UtcDateTime;
+        var requeued = 0;
+
+        await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+        {
+            requeued = await _itemRepository.RequeueItemsForRetryAsync(batchId, statusesToRequeue, ct);
+            if (requeued == 0)
+            {
+                return;
+            }
+
+            batch.CancellationRequestedUtc = null;
+            batch.CompletedUtc = null;
+            batch.StartedUtc ??= utcNow;
+            batch.Status = BatchStatus.Running;
+            await RefreshBatchCountersAsync(batch, ct);
+            await _batchRepository.UpdateBatchAsync(batch, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+        }, cancellationToken);
+
+        if (requeued == 0)
+        {
+            return EnrollmentCommandResult.NoOp(batch.Status, "No failed or cancelled items to retry.");
+        }
+
+        _logger.LogInformation(
+            "Enrollment batch retry queued. BatchId={BatchId} TenantId={TenantId} RequestedByUserId={RequestedByUserId} RequeuedItems={RequeuedItems}",
+            batchId,
+            tenantId,
+            requestedByUserId,
+            requeued);
+
+        try
+        {
+            _jobQueue.SignalWork();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to signal enrollment workers after batch retry.");
+        }
+
+        return EnrollmentCommandResult.Ok(BatchStatus.Running);
+    }
+
+    private async Task RefreshBatchCountersAsync(StudentEnrollmentBatch batch, CancellationToken cancellationToken)
+    {
+        batch.PendingCount = await _itemRepository.CountByStatusAsync(batch.Id, EnrollmentStatus.Pending, cancellationToken);
+        batch.DownloadingCount =
+            await _itemRepository.CountByStatusAsync(batch.Id, EnrollmentStatus.Downloading, cancellationToken)
+            + await _itemRepository.CountByStatusAsync(batch.Id, EnrollmentStatus.Downloaded, cancellationToken);
+        batch.ValidatingCount = await _itemRepository.CountByStatusAsync(batch.Id, EnrollmentStatus.Validating, cancellationToken);
+        batch.EmbeddingCount = await _itemRepository.CountByStatusAsync(batch.Id, EnrollmentStatus.Embedding, cancellationToken);
+        batch.CompletedCount = await _itemRepository.CountByStatusAsync(batch.Id, EnrollmentStatus.Completed, cancellationToken);
+        batch.FailedCount = await _itemRepository.CountByStatusAsync(batch.Id, EnrollmentStatus.Failed, cancellationToken);
+        batch.RetryRequiredCount = await _itemRepository.CountByStatusAsync(batch.Id, EnrollmentStatus.RetryRequired, cancellationToken);
+        batch.CancelledCount = await _itemRepository.CountByStatusAsync(batch.Id, EnrollmentStatus.Cancelled, cancellationToken);
+    }
 
     private async Task<EnrollmentCommandResult> CancelBatchCoreAsync(
         Guid batchId,

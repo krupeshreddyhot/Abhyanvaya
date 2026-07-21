@@ -65,6 +65,7 @@ public sealed class EnrollmentEligibleStudentQuery : IEnrollmentEligibleStudentQ
                     && e.IsActive
                     && e.EmbeddingStatus == EmbeddingStatus.Completed)
                 .Select(e => e.StudentId)
+                .Distinct()
                 .ToListAsync(cancellationToken);
 
             if (embeddedStudentIds.Count > 0)

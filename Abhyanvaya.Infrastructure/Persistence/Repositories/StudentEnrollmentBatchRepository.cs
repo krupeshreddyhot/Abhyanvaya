@@ -90,11 +90,13 @@ public sealed class StudentEnrollmentBatchRepository : IStudentEnrollmentBatchRe
         int tenantId,
         int collegeId,
         int academicYear,
+        Guid? excludeBatchId = null,
         CancellationToken cancellationToken = default) =>
         _context.StudentEnrollmentBatches.AnyAsync(
             b => b.TenantId == tenantId
                  && b.CollegeId == collegeId
                  && b.AcademicYear == academicYear
-                 && (b.Status == BatchStatus.Created || b.Status == BatchStatus.Running),
+                 && (b.Status == BatchStatus.Created || b.Status == BatchStatus.Running)
+                 && (excludeBatchId == null || b.Id != excludeBatchId),
             cancellationToken);
 }
