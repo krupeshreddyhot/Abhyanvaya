@@ -67,6 +67,15 @@ public interface IStudentEnrollmentItemRepository
         EnrollmentStatus status,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Moves terminal items back to <see cref="EnrollmentStatus.Pending"/> for manual batch retry.
+    /// Clears prior attempt metadata so the full pipeline runs again.
+    /// </summary>
+    Task<int> RequeueItemsForRetryAsync(
+        Guid batchId,
+        IReadOnlyCollection<EnrollmentStatus> fromStatuses,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<StudentEnrollmentItem>> GetRecentlyCompletedAsync(
         Guid batchId,
         int limit,

@@ -112,7 +112,7 @@ public sealed class EnrollmentBatchServiceTests
             .ReturnsAsync(EnrollmentReferenceValidationResult.Ok("COL"));
 
         _batchRepository
-            .Setup(r => r.HasActiveBatchAsync(request.TenantId, request.CollegeId, request.AcademicYear, It.IsAny<CancellationToken>()))
+            .Setup(r => r.HasActiveBatchAsync(request.TenantId, request.CollegeId, request.AcademicYear, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
         var result = await service.CreateBatchAsync(request);
@@ -301,7 +301,7 @@ public sealed class EnrollmentBatchServiceTests
             .ReturnsAsync(EnrollmentReferenceValidationResult.Ok("COL"));
 
         _batchRepository
-            .Setup(r => r.HasActiveBatchAsync(request.TenantId, request.CollegeId, request.AcademicYear, It.IsAny<CancellationToken>()))
+            .Setup(r => r.HasActiveBatchAsync(request.TenantId, request.CollegeId, request.AcademicYear, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         _pipelineVersionProvider
@@ -391,5 +391,59 @@ public sealed class EnrollmentBatchServiceTests
         _unitOfWork.Verify(
             u => u.ExecuteInTransactionAsync(It.IsAny<Func<CancellationToken, Task>>(), It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    [Fact]
+    public async Task ResumeBatchAsync_RequeuesFailedItems_AndSetsBatchRunning()
+    {
+        var batchId = Guid.NewGuid();
+        var batch = new StudentEnrollmentBatch
+        {
+            Id = batchId,
+            TenantId = 1,
+            CollegeId = 100,
+            AcademicYear = 2026,
+            Status = BatchStatus.PartiallyFailed,
+            FailedCount = 25,
+            PhotoProviderName = "ExamBranch",
+            RowVersion = Guid.NewGuid().ToByteArray(),
+        };
+
+        _batchRepository
+            .Setup(r => r.GetBatchAsync(batchId, 1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(batch);
+
+        _batchRepository
+            .Setup(r => r.HasActiveBatchAsync(1, 100, 2026, batchId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        _itemRepository
+            .Setup(r => r.RequeueItemsForRetryAsync(
+                batchId,
+                It.Is<IReadOnlyCollection<EnrollmentStatus>>(statuses =>
+                    statuses.Contains(EnrollmentStatus.Failed)
+                    && statuses.Contains(EnrollmentStatus.RetryRequired)),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(25);
+
+        _itemRepository
+            .Setup(r => r.CountByStatusAsync(batchId, It.IsAny<EnrollmentStatus>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+        _itemRepository
+            .Setup(r => r.CountByStatusAsync(batchId, EnrollmentStatus.Pending, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(25);
+
+        _unitOfWork
+            .Setup(u => u.ExecuteInTransactionAsync(It.IsAny<Func<CancellationToken, Task>>(), It.IsAny<CancellationToken>()))
+            .Returns<Func<CancellationToken, Task>, CancellationToken>(async (action, ct) => await action(ct));
+
+        var service = CreateService();
+        var result = await service.ResumeBatchAsync(batchId, 1, 42);
+
+        Assert.True(result.Applied);
+        Assert.Equal(BatchStatus.Running, result.Status);
+        Assert.Equal(BatchStatus.Running, batch.Status);
+        Assert.Null(batch.CompletedUtc);
+        _jobQueue.Verify(q => q.SignalWork(), Times.Once);
     }
 }

@@ -62,6 +62,7 @@ export type EnrollmentFilters = {
   groupId?: number;
   batch?: number;
   subjectId?: number;
+  forceReEnrollment?: boolean;
   search?: string;
   status?: BatchStatus;
   page?: number;

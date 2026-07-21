@@ -213,6 +213,7 @@ export const EnrollmentDashboardProvider = ({ children }: { children: ReactNode 
           groupId: filters?.groupId,
           batch: filters?.batch,
           subjectId: filters?.subjectId,
+          forceReEnrollment: filters?.forceReEnrollment,
         });
         dispatch({ type: "SET_READINESS", readiness: res.data });
       } catch (err) {

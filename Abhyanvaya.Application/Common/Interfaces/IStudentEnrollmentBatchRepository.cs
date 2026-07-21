@@ -34,5 +34,6 @@ public interface IStudentEnrollmentBatchRepository
         int tenantId,
         int collegeId,
         int academicYear,
+        Guid? excludeBatchId = null,
         CancellationToken cancellationToken = default);
 }

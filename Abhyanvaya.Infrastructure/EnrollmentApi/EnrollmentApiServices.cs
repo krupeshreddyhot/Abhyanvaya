@@ -217,17 +217,20 @@ public sealed class EnrollmentReadinessService : IEnrollmentReadinessService
     private readonly IAIHealthService _healthService;
     private readonly IStudentEnrollmentBatchRepository _batchRepository;
     private readonly IEnrollmentEligibleStudentQuery _eligibleQuery;
+    private readonly IApplicationDbContext _context;
     private readonly IConfiguration _configuration;
 
     public EnrollmentReadinessService(
         IAIHealthService healthService,
         IStudentEnrollmentBatchRepository batchRepository,
         IEnrollmentEligibleStudentQuery eligibleQuery,
+        IApplicationDbContext context,
         IConfiguration configuration)
     {
         _healthService = healthService;
         _batchRepository = batchRepository;
         _eligibleQuery = eligibleQuery;
+        _context = context;
         _configuration = configuration;
     }
 
@@ -259,7 +262,11 @@ public sealed class EnrollmentReadinessService : IEnrollmentReadinessService
         if (!workerReady) reasons.Add("Background workers are not ready.");
         if (!configValid) reasons.Add("Configuration validation failed.");
 
-        var hasActive = await _batchRepository.HasActiveBatchAsync(tenantId, collegeId, academicYear, cancellationToken);
+        var hasActive = await _batchRepository.HasActiveBatchAsync(
+            tenantId,
+            collegeId,
+            academicYear,
+            cancellationToken: cancellationToken);
         Guid? runningBatchId = null;
         if (hasActive)
         {
@@ -287,7 +294,47 @@ public sealed class EnrollmentReadinessService : IEnrollmentReadinessService
 
         if (eligible.Count == 0)
         {
-            reasons.Add("No eligible students match the selected filters.");
+            var failedWithoutEmbedding = await CountFailedWithoutEmbeddingForCollegeAsync(
+                tenantId,
+                collegeId,
+                cancellationToken);
+
+            if (failedWithoutEmbedding > 0)
+            {
+                reasons.Add(
+                    $"{failedWithoutEmbedding} enrollment(s) failed and still need processing. " +
+                    "Start Enrollment Batch cannot pick them up while every student already has a face embedding " +
+                    "(or none match your filters). Use Retry (↻) on each failed batch in History, " +
+                    "or start a new batch with Force Re-Enrollment enabled.");
+            }
+            else if (criteria.ForceReEnrollment)
+            {
+                reasons.Add("No students match the selected scope filters.");
+            }
+            else
+            {
+                var totalStudents = await _context.Students.AsNoTracking()
+                    .CountAsync(s => s.TenantId == tenantId && !s.IsDeleted, cancellationToken);
+                var embeddedStudents = await _context.StudentFaceEmbeddings.AsNoTracking()
+                    .Where(e =>
+                        e.TenantId == tenantId
+                        && e.IsActive
+                        && e.EmbeddingStatus == EmbeddingStatus.Completed)
+                    .Select(e => e.StudentId)
+                    .Distinct()
+                    .CountAsync(cancellationToken);
+
+                if (totalStudents > 0 && embeddedStudents >= totalStudents)
+                {
+                    reasons.Add(
+                        "All students already have face embeddings. " +
+                        "Enable Force Re-Enrollment in the batch wizard to run enrollment again.");
+                }
+                else
+                {
+                    reasons.Add("No eligible students match the selected filters.");
+                }
+            }
         }
 
         var canStart = reasons.Count == 0;
@@ -310,6 +357,23 @@ public sealed class EnrollmentReadinessService : IEnrollmentReadinessService
     {
         var check = health.Checks.FirstOrDefault(c => c.ComponentName == component);
         return check?.Status is AIHealthStatus.Ready or AIHealthStatus.Live;
+    }
+
+    private async Task<int> CountFailedWithoutEmbeddingForCollegeAsync(
+        int tenantId,
+        int collegeId,
+        CancellationToken cancellationToken)
+    {
+        var batchIds = _context.StudentEnrollmentBatches.AsNoTracking()
+            .Where(b => b.TenantId == tenantId && b.CollegeId == collegeId)
+            .Select(b => b.Id);
+
+        return await _context.StudentEnrollmentItems.AsNoTracking()
+            .Where(i =>
+                batchIds.Contains(i.BatchId)
+                && i.Status == EnrollmentStatus.Failed
+                && i.StudentFaceEmbeddingId == null)
+            .CountAsync(cancellationToken);
     }
 }
 
@@ -662,11 +726,16 @@ public sealed class BatchCancellationService : IBatchCancellationService
 public sealed class BatchRetryService : IBatchRetryService
 {
     private readonly IEnrollmentBatchService _batchService;
+    private readonly IEnrollmentSignalRPublisher _eventPublisher;
     private readonly IAuditService _auditService;
 
-    public BatchRetryService(IEnrollmentBatchService batchService, IAuditService auditService)
+    public BatchRetryService(
+        IEnrollmentBatchService batchService,
+        IEnrollmentSignalRPublisher eventPublisher,
+        IAuditService auditService)
     {
         _batchService = batchService;
+        _eventPublisher = eventPublisher;
         _auditService = auditService;
     }
 
@@ -676,6 +745,7 @@ public sealed class BatchRetryService : IBatchRetryService
 
         if (result.Applied)
         {
+            await _eventPublisher.PublishBatchStartedAsync(tenantId, batchId, cancellationToken);
             await _auditService.RecordAsync("StudentEnrollmentBatch", batchId.ToString(), Domain.Enums.AuditAction.Updated, newValues: new { Action = "Retry", UserId = userId });
         }
 
