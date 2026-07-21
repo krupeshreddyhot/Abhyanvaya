@@ -6,6 +6,8 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
+  FormControlLabel,
+  Checkbox,
   InputLabel,
   MenuItem,
   Select,
@@ -64,6 +66,7 @@ const EnrollmentBatchWizard = ({ open, onClose }: Props) => {
   const [semesters, setSemesters] = useState<Array<{ id: number; name: string; courseId: number; groupId: number | null }>>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [forceReEnrollment, setForceReEnrollment] = useState(false);
 
   const collegeId = contextCollegeId ?? collegeProfile?.id ?? null;
   const universityId = collegeProfile?.universityId ?? null;
@@ -131,10 +134,11 @@ const EnrollmentBatchWizard = ({ open, onClose }: Props) => {
         groupId: filters.groupId,
         batch: filters.batch,
         subjectId: filters.subjectId,
+        forceReEnrollment,
       });
       setPreviewCount(res.data.eligibleStudentCount);
       setSampleNumbers(res.data.sampleStudentNumbers);
-      await refreshReadiness(filters);
+      await refreshReadiness({ ...filters, academicYear: year, forceReEnrollment: forceReEnrollment ? true : undefined });
     } catch (err) {
       setError(getApiErrorMessage(err));
     }
@@ -155,6 +159,7 @@ const EnrollmentBatchWizard = ({ open, onClose }: Props) => {
     setPreviewCount(null);
     setSampleNumbers([]);
     setError(null);
+    setForceReEnrollment(false);
   };
 
   const handleSubmit = async () => {
@@ -169,6 +174,7 @@ const EnrollmentBatchWizard = ({ open, onClose }: Props) => {
       groupId: filters.groupId,
       batch: filters.batch,
       subjectId: filters.subjectId,
+      forceReEnrollment,
     };
     const ok = await createBatch(payload);
     setSubmitting(false);
@@ -251,6 +257,15 @@ const EnrollmentBatchWizard = ({ open, onClose }: Props) => {
               value={scope.batch}
               onChange={(e) => setScope({ ...scope, batch: Number(e.target.value) })}
               fullWidth
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={forceReEnrollment}
+                  onChange={(e) => setForceReEnrollment(e.target.checked)}
+                />
+              }
+              label="Force re-enrollment (include students who already have face embeddings)"
             />
           </Stack>
         );

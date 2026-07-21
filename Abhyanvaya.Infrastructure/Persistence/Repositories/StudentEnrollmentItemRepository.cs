@@ -217,6 +217,47 @@ public sealed class StudentEnrollmentItemRepository : IStudentEnrollmentItemRepo
             i => i.BatchId == batchId && i.Status == status,
             cancellationToken);
 
+    public Task<int> RequeueItemsForRetryAsync(
+        Guid batchId,
+        IReadOnlyCollection<EnrollmentStatus> fromStatuses,
+        CancellationToken cancellationToken = default)
+    {
+        if (fromStatuses.Count == 0)
+        {
+            return Task.FromResult(0);
+        }
+
+        var rowVersion = Guid.NewGuid().ToByteArray();
+
+        return _context.StudentEnrollmentItems
+            .Where(i => i.BatchId == batchId && fromStatuses.Contains(i.Status))
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(i => i.Status, EnrollmentStatus.Pending)
+                    .SetProperty(i => i.FailureCategory, (FailureCategory?)null)
+                    .SetProperty(i => i.LastError, (string?)null)
+                    .SetProperty(i => i.NextAttemptUtc, (DateTime?)null)
+                    .SetProperty(i => i.CompletedUtc, (DateTime?)null)
+                    .SetProperty(i => i.DownloadStartedUtc, (DateTime?)null)
+                    .SetProperty(i => i.DownloadedUtc, (DateTime?)null)
+                    .SetProperty(i => i.ValidationStartedUtc, (DateTime?)null)
+                    .SetProperty(i => i.ValidatedUtc, (DateTime?)null)
+                    .SetProperty(i => i.EmbeddingStartedUtc, (DateTime?)null)
+                    .SetProperty(i => i.PhotoKey, (string?)null)
+                    .SetProperty(i => i.ContentType, (string?)null)
+                    .SetProperty(i => i.ByteSize, (int?)null)
+                    .SetProperty(i => i.Checksum, (string?)null)
+                    .SetProperty(i => i.ImageWidth, (int?)null)
+                    .SetProperty(i => i.ImageHeight, (int?)null)
+                    .SetProperty(i => i.EmbeddingVersion, (string?)null)
+                    .SetProperty(i => i.QualityScore, (float?)null)
+                    .SetProperty(i => i.StudentFaceEmbeddingId, (Guid?)null)
+                    .SetProperty(i => i.RetryCount, 0)
+                    .SetProperty(i => i.LastAttemptUtc, (DateTime?)null)
+                    .SetProperty(i => i.RowVersion, rowVersion),
+                cancellationToken);
+    }
+
     public async Task<IReadOnlyList<StudentEnrollmentItem>> GetRecentlyCompletedAsync(
         Guid batchId,
         int limit,
