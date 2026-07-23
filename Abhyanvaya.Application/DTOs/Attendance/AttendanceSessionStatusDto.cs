@@ -36,6 +36,13 @@ public sealed class AttendanceSessionStatusDto
 
     public string? CurrentFileName { get; init; }
 
+    /// <summary>AI22.7A Phase 3 — optional progress hints for scoped recognition.</summary>
+    public short? CurrentImageSequence { get; init; }
+
+    public int ProcessedImageCount { get; init; }
+
+    public int TotalImageCount { get; init; }
+
     public IReadOnlyList<string> Messages { get; init; } = Array.Empty<string>();
 
     public string? ErrorCode { get; init; }

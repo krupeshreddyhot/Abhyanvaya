@@ -103,118 +103,207 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
             session.RecognitionPipelineVersion = _insightFaceOptions.PipelineVersion;
             await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
 
-            var loadImageStage = _diagnostics.StageStart("Load Image");
-            _forensics.Checkpoint("Image Download Started");
-            _memoryAudit.Snapshot("Image Download Started");
-            var imageBytes = message.ImageStorageKey.Contains('.', StringComparison.Ordinal)
-                ? await _mediaReader.ReadObjectAsync(message.ImageStorageKey, cancellationToken)
-                : await _mediaReader.ReadVariantAsync(message.ImageStorageKey, "original", cancellationToken);
-            _diagnostics.StageEnd(loadImageStage);
-            _forensics.Checkpoint("Image Download Finished");
-            _memoryAudit.Snapshot("Image Download Finished");
-            _memoryAudit.RegisterObject("Byte Array", imageBytes.Length, "Image Download Finished");
+            var allSessionImages = await _context.AttendanceSessionImages
+                .Where(i => i.AttendanceSessionId == session.Id && i.TenantId == session.TenantId)
+                .OrderBy(i => i.ImageSequence)
+                .ToListAsync(cancellationToken);
 
-            var detection = await _faceDetectionService.DetectAsync(new FaceDetectionRequest(imageBytes), cancellationToken);
-            _memoryAudit.Snapshot("Face Detection Complete");
-
-            session.SetImageDimensions(detection.ImageWidth, detection.ImageHeight);
-            session.DetectedFaces = detection.Faces.Count;
-
-            _forensics.Checkpoint("Before Student Embedding Load");
-            _memoryAudit.Snapshot("Before Student Embedding Load");
-            var studentEmbeddings = await LoadStudentEmbeddingsAsync(session, cancellationToken);
-            _forensics.Checkpoint("After Student Embedding Load");
-            _memoryAudit.Snapshot("After Student Embedding Load");
-            var matchInputs = detection.Faces
-                .Select(f => new DetectedFaceMatchInput(f.FaceIndex, f.Embedding))
-                .ToList();
-
-            var matchingStage = _diagnostics.StageStart("Matching");
-            _forensics.Checkpoint("Before Matching");
-            _memoryAudit.Snapshot("Before Matching");
-            var beforeMatchingSnapshot = RecognitionMemorySnapshot.Capture();
-            var beforeMatchingAuditSnapshot = CaptureMemoryAuditSnapshot("Before Matching (raw)");
-            var matches = _faceMatcher.Match(matchInputs, studentEmbeddings);
-            var afterMatchingSnapshot = RecognitionMemorySnapshot.Capture();
-            var afterMatchingAuditSnapshot = CaptureMemoryAuditSnapshot("After Matching (raw)");
-            _forensics.Checkpoint("After Matching");
-            _memoryAudit.Snapshot("After Matching");
-            _forensics.RecordMatching(matchInputs.Count, studentEmbeddings.Count, beforeMatchingSnapshot, afterMatchingSnapshot);
-            _memoryAudit.RecordMatchingMemory(matchInputs.Count, studentEmbeddings.Count, beforeMatchingAuditSnapshot, afterMatchingAuditSnapshot);
-            _diagnostics.StageEnd(matchingStage);
-
-            // Per-face matching visibility (Task 3): the matcher itself is called once for the whole
-            // batch above and is completely untouched — this loop only reports, per face, the result
-            // that batched call already computed, without altering matching logic in any way.
-            foreach (var match in matches)
+            // Legacy single-image sessions (pre Phase 2) may only have ImageMetadata.ImageKey.
+            if (allSessionImages.Count == 0 && !string.IsNullOrWhiteSpace(session.ImageMetadata.ImageKey))
             {
-                _diagnostics.FaceEvent("Matching", match.FaceIndex, matches.Count);
+                allSessionImages =
+                [
+                    new AttendanceSessionImage
+                    {
+                        Id = Guid.Empty,
+                        TenantId = session.TenantId,
+                        AttendanceSessionId = session.Id,
+                        ImageSequence = 1,
+                        ImageKey = session.ImageMetadata.ImageKey!,
+                        Status = AttendanceSessionImageStatus.Uploaded,
+                    },
+                ];
             }
+
+            if (allSessionImages.Count == 0)
+            {
+                // Fall back to the queue message key (original Phase 1 path).
+                allSessionImages =
+                [
+                    new AttendanceSessionImage
+                    {
+                        Id = Guid.Empty,
+                        TenantId = session.TenantId,
+                        AttendanceSessionId = session.Id,
+                        ImageSequence = 1,
+                        ImageKey = message.ImageStorageKey,
+                        Status = AttendanceSessionImageStatus.Uploaded,
+                    },
+                ];
+            }
+
+            var imagesToProcess = ResolveImagesToProcess(allSessionImages, message);
+            if (imagesToProcess.Count == 0)
+            {
+                _logger.LogInformation(
+                    "No classroom images required processing for scope {Scope}. SessionId={SessionId}",
+                    message.Scope,
+                    session.Id);
+                session.MoveToAwaitingReview();
+                await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
+                _queue.MarkCompleted(session.Id);
+                _diagnostics.Complete();
+                return;
+            }
+
+            foreach (var sessionImage in imagesToProcess.Where(i => i.Id != Guid.Empty))
+            {
+                sessionImage.Status = AttendanceSessionImageStatus.Processing;
+                sessionImage.ProcessingError = null;
+            }
+
+            await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
+
+            var sequencesToReplace = imagesToProcess
+                .Select(i => i.ImageSequence < 1 ? (short)1 : i.ImageSequence)
+                .Distinct()
+                .ToHashSet();
 
             var existingRecognitions = await _context.AttendanceRecognitions
                 .Where(r => r.AttendanceSessionId == session.Id)
                 .ToListAsync(cancellationToken);
 
-            foreach (var existing in existingRecognitions)
+            var recognitionsToRemove = message.Scope == ClassroomRecognitionScope.FullSession
+                ? existingRecognitions
+                : existingRecognitions.Where(r => sequencesToReplace.Contains(r.ImageSequence)).ToList();
+
+            foreach (var existing in recognitionsToRemove)
             {
                 _context.Remove(existing);
             }
 
-            // AI18.REVIEW.2: thumbnail persistence happens BEFORE the AttendanceRecognition row is
-            // built, and FaceImageKey is only ever set to the key that PersistFaceThumbnailAsync
-            // returns after a successful upload. If the upload throws, this loop throws too, no
-            // AttendanceRecognition row is added for that face, and the outer catch below fails the
-            // whole session — there is never a persisted FaceImageKey with no corresponding object.
-            _forensics.Checkpoint("Before Thumbnail Persistence");
-            _memoryAudit.Snapshot("Before Thumbnail Persistence");
-            var recognitions = new List<AttendanceRecognition>();
-            foreach (var face in detection.Faces)
+            var retainedRecognitions = existingRecognitions
+                .Except(recognitionsToRemove)
+                .ToList();
+
+            var studentEmbeddings = await LoadStudentEmbeddingsAsync(session, cancellationToken);
+            var newRecognitions = new List<AttendanceRecognition>();
+            var primaryWidth = session.ImageMetadata.Width ?? 0;
+            var primaryHeight = session.ImageMetadata.Height ?? 0;
+
+            foreach (var sessionImage in imagesToProcess)
             {
-                var match = matches.First(m => m.FaceIndex == face.FaceIndex);
+                var imageSequence = sessionImage.ImageSequence < 1 ? (short)1 : sessionImage.ImageSequence;
 
-                _memoryAudit.Snapshot("Before Thumbnail Persistence", face.FaceIndex);
-                var thumbnailBytesId = face.AlignedFaceBytes is { Length: > 0 }
-                    ? _memoryAudit.RegisterObject("Byte Array", face.AlignedFaceBytes.Length, "Thumbnail Persistence", face.FaceIndex)
-                    : -1;
+                var loadImageStage = _diagnostics.StageStart($"Load Image {imageSequence}");
+                _forensics.Checkpoint($"Image {imageSequence} Download Started");
+                _memoryAudit.Snapshot("Image Download Started");
+                var imageBytes = sessionImage.ImageKey.Contains('.', StringComparison.Ordinal)
+                    ? await _mediaReader.ReadObjectAsync(sessionImage.ImageKey, cancellationToken)
+                    : await _mediaReader.ReadVariantAsync(sessionImage.ImageKey, "original", cancellationToken);
+                _diagnostics.StageEnd(loadImageStage);
+                _forensics.Checkpoint($"Image {imageSequence} Download Finished");
+                _memoryAudit.Snapshot("Image Download Finished");
+                _memoryAudit.RegisterObject("Byte Array", imageBytes.Length, "Image Download Finished");
 
-                var faceImageKey = await _recognitionMediaService.PersistFaceThumbnailAsync(
-                    session.TenantId,
-                    session.Id,
-                    face.FaceIndex,
-                    face.AlignedFaceBytes,
-                    _executionContext.ExecutionTraceId,
-                    cancellationToken);
+                var detection = await _faceDetectionService.DetectAsync(new FaceDetectionRequest(imageBytes), cancellationToken);
+                _memoryAudit.Snapshot("Face Detection Complete");
 
-                _memoryAudit.DisposeObject(thumbnailBytesId);
-                _memoryAudit.Snapshot("After Thumbnail Persistence", face.FaceIndex);
-
-                recognitions.Add(new AttendanceRecognition
+                if (imageSequence == 1)
                 {
-                    Id = Guid.NewGuid(),
-                    TenantId = session.TenantId,
-                    AttendanceSessionId = session.Id,
-                    StudentId = match.MatchedStudentId,
-                    FaceNumber = face.FaceIndex,
-                    ImageSequence = 1,
-                    FaceImageKey = faceImageKey,
-                    RecognitionStatus = match.SuggestedStatus,
-                    ConfidenceScore = match.Confidence,
-                    EmbeddingDistance = match.Distance,
-                    BoundingBoxX = face.BoundingBoxX,
-                    BoundingBoxY = face.BoundingBoxY,
-                    BoundingBoxWidth = face.BoundingBoxWidth,
-                    BoundingBoxHeight = face.BoundingBoxHeight,
-                    RecognitionTimeMilliseconds = detection.DetectionDurationMs,
-                    CreatedUtc = DateTime.UtcNow
-                });
-            }
-            _forensics.Checkpoint("After Thumbnail Persistence");
-            _memoryAudit.Snapshot("After Thumbnail Persistence");
-            _memoryAudit.RegisterObject("AttendanceRecognition Collection", recognitions.Count * 128L, "After Thumbnail Persistence");
+                    primaryWidth = detection.ImageWidth;
+                    primaryHeight = detection.ImageHeight;
+                    session.SetImageDimensions(detection.ImageWidth, detection.ImageHeight);
+                }
 
-            await _context.AddRangeAsync(recognitions);
-            session.RecognizedFaces = recognitions.Count(r => r.RecognitionStatus == RecognitionStatus.Recognized);
-            session.UnknownFaces = recognitions.Count(r => r.RecognitionStatus is RecognitionStatus.Unknown or RecognitionStatus.LowConfidence);
+                if (sessionImage.Id != Guid.Empty)
+                {
+                    sessionImage.Width = detection.ImageWidth;
+                    sessionImage.Height = detection.ImageHeight;
+                }
+
+                var matchInputs = detection.Faces
+                    .Select(f => new DetectedFaceMatchInput(f.FaceIndex, f.Embedding))
+                    .ToList();
+
+                var matchingStage = _diagnostics.StageStart($"Matching Image {imageSequence}");
+                _forensics.Checkpoint($"Before Matching Image {imageSequence}");
+                _memoryAudit.Snapshot("Before Matching");
+                var beforeMatchingSnapshot = RecognitionMemorySnapshot.Capture();
+                var beforeMatchingAuditSnapshot = CaptureMemoryAuditSnapshot("Before Matching (raw)");
+                var matches = _faceMatcher.Match(matchInputs, studentEmbeddings);
+                var afterMatchingSnapshot = RecognitionMemorySnapshot.Capture();
+                var afterMatchingAuditSnapshot = CaptureMemoryAuditSnapshot("After Matching (raw)");
+                _forensics.Checkpoint($"After Matching Image {imageSequence}");
+                _memoryAudit.Snapshot("After Matching");
+                _forensics.RecordMatching(matchInputs.Count, studentEmbeddings.Count, beforeMatchingSnapshot, afterMatchingSnapshot);
+                _memoryAudit.RecordMatchingMemory(matchInputs.Count, studentEmbeddings.Count, beforeMatchingAuditSnapshot, afterMatchingAuditSnapshot);
+                _diagnostics.StageEnd(matchingStage);
+
+                foreach (var match in matches)
+                {
+                    _diagnostics.FaceEvent("Matching", match.FaceIndex, matches.Count);
+                }
+
+                foreach (var face in detection.Faces)
+                {
+                    var match = matches.First(m => m.FaceIndex == face.FaceIndex);
+
+                    _memoryAudit.Snapshot("Before Thumbnail Persistence", face.FaceIndex);
+                    var thumbnailBytesId = face.AlignedFaceBytes is { Length: > 0 }
+                        ? _memoryAudit.RegisterObject("Byte Array", face.AlignedFaceBytes.Length, "Thumbnail Persistence", face.FaceIndex)
+                        : -1;
+
+                    var faceImageKey = await _recognitionMediaService.PersistFaceThumbnailAsync(
+                        session.TenantId,
+                        session.Id,
+                        face.FaceIndex,
+                        face.AlignedFaceBytes,
+                        _executionContext.ExecutionTraceId,
+                        cancellationToken,
+                        imageSequence);
+
+                    _memoryAudit.DisposeObject(thumbnailBytesId);
+                    _memoryAudit.Snapshot("After Thumbnail Persistence", face.FaceIndex);
+
+                    newRecognitions.Add(new AttendanceRecognition
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = session.TenantId,
+                        AttendanceSessionId = session.Id,
+                        StudentId = match.MatchedStudentId,
+                        FaceNumber = face.FaceIndex,
+                        ImageSequence = imageSequence,
+                        FaceImageKey = faceImageKey,
+                        RecognitionStatus = match.SuggestedStatus,
+                        ConfidenceScore = match.Confidence,
+                        EmbeddingDistance = match.Distance,
+                        BoundingBoxX = face.BoundingBoxX,
+                        BoundingBoxY = face.BoundingBoxY,
+                        BoundingBoxWidth = face.BoundingBoxWidth,
+                        BoundingBoxHeight = face.BoundingBoxHeight,
+                        RecognitionTimeMilliseconds = detection.DetectionDurationMs,
+                        CreatedUtc = DateTime.UtcNow
+                    });
+                }
+
+                if (sessionImage.Id != Guid.Empty)
+                {
+                    sessionImage.Status = AttendanceSessionImageStatus.Processed;
+                }
+            }
+
+            await _context.AddRangeAsync(newRecognitions);
+
+            var mergedRecognitions = retainedRecognitions.Concat(newRecognitions).ToList();
+            session.DetectedFaces = mergedRecognitions.Count;
+            if (primaryWidth > 0 && primaryHeight > 0)
+            {
+                session.SetImageDimensions(primaryWidth, primaryHeight);
+            }
+
+            session.RecognizedFaces = mergedRecognitions.Count(r => r.RecognitionStatus == RecognitionStatus.Recognized);
+            session.UnknownFaces = mergedRecognitions.Count(r => r.RecognitionStatus is RecognitionStatus.Unknown or RecognitionStatus.LowConfidence);
             session.CompletedUtc = DateTime.UtcNow;
             session.ProcessingMilliseconds = (int)stopwatch.ElapsedMilliseconds;
 
@@ -224,23 +313,18 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
             var saveStage = _diagnostics.StageStart("Database Save");
             _forensics.Checkpoint("Before Database Save");
             _memoryAudit.Snapshot("Before Database Save");
-            // AI18.MEMORY.1 STEP 9: "Pending Entity Count"/"Estimated Graph Size" below are derived
-            // from locally-known pending writes (this job's own `recognitions` list plus the removed
-            // `existingRecognitions` and the one updated `session` row) — not from
-            // DbContext.ChangeTracker.Entries(), which IApplicationDbContext does not expose (and this
-            // milestone must not add to it; see STEP 13 "DO NOT change repositories"/"DO NOT change DI").
-            var pendingEntityCount = recognitions.Count + existingRecognitions.Count + 1;
+            var pendingEntityCount = newRecognitions.Count + recognitionsToRemove.Count + 1 + imagesToProcess.Count(i => i.Id != Guid.Empty);
             _memoryAudit.RecordDatabaseSave(
                 phase: "Before",
                 pendingEntityCount: pendingEntityCount,
-                attendanceRecognitionCount: recognitions.Count,
+                attendanceRecognitionCount: newRecognitions.Count,
                 attendanceSessionCount: 1,
-                estimatedGraphBytes: recognitions.Count * 256L);
+                estimatedGraphBytes: newRecognitions.Count * 256L);
             await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
             _memoryAudit.RecordDatabaseSave(
                 phase: "After",
                 pendingEntityCount: 0,
-                attendanceRecognitionCount: recognitions.Count,
+                attendanceRecognitionCount: newRecognitions.Count,
                 attendanceSessionCount: 1,
                 estimatedGraphBytes: 0);
             _forensics.Checkpoint("After Database Save");
@@ -255,9 +339,11 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
             _memoryAudit.Complete();
 
             _logger.LogInformation(
-                "Classroom recognition completed. SessionId={SessionId} DetectedFaces={DetectedFaces} Recognized={Recognized} DurationMs={DurationMs}",
+                "Classroom recognition completed. SessionId={SessionId} Scope={Scope} ProcessedImages={ProcessedCount} DetectedFaces={DetectedFaces} Recognized={Recognized} DurationMs={DurationMs}",
                 session.Id,
-                detection.Faces.Count,
+                message.Scope,
+                imagesToProcess.Count,
+                session.DetectedFaces,
                 session.RecognizedFaces,
                 stopwatch.ElapsedMilliseconds);
         }
@@ -273,10 +359,47 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
             session.CompletedUtc = DateTime.UtcNow;
             session.ProcessingMilliseconds = (int)stopwatch.ElapsedMilliseconds;
             session.MoveToFailed();
+
+            var failedImages = await _context.AttendanceSessionImages
+                .Where(i => i.AttendanceSessionId == session.Id && i.TenantId == session.TenantId)
+                .ToListAsync(cancellationToken);
+            foreach (var image in failedImages.Where(i => i.Status == AttendanceSessionImageStatus.Processing))
+            {
+                image.Status = AttendanceSessionImageStatus.Failed;
+                image.ProcessingError = ex.Message;
+            }
+
             await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
             _queue.MarkCompleted(session.Id);
             throw;
         }
+    }
+
+    /// <summary>AI22.7A Phase 3 — select which session images this job should process.</summary>
+    private static List<AttendanceSessionImage> ResolveImagesToProcess(
+        IReadOnlyList<AttendanceSessionImage> allImages,
+        ClassroomPhotoMessage message)
+    {
+        return message.Scope switch
+        {
+            ClassroomRecognitionScope.SingleImage when message.TargetImageId is { } targetId =>
+                allImages.Where(i => i.Id == targetId).ToList(),
+            ClassroomRecognitionScope.SingleImage =>
+                allImages
+                    .Where(i =>
+                        string.Equals(i.ImageKey, message.ImageStorageKey, StringComparison.Ordinal) ||
+                        i.Status is AttendanceSessionImageStatus.Uploaded or AttendanceSessionImageStatus.Failed)
+                    .Take(1)
+                    .ToList(),
+            ClassroomRecognitionScope.PendingOnly =>
+                allImages
+                    .Where(i =>
+                        i.Status is AttendanceSessionImageStatus.Uploaded
+                            or AttendanceSessionImageStatus.Failed
+                            or AttendanceSessionImageStatus.Processing)
+                    .ToList(),
+            _ => allImages.ToList(),
+        };
     }
 
     // AI15.DIAGNOSTICS.2A/2B/2C: pipeline-entry checkpoint — read-only snapshot + logging, no

@@ -122,7 +122,13 @@ public sealed class ClassroomAttendanceFrameworkTests
 
         var media = new Mock<IRecognitionMediaService>();
         media.Setup(m => m.PersistFaceThumbnailAsync(
-                It.IsAny<int>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<byte[]?>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                It.IsAny<int>(),
+                It.IsAny<Guid>(),
+                It.IsAny<int>(),
+                It.IsAny<byte[]?>(),
+                It.IsAny<Guid>(),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<short>()))
             .ReturnsAsync("face-key");
 
         var coordinator = new MultiFaceRecognitionCoordinator(

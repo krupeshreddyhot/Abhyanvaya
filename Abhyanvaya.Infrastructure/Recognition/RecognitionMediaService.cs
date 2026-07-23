@@ -55,7 +55,8 @@ public sealed class RecognitionMediaService : IRecognitionMediaService
         int faceNumber,
         byte[]? alignedFaceBytes,
         Guid executionTraceId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        short imageSequence = 1)
     {
         if (alignedFaceBytes is null || alignedFaceBytes.Length == 0)
         {
@@ -66,7 +67,7 @@ public sealed class RecognitionMediaService : IRecognitionMediaService
                 $"{attendanceSessionId}; refusing to assign a FaceImageKey with no uploaded object.");
         }
 
-        var storageKey = BuildFaceImageKey(tenantId, attendanceSessionId, faceNumber);
+        var storageKey = BuildFaceImageKey(tenantId, attendanceSessionId, faceNumber, imageSequence);
         var stopwatch = Stopwatch.StartNew();
 
         _logger.LogInformation(
@@ -124,6 +125,18 @@ public sealed class RecognitionMediaService : IRecognitionMediaService
     /// inline in <c>ClassroomRecognitionPipeline.BuildFaceImageKey</c> (AI18.REVIEW.1 evidence),
     /// preserved exactly so <c>AttendanceSessionMediaPaths.BuildMediaUrl</c> continues to resolve it.
     /// </summary>
-    private static string BuildFaceImageKey(int tenantId, Guid attendanceSessionId, int faceNumber) =>
-        $"recognitions/{tenantId}/{attendanceSessionId}/faces/{faceNumber:D5}.webp";
+    private static string BuildFaceImageKey(
+        int tenantId,
+        Guid attendanceSessionId,
+        int faceNumber,
+        short imageSequence = 1)
+    {
+        // Sequence 1 keeps the legacy key format for single-image sessions.
+        if (imageSequence <= 1)
+        {
+            return $"recognitions/{tenantId}/{attendanceSessionId}/faces/{faceNumber:D5}.webp";
+        }
+
+        return $"recognitions/{tenantId}/{attendanceSessionId}/images/{imageSequence:D2}/faces/{faceNumber:D5}.webp";
+    }
 }

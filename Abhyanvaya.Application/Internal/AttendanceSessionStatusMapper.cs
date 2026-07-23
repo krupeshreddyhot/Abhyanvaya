@@ -11,7 +11,10 @@ internal static class AttendanceSessionStatusMapper
         AttendanceSession session,
         int recognitionRowCount,
         int reviewedFaceCount,
-        DateTime utcNow)
+        DateTime utcNow,
+        int totalImageCount = 0,
+        int processedImageCount = 0,
+        short? currentImageSequence = null)
     {
         var detectedFaces = session.DetectedFaces > 0 ? session.DetectedFaces : recognitionRowCount;
         var matchedFaces = session.RecognizedCount + session.ManualAssignmentCount;
@@ -55,6 +58,9 @@ internal static class AttendanceSessionStatusMapper
             CurrentOperation = operation,
             EstimatedRemainingMilliseconds = EstimateRemainingMilliseconds(session.Status, queueStatus, elapsedMs),
             CurrentFileName = session.OriginalFileName,
+            CurrentImageSequence = currentImageSequence,
+            ProcessedImageCount = processedImageCount,
+            TotalImageCount = totalImageCount,
             Messages = messages,
             ErrorCode = errorCode,
             ProcessingError = session.ProcessingError,

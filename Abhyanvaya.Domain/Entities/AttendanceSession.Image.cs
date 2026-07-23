@@ -39,4 +39,13 @@ public partial class AttendanceSession
         ImageMetadata.Width = width;
         ImageMetadata.Height = height;
     }
+
+    /// <summary>Clears denormalized primary classroom image metadata (collection empty).</summary>
+    public void ClearClassroomImage()
+    {
+        ImageMetadata = new ClassroomImageMetadata();
+        OriginalFileName = null;
+        ThumbnailImageKey = null;
+        AnnotatedImageKey = null;
+    }
 }

@@ -4,6 +4,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
   FormControl,
   InputLabel,
@@ -12,13 +13,16 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBlurDetection } from "../../hooks/useBlurDetection";
 import { useCameraDevices } from "../../hooks/useCameraDevices";
 import { useCameraStream } from "../../hooks/useCameraStream";
 import type { CapturedFrame, PhotoAcquisitionMethod } from "../../types/photoAcquisition";
+import { getCameraStatusView } from "../../utils/cameraStatusMessages";
 import { captureFrameFromVideo } from "../../utils/classroomImageProcessing";
+import { getImageQualityIndicator } from "../../utils/imageQuality";
 import { tryGetCaptureLocation } from "../../utils/geolocationCapture";
+import { CaptureSuccessCard } from "./CaptureSuccessCard";
 
 export type CameraCapturePanelProps = {
   mode: Extract<PhotoAcquisitionMethod, "capture" | "capture-multiple">;
@@ -29,6 +33,11 @@ export type CameraCapturePanelProps = {
     frame: CapturedFrame,
     location: { latitude: number; longitude: number } | null,
   ) => void;
+  onConfirmMultiAll?: (
+    frames: CapturedFrame[],
+    location: { latitude: number; longitude: number } | null,
+  ) => void;
+  onNotify?: (message: string, severity?: "success" | "info" | "warning" | "error") => void;
 };
 
 const createFrameId = (): string =>
@@ -42,6 +51,8 @@ export const CameraCapturePanel = ({
   busy = false,
   onConfirmSingle,
   onConfirmMultiSelection,
+  onConfirmMultiAll,
+  onNotify,
 }: CameraCapturePanelProps) => {
   const { devices, permission, error: deviceError, supported, requestPermission } = useCameraDevices();
   const [deviceId, setDeviceId] = useState<string>("");
@@ -51,6 +62,7 @@ export const CameraCapturePanel = ({
   const [capturing, setCapturing] = useState(false);
   const [captureError, setCaptureError] = useState<string | null>(null);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const notifiedReadyRef = useRef(false);
 
   const streamEnabled = supported && permission === "granted" && !disabled && !busy;
   const { videoRef, mediaVideoRef, ready, error: streamError, stop } = useCameraStream({
@@ -58,12 +70,21 @@ export const CameraCapturePanel = ({
     enabled: streamEnabled,
   });
 
+  const selectedDeviceLabel = devices.find((device) => device.deviceId === deviceId)?.label;
+  const cameraStatus = getCameraStatusView({
+    supported,
+    permission,
+    ready,
+    streamError,
+    deviceError,
+    deviceLabel: selectedDeviceLabel,
+  });
+
   const selectedFrame = useMemo(
     () => gallery.find((frame) => frame.id === selectedId) ?? null,
     [gallery, selectedId],
   );
 
-  const blurForPending = useBlurDetection(pendingFrame?.blurScore);
   const blurForSelected = useBlurDetection(selectedFrame?.blurScore);
 
   useEffect(() => {
@@ -71,6 +92,16 @@ export const CameraCapturePanel = ({
       setDeviceId(devices[0].deviceId);
     }
   }, [devices, deviceId]);
+
+  useEffect(() => {
+    if (ready && permission === "granted" && !notifiedReadyRef.current) {
+      notifiedReadyRef.current = true;
+      onNotify?.("Camera Ready", "success");
+    }
+    if (!ready) {
+      notifiedReadyRef.current = false;
+    }
+  }, [onNotify, permission, ready]);
 
   useEffect(() => {
     return () => {
@@ -91,6 +122,7 @@ export const CameraCapturePanel = ({
     setCaptureError(null);
     const ok = await requestPermission();
     if (ok) {
+      onNotify?.("Camera Ready", "success");
       const geo = await tryGetCaptureLocation();
       setLocation(geo);
     }
@@ -99,7 +131,7 @@ export const CameraCapturePanel = ({
   const captureNow = useCallback(async () => {
     const video = mediaVideoRef.current;
     if (!video || !ready) {
-      setCaptureError("Camera preview is not ready yet.");
+      setCaptureError("Camera preview is not ready yet. Wait for Camera Ready, then try again.");
       return;
     }
 
@@ -134,12 +166,14 @@ export const CameraCapturePanel = ({
         setGallery((current) => [...current, frame]);
         setSelectedId(frame.id);
       }
-    } catch (error) {
-      setCaptureError(error instanceof Error ? error.message : "Capture failed.");
+      onNotify?.("Photo Captured", "success");
+    } catch {
+      setCaptureError("Unable to capture photo. Hold steady and try again.");
+      onNotify?.("Capture failed", "error");
     } finally {
       setCapturing(false);
     }
-  }, [location, mediaVideoRef, mode, ready]);
+  }, [location, mediaVideoRef, mode, onNotify, ready]);
 
   const retakePending = () => {
     setPendingFrame((current) => {
@@ -164,13 +198,10 @@ export const CameraCapturePanel = ({
     });
   };
 
-  const combinedError = captureError ?? streamError ?? deviceError;
-
   if (!supported || permission === "unsupported") {
     return (
-      <Alert severity="warning">
-        Camera capture is not supported in this browser. Use Upload Image, or try Chrome / Safari on a
-        device with a camera.
+      <Alert severity="warning" role="status">
+        {cameraStatus.message}
       </Alert>
     );
   }
@@ -178,13 +209,18 @@ export const CameraCapturePanel = ({
   if (permission !== "granted") {
     return (
       <Stack spacing={1.5}>
-        <Alert severity="info">
-          Allow camera access to capture a classroom photo. Works with desktop webcams, laptop cameras,
-          Android Chrome, and iPhone Safari.
+        <Chip
+          label={cameraStatus.title}
+          color="warning"
+          size="small"
+          sx={{ alignSelf: "flex-start" }}
+        />
+        <Alert severity="info" role="status">
+          {cameraStatus.message}
         </Alert>
-        {combinedError && (
+        {captureError && (
           <Alert severity="error" role="alert">
-            {combinedError}
+            {captureError}
           </Alert>
         )}
         <Button
@@ -192,6 +228,7 @@ export const CameraCapturePanel = ({
           startIcon={<PhotoCameraIcon />}
           onClick={() => void enableCamera()}
           disabled={disabled || busy}
+          aria-label="Enable camera permission"
         >
           Enable Camera
         </Button>
@@ -210,6 +247,7 @@ export const CameraCapturePanel = ({
             value={deviceId}
             onChange={(event) => setDeviceId(event.target.value)}
             startAdornment={<CameraswitchIcon fontSize="small" sx={{ mr: 1, color: "text.secondary" }} />}
+            inputProps={{ "aria-label": "Select camera device" }}
           >
             {devices.map((device) => (
               <MenuItem key={device.deviceId} value={device.deviceId}>
@@ -218,8 +256,22 @@ export const CameraCapturePanel = ({
             ))}
           </Select>
         </FormControl>
+        <Chip
+          size="small"
+          label={cameraStatus.title}
+          color={
+            cameraStatus.tone === "success"
+              ? "success"
+              : cameraStatus.tone === "error"
+                ? "error"
+                : cameraStatus.tone === "warning"
+                  ? "warning"
+                  : "info"
+          }
+          aria-live="polite"
+        />
         <Typography variant="caption" color="text.secondary">
-          Live preview — hold steady and ensure faces are visible
+          {cameraStatus.message}
         </Typography>
       </Stack>
 
@@ -230,11 +282,12 @@ export const CameraCapturePanel = ({
             borderRadius: 1,
             overflow: "hidden",
             border: 1,
-            borderColor: "divider",
+            borderColor: ready ? "success.main" : "divider",
             bgcolor: "common.black",
             aspectRatio: "4 / 3",
             maxHeight: 420,
           }}
+          aria-label={ready ? "Live camera preview" : "Camera loading"}
         >
           <Box
             component="video"
@@ -254,9 +307,9 @@ export const CameraCapturePanel = ({
                 color: "common.white",
               }}
             >
-              <CircularProgress size={28} color="inherit" />
+              <CircularProgress size={28} color="inherit" aria-label="Camera loading" />
               <Typography variant="body2" sx={{ mt: 1 }}>
-                Starting camera…
+                Camera Loading…
               </Typography>
             </Stack>
           )}
@@ -264,96 +317,113 @@ export const CameraCapturePanel = ({
       )}
 
       {pendingFrame && mode === "capture" && (
-        <Stack spacing={1.5}>
-          <Box
-            component="img"
-            src={pendingFrame.previewUrl}
-            alt="Captured classroom photo"
-            sx={{
-              width: "100%",
-              maxHeight: 420,
-              objectFit: "contain",
-              borderRadius: 1,
-              border: 1,
-              borderColor: "divider",
-              bgcolor: "background.default",
-            }}
-          />
-          {blurForPending.warning && <Alert severity="warning">{blurForPending.warning}</Alert>}
-          <Stack direction="row" spacing={1}>
-            <Button variant="outlined" onClick={retakePending} disabled={disabled || busy}>
-              Retake
-            </Button>
-            <Button
-              variant="contained"
-              onClick={() => onConfirmSingle(pendingFrame, location)}
-              disabled={disabled || busy}
-            >
-              Use This Photo
-            </Button>
-          </Stack>
-        </Stack>
+        <CaptureSuccessCard
+          frame={pendingFrame}
+          disabled={disabled}
+          busy={busy}
+          onRetake={retakePending}
+          onConfirm={() => onConfirmSingle(pendingFrame, location)}
+          confirmLabel="Use This Photo"
+        />
       )}
 
       {mode === "capture-multiple" && (
         <Stack spacing={1.5}>
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
             <Button
               variant="contained"
               startIcon={<PhotoCameraIcon />}
               onClick={() => void captureNow()}
               disabled={disabled || busy || capturing || !ready}
+              aria-label="Capture frame"
             >
               {capturing ? "Capturing…" : "Capture Frame"}
             </Button>
             <Button
               variant="contained"
               color="secondary"
-              disabled={disabled || busy || !selectedFrame}
-              onClick={() => selectedFrame && onConfirmMultiSelection(selectedFrame, location)}
+              disabled={disabled || busy || gallery.length === 0}
+              aria-label={
+                onConfirmMultiAll
+                  ? `Add ${gallery.length} photos to session`
+                  : "Use selected photo"
+              }
+              onClick={() => {
+                if (onConfirmMultiAll) {
+                  onConfirmMultiAll(gallery, location);
+                  return;
+                }
+                if (selectedFrame) {
+                  onConfirmMultiSelection(selectedFrame, location);
+                }
+              }}
             >
-              Use Selected Photo
+              {onConfirmMultiAll
+                ? `Add ${gallery.length || ""} Photo${gallery.length === 1 ? "" : "s"}`
+                : "Use Selected Photo"}
             </Button>
           </Stack>
 
           {gallery.length > 0 && (
             <Stack spacing={1}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                Captured frames ({gallery.length}) — select one to upload
+                Captured frames ({gallery.length}) — confirm to upload
               </Typography>
-              {blurForSelected.warning && <Alert severity="warning">{blurForSelected.warning}</Alert>}
+              {blurForSelected.warning && (
+                <Alert severity="warning">{getImageQualityIndicator(selectedFrame?.blurScore).label}: consider retaking.</Alert>
+              )}
               <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
-                {gallery.map((frame, index) => (
-                  <Box
-                    key={frame.id}
-                    onClick={() => setSelectedId(frame.id)}
-                    sx={{
-                      width: 96,
-                      cursor: "pointer",
-                      borderRadius: 1,
-                      border: 2,
-                      borderColor: selectedId === frame.id ? "primary.main" : "divider",
-                      overflow: "hidden",
-                    }}
-                  >
+                {gallery.map((frame, index) => {
+                  const quality = getImageQualityIndicator(frame.blurScore);
+                  return (
                     <Box
-                      component="img"
-                      src={frame.previewUrl}
-                      alt={`Capture ${index + 1}`}
-                      sx={{ width: "100%", height: 72, objectFit: "cover", display: "block" }}
-                    />
-                    <Button
-                      size="small"
-                      fullWidth
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        removeGalleryFrame(frame.id);
+                      key={frame.id}
+                      onClick={() => setSelectedId(frame.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedId(frame.id);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={selectedId === frame.id}
+                      aria-label={`Captured frame ${index + 1}, quality ${quality.label}`}
+                      sx={{
+                        width: 112,
+                        cursor: "pointer",
+                        borderRadius: 1,
+                        border: 2,
+                        borderColor: selectedId === frame.id ? "primary.main" : "divider",
+                        overflow: "hidden",
+                        outlineOffset: 2,
+                        "&:focus-visible": {
+                          outline: (theme) => `2px solid ${theme.palette.primary.main}`,
+                        },
                       }}
                     >
-                      Remove
-                    </Button>
-                  </Box>
-                ))}
+                      <Box
+                        component="img"
+                        src={frame.previewUrl}
+                        alt={`Capture ${index + 1}`}
+                        sx={{ width: "100%", height: 72, objectFit: "cover", display: "block" }}
+                      />
+                      <Typography variant="caption" sx={{ display: "block", px: 0.5, py: 0.25 }}>
+                        {quality.stars}
+                      </Typography>
+                      <Button
+                        size="small"
+                        fullWidth
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          removeGalleryFrame(frame.id);
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </Box>
+                  );
+                })}
               </Stack>
             </Stack>
           )}
@@ -366,14 +436,18 @@ export const CameraCapturePanel = ({
           startIcon={<PhotoCameraIcon />}
           onClick={() => void captureNow()}
           disabled={disabled || busy || capturing || !ready}
+          aria-label="Capture image"
         >
           {capturing ? "Capturing…" : "Capture Image"}
         </Button>
       )}
 
-      {combinedError && (
+      {(captureError || streamError) && (
         <Alert severity="error" role="alert">
-          {combinedError}
+          {captureError ??
+            (streamError
+              ? "Unable to start the camera preview. Check permissions or try another camera."
+              : null)}
         </Alert>
       )}
     </Stack>
