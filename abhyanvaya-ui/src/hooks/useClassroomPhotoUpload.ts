@@ -4,6 +4,7 @@ import {
   uploadClassroomPhoto,
 } from "../services/attendanceSessionService";
 import type { AttendanceContext } from "../types/attendanceContext";
+import type { ClassroomPhotoCaptureContext } from "../types/photoAcquisition";
 import { type AiAttendanceState } from "../types/aiAttendanceState";
 import { UploadStatus } from "../types/uploadState";
 import { getApiErrorMessage } from "../utils/apiErrorMessage";
@@ -25,6 +26,7 @@ export const useClassroomPhotoUpload = ({
 }: UseClassroomPhotoUploadOptions) => {
   const abortRef = useRef<AbortController | null>(null);
   const sessionIdRef = useRef<string | undefined>(aiState.attendanceSessionId);
+  const captureContextRef = useRef<ClassroomPhotoCaptureContext | undefined>(undefined);
 
   const {
     uploadState,
@@ -50,10 +52,11 @@ export const useClassroomPhotoUpload = ({
   }, [markUploadCancelled]);
 
   const runUpload = useCallback(
-    async (file: File) => {
+    async (file: File, captureContext?: ClassroomPhotoCaptureContext) => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
+      captureContextRef.current = captureContext;
 
       setAiState((current) => ({
         ...current,
@@ -77,6 +80,7 @@ export const useClassroomPhotoUpload = ({
 
         const result = await uploadClassroomPhoto(sessionId, file, {
           signal: controller.signal,
+          captureContext,
           onProgress: ({ milestone, loaded, total }) => {
             setBytesProgress(loaded, total);
             setUploadProgress(milestone);
@@ -134,14 +138,14 @@ export const useClassroomPhotoUpload = ({
   );
 
   const handleSelectFile = useCallback(
-    async (file: File) => {
+    async (file: File, captureContext?: ClassroomPhotoCaptureContext) => {
       try {
         await selectFile(file);
       } catch {
         return;
       }
 
-      await runUpload(file);
+      await runUpload(file, captureContext);
     },
     [runUpload, selectFile],
   );
@@ -151,7 +155,7 @@ export const useClassroomPhotoUpload = ({
       return;
     }
 
-    await runUpload(uploadState.selectedFile);
+    await runUpload(uploadState.selectedFile, captureContextRef.current);
   }, [runUpload, uploadState.selectedFile]);
 
   const isUploading =

@@ -1,4 +1,5 @@
 using Abhyanvaya.Application.Common.Interfaces;
+using Abhyanvaya.Application.DTOs.Attendance;
 using Abhyanvaya.Application.Internal;
 using Abhyanvaya.Domain.Entities;
 using Abhyanvaya.Domain.Enums;
@@ -44,7 +45,8 @@ public sealed class AttendancePhotoService : IAttendancePhotoService, IClassroom
         Stream imageStream,
         string fileName,
         long fileSizeBytes,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ClassroomPhotoCaptureContextDto? captureContext = null)
     {
         var session = await _context.AttendanceSessions
             .FirstOrDefaultAsync(s => s.Id == sessionId && s.TenantId == _currentUser.TenantId, cancellationToken);
@@ -70,7 +72,8 @@ public sealed class AttendancePhotoService : IAttendancePhotoService, IClassroom
                     imageStream,
                     fileName,
                     fileSizeBytes,
-                    cancellationToken: ct);
+                    cancellationToken: ct,
+                    captureContext: captureContext);
 
                 if (!upload.Ok)
                 {
@@ -117,7 +120,8 @@ public sealed class AttendancePhotoService : IAttendancePhotoService, IClassroom
         Stream imageStream,
         string fileName,
         long fileSizeBytes,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ClassroomPhotoCaptureContextDto? captureContext = null)
     {
         if (imageStream.CanSeek)
         {
@@ -149,6 +153,13 @@ public sealed class AttendancePhotoService : IAttendancePhotoService, IClassroom
                 Width = validation.Width,
                 Height = validation.Height,
                 FileSize = fileSizeBytes,
+                AcquisitionMethod = NormalizeAcquisitionMethod(captureContext?.AcquisitionMethod),
+                CaptureDevice = Truncate(captureContext?.CaptureDevice, 100),
+                CaptureTimestamp = captureContext?.CaptureTimestampUtc,
+                Orientation = captureContext?.Orientation,
+                CaptureLatitude = captureContext?.Latitude,
+                CaptureLongitude = captureContext?.Longitude,
+                BlurScore = captureContext?.BlurScore,
             };
 
             session.AttachClassroomImage(storageKey, fileName, metadata, uploadedUtc, fileSizeBytes);
@@ -177,6 +188,34 @@ public sealed class AttendancePhotoService : IAttendancePhotoService, IClassroom
             _logger.LogWarning(ex, "Classroom photo storage failed. SessionId={SessionId}", session.Id);
             return (false, ex.Message, null);
         }
+    }
+
+    private static string? NormalizeAcquisitionMethod(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim();
+        return normalized switch
+        {
+            nameof(ClassroomPhotoAcquisitionMethod.Upload) => nameof(ClassroomPhotoAcquisitionMethod.Upload),
+            nameof(ClassroomPhotoAcquisitionMethod.CameraCapture) => nameof(ClassroomPhotoAcquisitionMethod.CameraCapture),
+            nameof(ClassroomPhotoAcquisitionMethod.CameraMultiCapture) => nameof(ClassroomPhotoAcquisitionMethod.CameraMultiCapture),
+            _ => Truncate(normalized, 32),
+        };
+    }
+
+    private static string? Truncate(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
     }
 
     public async Task QueueProcessingAsync(Guid sessionId, string storagePath, CancellationToken cancellationToken = default)

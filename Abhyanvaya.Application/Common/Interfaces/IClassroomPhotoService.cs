@@ -1,3 +1,5 @@
+using Abhyanvaya.Application.DTOs.Attendance;
+
 namespace Abhyanvaya.Application.Common.Interfaces;
 
 /// <summary>
@@ -10,7 +12,8 @@ public interface IClassroomPhotoService
         Stream imageStream,
         string fileName,
         long fileSizeBytes,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        ClassroomPhotoCaptureContextDto? captureContext = null);
 }
 
 public sealed class ClassroomPhotoUploadResult

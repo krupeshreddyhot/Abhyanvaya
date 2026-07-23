@@ -1,16 +1,28 @@
 import { Box, Button, LinearProgress, Stack, Typography } from "@mui/material";
-import { useRef, type ChangeEvent } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { CLASSROOM_PHOTO_ACCEPT } from "../../constants/classroomPhotoUploadHints";
 import { PreviewStatus, UploadStatus, type UploadState } from "../../types/uploadState";
+import type {
+  CapturedFrame,
+  ClassroomPhotoCaptureContext,
+  PhotoAcquisitionMethod,
+} from "../../types/photoAcquisition";
 import { formatBytes } from "../../utils/uploadProgress";
+import { processClassroomImageFile } from "../../utils/classroomImageProcessing";
+import { tryGetCaptureLocation } from "../../utils/geolocationCapture";
 import { getUploadRetryLabel } from "../../services/attendanceSessionService";
+import { CameraCapturePanel } from "./CameraCapturePanel";
 import { ClassroomPhotoDropZone } from "./ClassroomPhotoDropZone";
 import { ClassroomPhotoPreviewPanel } from "./ClassroomPhotoPreviewPanel";
+import { PhotoAcquisitionMethodTabs } from "./PhotoAcquisitionMethodTabs";
 
 export type ClassroomPhotoUploadProps = {
   disabled?: boolean;
   uploadState: UploadState;
-  onSelectFile: (file: File) => void | Promise<void>;
+  onSelectFile: (
+    file: File,
+    captureContext?: ClassroomPhotoCaptureContext,
+  ) => void | Promise<void>;
   onReset: () => void;
   onRetry?: () => void | Promise<void>;
   isUploading?: boolean;
@@ -25,6 +37,9 @@ export const ClassroomPhotoUpload = ({
   isUploading = false,
 }: ClassroomPhotoUploadProps) => {
   const replaceInputRef = useRef<HTMLInputElement>(null);
+  const [method, setMethod] = useState<PhotoAcquisitionMethod>("upload");
+  const [prepareError, setPrepareError] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
 
   const bytesUploaded = uploadState.bytesUploaded ?? 0;
   const bytesTotal = uploadState.bytesTotal ?? uploadState.fileSize ?? 0;
@@ -47,31 +62,104 @@ export const ClassroomPhotoUpload = ({
     }
   };
 
+  const submitUploadFile = async (file: File) => {
+    setPrepareError(null);
+    setPreparing(true);
+    try {
+      const processed = await processClassroomImageFile(file, file.name);
+      const geo = await tryGetCaptureLocation();
+      await onSelectFile(processed.file, {
+        acquisitionMethod: "Upload",
+        captureTimestampUtc: new Date().toISOString(),
+        blurScore: processed.blurScore ?? undefined,
+        latitude: geo?.latitude,
+        longitude: geo?.longitude,
+        captureDevice: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 100) : undefined,
+      });
+    } catch (error) {
+      setPrepareError(error instanceof Error ? error.message : "Unable to prepare image.");
+    } finally {
+      setPreparing(false);
+    }
+  };
+
+  const submitCapturedFrame = async (
+    frame: CapturedFrame,
+    acquisitionMethod: "CameraCapture" | "CameraMultiCapture",
+    location: { latitude: number; longitude: number } | null,
+  ) => {
+    setPrepareError(null);
+    await onSelectFile(frame.file, {
+      acquisitionMethod,
+      captureTimestampUtc: frame.capturedAt.toISOString(),
+      blurScore: frame.blurScore ?? undefined,
+      latitude: location?.latitude,
+      longitude: location?.longitude,
+      captureDevice: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 100) : undefined,
+      orientation: 1,
+    });
+  };
+
   const onReplaceInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (file) {
-      void onSelectFile(file);
+      void submitUploadFile(file);
     }
   };
 
+  const panelBusy = isUploading || preparing;
+
   return (
     <Stack spacing={2}>
+      {!hasPreview && (
+        <PhotoAcquisitionMethodTabs
+          value={method}
+          onChange={(next) => {
+            setPrepareError(null);
+            setMethod(next);
+          }}
+          disabled={panelBusy || disabled}
+        />
+      )}
+
       {hasPreview ? (
         <ClassroomPhotoPreviewPanel
           uploadState={uploadState}
           disabled={disabled}
-          busy={isUploading}
+          busy={panelBusy}
           onReplace={openReplacePicker}
           onDelete={onReset}
         />
-      ) : (
+      ) : method === "upload" ? (
         <ClassroomPhotoDropZone
           disabled={disabled}
-          busy={isUploading}
-          error={uploadState.errorMessage}
-          onSelectFile={onSelectFile}
+          busy={panelBusy}
+          error={prepareError ?? uploadState.errorMessage}
+          onSelectFile={(file) => void submitUploadFile(file)}
         />
+      ) : (
+        <Stack spacing={1.5}>
+          <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 600 }}>
+            Classroom Photo
+          </Typography>
+          <CameraCapturePanel
+            mode={method}
+            disabled={disabled}
+            busy={panelBusy}
+            onConfirmSingle={(frame, location) =>
+              void submitCapturedFrame(frame, "CameraCapture", location)
+            }
+            onConfirmMultiSelection={(frame, location) =>
+              void submitCapturedFrame(frame, "CameraMultiCapture", location)
+            }
+          />
+          {(prepareError || uploadState.errorMessage) && (
+            <Typography variant="body2" color="error" role="alert">
+              {prepareError ?? uploadState.errorMessage}
+            </Typography>
+          )}
+        </Stack>
       )}
 
       <input
