@@ -78,6 +78,20 @@ public sealed class AttendanceSessionConfiguration : IEntityTypeConfiguration<At
 
             metadata.Property(m => m.FileSize)
                 .HasColumnName("ImageFileSize");
+
+            metadata.Property(m => m.AcquisitionMethod)
+                .HasColumnName("ImageAcquisitionMethod")
+                .HasMaxLength(32)
+                .HasColumnType("character varying(32)");
+
+            metadata.Property(m => m.CaptureLatitude)
+                .HasColumnName("ImageCaptureLatitude");
+
+            metadata.Property(m => m.CaptureLongitude)
+                .HasColumnName("ImageCaptureLongitude");
+
+            metadata.Property(m => m.BlurScore)
+                .HasColumnName("ImageBlurScore");
         });
 
         builder.Property(x => x.SessionNumber)

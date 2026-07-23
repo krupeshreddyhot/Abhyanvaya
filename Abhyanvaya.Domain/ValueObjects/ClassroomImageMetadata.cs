@@ -23,5 +23,17 @@ public sealed class ClassroomImageMetadata
 
     public long? FileSize { get; set; }
 
+    /// <summary>Acquisition channel: Upload, CameraCapture, or CameraMultiCapture (AI22.7A).</summary>
+    public string? AcquisitionMethod { get; set; }
+
+    /// <summary>Optional client-reported capture latitude (WGS84), when permission granted.</summary>
+    public double? CaptureLatitude { get; set; }
+
+    /// <summary>Optional client-reported capture longitude (WGS84), when permission granted.</summary>
+    public double? CaptureLongitude { get; set; }
+
+    /// <summary>Optional client-side blur score (higher = sharper). Soft quality signal only.</summary>
+    public double? BlurScore { get; set; }
+
     public bool HasUploadedImage => !string.IsNullOrWhiteSpace(ImageKey);
 }

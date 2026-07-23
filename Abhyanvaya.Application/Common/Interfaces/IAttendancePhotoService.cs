@@ -1,3 +1,4 @@
+using Abhyanvaya.Application.DTOs.Attendance;
 using Abhyanvaya.Domain.Entities;
 
 namespace Abhyanvaya.Application.Common.Interfaces;
@@ -12,7 +13,8 @@ public interface IAttendancePhotoService
         Stream imageStream,
         string fileName,
         long fileSizeBytes,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        ClassroomPhotoCaptureContextDto? captureContext = null);
 
     Task QueueProcessingAsync(Guid sessionId, string storagePath, CancellationToken cancellationToken = default);
 }
