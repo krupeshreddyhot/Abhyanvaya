@@ -32,5 +32,6 @@ public interface IRecognitionMediaService
         int faceNumber,
         byte[]? alignedFaceBytes,
         Guid executionTraceId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        short imageSequence = 1);
 }

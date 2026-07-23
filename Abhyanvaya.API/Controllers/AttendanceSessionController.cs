@@ -217,6 +217,145 @@ public sealed class AttendanceSessionController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Lists classroom images for a session (AI22.7A Phase 2 — 1–10 images).</summary>
+    [HttpGet("~/api/attendance-sessions/{sessionId:guid}/classroom-images")]
+    [ProducesResponseType(typeof(IReadOnlyList<AttendanceSessionImageDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<AttendanceSessionImageDto>>> ListClassroomImages(
+        Guid sessionId,
+        CancellationToken cancellationToken)
+    {
+        var (ok, error, images) = await _classroomPhotoService.ListSessionImagesAsync(sessionId, cancellationToken);
+        if (!ok)
+        {
+            return BadRequest(error);
+        }
+
+        return Ok(images);
+    }
+
+    /// <summary>Deletes one classroom image from the session collection.</summary>
+    [HttpDelete("~/api/attendance-sessions/{sessionId:guid}/classroom-images/{imageId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> DeleteClassroomImage(
+        Guid sessionId,
+        Guid imageId,
+        CancellationToken cancellationToken)
+    {
+        var (ok, error) = await _classroomPhotoService.DeleteSessionImageAsync(sessionId, imageId, cancellationToken);
+        if (!ok)
+        {
+            return BadRequest(error);
+        }
+
+        return NoContent();
+    }
+
+    /// <summary>Replaces one classroom image in the collection and re-queues recognition.</summary>
+    [HttpPut("~/api/attendance-sessions/{sessionId:guid}/classroom-images/{imageId:guid}")]
+    [ProducesResponseType(typeof(ClassroomPhotoCollectionUploadResult), StatusCodes.Status200OK)]
+    [RequestSizeLimit(15 * 1024 * 1024)]
+    public async Task<ActionResult<ClassroomPhotoCollectionUploadResult>> ReplaceClassroomImage(
+        Guid sessionId,
+        Guid imageId,
+        IFormFile file,
+        [FromForm] string? acquisitionMethod = null,
+        [FromForm] string? captureDevice = null,
+        [FromForm] string? captureTimestampUtc = null,
+        [FromForm] short? orientation = null,
+        [FromForm] double? latitude = null,
+        [FromForm] double? longitude = null,
+        [FromForm] double? blurScore = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest("Image file is required.");
+        }
+
+        var captureContext = BuildCaptureContext(
+            acquisitionMethod,
+            captureDevice,
+            captureTimestampUtc,
+            orientation,
+            latitude,
+            longitude,
+            blurScore);
+
+        await using var stream = file.OpenReadStream();
+        var (ok, error, result) = await _classroomPhotoService.ReplaceSessionImageAsync(
+            sessionId,
+            imageId,
+            stream,
+            file.FileName,
+            file.Length,
+            cancellationToken,
+            captureContext);
+
+        if (!ok)
+        {
+            return BadRequest(error);
+        }
+
+        return Ok(result);
+    }
+
+    /// <summary>Reorders classroom images (display / recognition sequence).</summary>
+    [HttpPut("~/api/attendance-sessions/{sessionId:guid}/classroom-images/reorder")]
+    [ProducesResponseType(typeof(IReadOnlyList<AttendanceSessionImageDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<AttendanceSessionImageDto>>> ReorderClassroomImages(
+        Guid sessionId,
+        [FromBody] ReorderSessionImagesRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var (ok, error, images) = await _classroomPhotoService.ReorderSessionImagesAsync(
+            sessionId,
+            request.ImageIds,
+            cancellationToken);
+
+        if (!ok)
+        {
+            return BadRequest(error);
+        }
+
+        return Ok(images);
+    }
+
+    /// <summary>Re-queues recognition for all classroom images in the session (retry failed upload/recognition).</summary>
+    [HttpPost("~/api/attendance-sessions/{sessionId:guid}/classroom-images/requeue")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> RequeueClassroomRecognition(
+        Guid sessionId,
+        CancellationToken cancellationToken)
+    {
+        var (ok, error) = await _classroomPhotoService.RequeueSessionRecognitionAsync(sessionId, cancellationToken);
+        if (!ok)
+        {
+            return BadRequest(error);
+        }
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// AI22.7A Phase 3 — re-queues recognition for a single classroom image only.
+    /// Successfully Processed sibling images are not restarted.
+    /// </summary>
+    [HttpPost("~/api/attendance-sessions/{sessionId:guid}/classroom-images/{imageId:guid}/requeue")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> RequeueClassroomImageRecognition(
+        Guid sessionId,
+        Guid imageId,
+        CancellationToken cancellationToken)
+    {
+        var (ok, error) = await _classroomPhotoService.RequeueSessionImageAsync(sessionId, imageId, cancellationToken);
+        if (!ok)
+        {
+            return BadRequest(error);
+        }
+
+        return NoContent();
+    }
+
     private static ClassroomPhotoCaptureContextDto? BuildCaptureContext(
         string? acquisitionMethod,
         string? captureDevice,

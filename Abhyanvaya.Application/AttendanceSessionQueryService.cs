@@ -61,7 +61,29 @@ public sealed class AttendanceSessionQueryService : IAttendanceSessionQueryServi
         var rowCount = recognitionStats?.Count ?? 0;
         var reviewedCount = recognitionStats?.Reviewed ?? 0;
 
-        return AttendanceSessionStatusMapper.Map(session, rowCount, reviewedCount, DateTime.UtcNow);
+        var imageStats = await _context.AttendanceSessionImages
+            .AsNoTracking()
+            .Where(i => i.AttendanceSessionId == attendanceSessionId)
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Total = g.Count(),
+                Processed = g.Count(i => i.Status == AttendanceSessionImageStatus.Processed),
+                CurrentSequence = g
+                    .Where(i => i.Status == AttendanceSessionImageStatus.Processing)
+                    .Select(i => (short?)i.ImageSequence)
+                    .FirstOrDefault(),
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return AttendanceSessionStatusMapper.Map(
+            session,
+            rowCount,
+            reviewedCount,
+            DateTime.UtcNow,
+            imageStats?.Total ?? 0,
+            imageStats?.Processed ?? 0,
+            imageStats?.CurrentSequence);
     }
 
     public async Task<FinalizationStatusDto?> GetFinalizationStatusAsync(
