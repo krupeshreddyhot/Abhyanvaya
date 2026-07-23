@@ -449,8 +449,13 @@ export const ClassroomPhotoCollectionPanel = ({
                   disabled={isDisabled}
                   onChange={(event) => updateLabel(image.id, event.target.value)}
                   onClick={(event) => event.stopPropagation()}
-                  inputProps={{ list: `image-label-suggestions-${image.id}`, maxLength: 64 }}
-                  aria-label={`Label for image ${image.imageSequence}`}
+                  slotProps={{
+                    htmlInput: {
+                      list: `image-label-suggestions-${image.id}`,
+                      maxLength: 64,
+                      "aria-label": `Label for image ${image.imageSequence}`,
+                    },
+                  }}
                 />
                 <datalist id={`image-label-suggestions-${image.id}`}>
                   {SUGGESTED_IMAGE_LABELS.map((suggestion) => (

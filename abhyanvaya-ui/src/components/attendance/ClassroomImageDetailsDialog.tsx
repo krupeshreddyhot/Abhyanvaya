@@ -119,7 +119,11 @@ export const ClassroomImageDetailsDialog = ({
             <DetailRow label="Batch Status" value={image.batchStatus ?? recognitionStatus} />
             <DetailRow
               label="Faces Detected"
-              value={image.detectedFaceCount > 0 ? String(image.detectedFaceCount) : "Pending"}
+              value={
+                image.detectedFaceCount != null && image.detectedFaceCount > 0
+                  ? String(image.detectedFaceCount)
+                  : "Pending"
+              }
             />
             <DetailRow
               label="Orientation"
