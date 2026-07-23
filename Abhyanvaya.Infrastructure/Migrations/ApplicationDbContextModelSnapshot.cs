@@ -949,6 +949,99 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.ToTable("AttendanceSession", (string)null);
                 });
 
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.AttendanceSessionImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AcquisitionMethod")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("AnnotatedImageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("AttendanceSessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double?>("BlurScore")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("CaptureDevice")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<double?>("CaptureLatitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("CaptureLongitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime?>("CaptureTimestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("Height")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ImageHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("ImageKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<short>("ImageSequence")
+                        .HasColumnType("smallint");
+
+                    b.Property<short?>("Orientation")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("OriginalFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("ProcessingError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<short>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ThumbnailImageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("UploadedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("Width")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttendanceSessionId", "ImageSequence")
+                        .IsUnique()
+                        .HasDatabaseName("IX_AttendanceSessionImage_Session_Sequence");
+
+                    b.HasIndex("TenantId", "AttendanceSessionId")
+                        .HasDatabaseName("IX_AttendanceSessionImage_Tenant_Session");
+
+                    b.ToTable("AttendanceSessionImage", (string)null);
+                });
+
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.AuditEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -3879,7 +3972,7 @@ namespace Abhyanvaya.Infrastructure.Migrations
                         {
                             Id = 1,
                             CourseId = 1,
-                            CreatedDate = new DateTime(2026, 7, 23, 16, 4, 54, 796, DateTimeKind.Utc).AddTicks(6965),
+                            CreatedDate = new DateTime(2026, 7, 23, 17, 18, 54, 849, DateTimeKind.Utc).AddTicks(3023),
                             GroupId = 1,
                             IsDeleted = false,
                             MustChangePassword = false,
@@ -4149,6 +4242,17 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.Navigation("Staff");
 
                     b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.AttendanceSessionImage", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.AttendanceSession", "AttendanceSession")
+                        .WithMany()
+                        .HasForeignKey("AttendanceSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AttendanceSession");
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.ClassSchedule", b =>

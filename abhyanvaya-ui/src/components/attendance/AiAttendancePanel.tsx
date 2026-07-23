@@ -5,8 +5,12 @@ import PersonIcon from "@mui/icons-material/Person";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import TaskOutlinedIcon from "@mui/icons-material/TaskOutlined";
 import { Alert, Box, Card, CardContent, Grid, Paper, Stack, Typography } from "@mui/material";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import {
+  AttendanceSnackbarProvider,
+  useAttendanceSnackbar,
+} from "../../context/AttendanceSnackbarContext";
 import { useAttendanceSessionPolling } from "../../hooks/useAttendanceSessionPolling";
 import { useClassroomPhotoUpload } from "../../hooks/useClassroomPhotoUpload";
 import { createInitialAiAttendanceState } from "../../types/aiAttendanceState";
@@ -24,10 +28,12 @@ import { AiWorkflowStepper } from "./AiWorkflowStepper";
 import { AttendanceContextCard } from "./AttendanceContextCard";
 import { ClassroomPhotoUpload } from "./ClassroomPhotoUpload";
 import { RecognitionActivityPanel } from "./RecognitionActivityPanel";
+import { RecognitionCoverageSummary } from "./RecognitionCoverageSummary";
 import { RecognitionErrorPanel } from "./RecognitionErrorPanel";
-import { RecognitionProcessingPanel } from "./RecognitionProcessingPanel";
 import { RecognitionProgressSummary } from "./RecognitionProgressSummary";
+import { RecognitionProgressTimeline } from "./RecognitionProgressTimeline";
 import { RecognitionQueueCard } from "./RecognitionQueueCard";
+import { RecognitionReadinessBanner } from "./RecognitionReadinessBanner";
 import { RecognitionReviewSection } from "./RecognitionReviewSection";
 import { SessionDashboardCard } from "./SessionDashboardCard";
 import { WorkflowPlaceholderSection } from "./WorkflowPlaceholderSection";
@@ -37,19 +43,55 @@ export type AiAttendancePanelProps = {
   totalStudents: number;
 };
 
-export const AiAttendancePanel = ({ context, totalStudents }: AiAttendancePanelProps) => {
+const AiAttendancePanelInner = ({ context, totalStudents }: AiAttendancePanelProps) => {
   const { user, token } = useAuth();
+  const { notify } = useAttendanceSnackbar();
   const [aiState, setAiState] = useState(createInitialAiAttendanceState);
+  const previousStatusRef = useRef(aiState.status);
 
-  const { uploadState, handleSelectFile, retryUpload, resetUploadState, isUploading } =
-    useClassroomPhotoUpload({
-      context,
-      totalStudents,
-      aiState,
-      setAiState,
-    });
+  const {
+    uploadState,
+    images,
+    canAddMore,
+    collectionError,
+    handleSelectFile,
+    handleSelectFiles,
+    handleDeleteImage,
+    handleDeleteAllImages,
+    handleReplaceImage,
+    handleReorderImages,
+    handleRetryRecognition,
+    handleRetryImageRecognition,
+    retryUpload,
+    resetUploadState,
+    isUploading,
+    sessionId,
+  } = useClassroomPhotoUpload({
+    context,
+    totalStudents,
+    aiState,
+    setAiState,
+  });
 
   const { activityLog } = useAttendanceSessionPolling(aiState.attendanceSessionId, setAiState);
+
+  useEffect(() => {
+    const previous = previousStatusRef.current;
+    const next = aiState.status;
+    if (previous === next) {
+      return;
+    }
+
+    if (next === AIStatus.Pending || next === AIStatus.Processing) {
+      notify("Recognition Started", "info");
+    } else if (next === AIStatus.AwaitingReview || next === AIStatus.Completed) {
+      notify("Recognition Completed", "success");
+    } else if (next === AIStatus.Failed) {
+      notify("Recognition Failed", "error");
+    }
+
+    previousStatusRef.current = next;
+  }, [aiState.status, notify]);
 
   const filtersReady =
     context.courseId > 0 &&
@@ -175,12 +217,48 @@ export const AiAttendancePanel = ({ context, totalStudents }: AiAttendancePanelP
 
       {filtersReady && (
         <Stack spacing={2}>
+          <RecognitionReadinessBanner
+            imageCount={images.length}
+            status={aiState.status}
+            sessionStatusCode={aiState.sessionStatusCode}
+            recognitionQueued={aiState.recognitionQueued}
+            queueStatus={aiState.recognitionQueueStatus}
+            hasFailedImages={images.some((image) => image.status === 4)}
+          />
+
+          {images.length > 0 && (
+            <RecognitionCoverageSummary
+              images={images}
+              detectedFaces={aiState.detectedFaces}
+              matchedFaces={aiState.matchedFaces}
+              unknownFaces={Math.max(0, aiState.detectedFaces - aiState.matchedFaces)}
+              status={aiState.status}
+              sessionStatusCode={aiState.sessionStatusCode}
+              recognitionQueued={aiState.recognitionQueued}
+              queueStatus={aiState.recognitionQueueStatus}
+              variant="dashboard"
+            />
+          )}
+
           <ClassroomPhotoUpload
             disabled={totalStudents <= 0}
             uploadState={uploadState}
+            images={images}
+            canAddMore={canAddMore}
+            collectionError={collectionError}
+            sessionId={sessionId ?? aiState.attendanceSessionId}
+            detectedFaces={aiState.detectedFaces}
             onSelectFile={handleSelectFile}
+            onSelectFiles={handleSelectFiles}
+            onDeleteImage={handleDeleteImage}
+            onDeleteAllImages={handleDeleteAllImages}
+            onReplaceImage={handleReplaceImage}
+            onReorderImages={handleReorderImages}
+            onRetryRecognition={handleRetryRecognition}
+            onRetryImageRecognition={handleRetryImageRecognition}
             onReset={resetUploadState}
             onRetry={retryUpload}
+            onNotify={notify}
             isUploading={isUploading}
           />
 
@@ -189,18 +267,18 @@ export const AiAttendancePanel = ({ context, totalStudents }: AiAttendancePanelP
               errorCode={aiState.errorCode}
               processingError={aiState.processingError}
               onRetry={retryUpload}
-              retryDisabled={isUploading || !uploadState.selectedFile}
+              retryDisabled={isUploading || (images.length === 0 && !uploadState.selectedFile)}
             />
           )}
 
           {showProcessingPanel && (
-            <RecognitionProcessingPanel
+            <RecognitionProgressTimeline
+              workflowStep={aiState.workflowStep}
+              status={aiState.status}
+              queueStatus={aiState.recognitionQueueStatus}
               progressPercent={aiState.recognitionProgress}
               currentStage={aiState.currentStage}
               currentOperation={aiState.currentOperation}
-              estimatedRemainingMilliseconds={aiState.estimatedRemainingMilliseconds}
-              currentFileName={aiState.currentFileName}
-              messages={aiState.processingMessages}
               elapsedMilliseconds={aiState.elapsedMilliseconds}
             />
           )}
@@ -234,5 +312,11 @@ export const AiAttendancePanel = ({ context, totalStudents }: AiAttendancePanelP
     </Stack>
   );
 };
+
+export const AiAttendancePanel = (props: AiAttendancePanelProps) => (
+  <AttendanceSnackbarProvider>
+    <AiAttendancePanelInner {...props} />
+  </AttendanceSnackbarProvider>
+);
 
 export default AiAttendancePanel;

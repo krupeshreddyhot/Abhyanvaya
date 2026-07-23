@@ -1,5 +1,6 @@
 using Abhyanvaya.Application.DTOs.Attendance;
 using Abhyanvaya.Domain.Entities;
+using Abhyanvaya.Domain.Enums;
 
 namespace Abhyanvaya.Application.Common.Interfaces;
 
@@ -16,5 +17,10 @@ public interface IAttendancePhotoService
         CancellationToken cancellationToken = default,
         ClassroomPhotoCaptureContextDto? captureContext = null);
 
-    Task QueueProcessingAsync(Guid sessionId, string storagePath, CancellationToken cancellationToken = default);
+    Task QueueProcessingAsync(
+        Guid sessionId,
+        string storagePath,
+        CancellationToken cancellationToken = default,
+        ClassroomRecognitionScope scope = ClassroomRecognitionScope.FullSession,
+        Guid? targetImageId = null);
 }

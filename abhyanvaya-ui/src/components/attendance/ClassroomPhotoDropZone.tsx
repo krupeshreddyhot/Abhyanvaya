@@ -16,7 +16,10 @@ export type ClassroomPhotoDropZoneProps = {
   disabled?: boolean;
   busy?: boolean;
   error?: string | null;
+  multiple?: boolean;
+  remainingSlots?: number;
   onSelectFile: (file: File) => void | Promise<void>;
+  onSelectFiles?: (files: File[]) => void | Promise<void>;
 };
 
 type RequirementBlockProps = {
@@ -37,7 +40,10 @@ export const ClassroomPhotoDropZone = ({
   disabled = false,
   busy = false,
   error = null,
+  multiple = false,
+  remainingSlots,
   onSelectFile,
+  onSelectFiles,
 }: ClassroomPhotoDropZoneProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -46,25 +52,40 @@ export const ClassroomPhotoDropZone = ({
   const isDisabled = disabled || busy;
   const combinedError = validationError ?? error;
 
-  const processFile = useCallback(
-    async (file: File) => {
+  const processFiles = useCallback(
+    async (fileList: FileList | File[]) => {
       setValidationError(null);
-      const validation = validateMediaUploadFile(file, CLASSROOM_PHOTO_MAX_BYTES);
-      if (!validation.ok) {
-        setValidationError(validation.error ?? "Invalid file.");
+      const files = Array.from(fileList);
+      if (files.length === 0) {
         return;
       }
 
-      await onSelectFile(file);
+      const limited =
+        remainingSlots != null && remainingSlots >= 0 ? files.slice(0, remainingSlots) : files;
+
+      for (const file of limited) {
+        const validation = validateMediaUploadFile(file, CLASSROOM_PHOTO_MAX_BYTES);
+        if (!validation.ok) {
+          setValidationError(validation.error ?? "Invalid file.");
+          return;
+        }
+      }
+
+      if (multiple && onSelectFiles) {
+        await onSelectFiles(limited);
+        return;
+      }
+
+      await onSelectFile(limited[0]);
     },
-    [onSelectFile],
+    [multiple, onSelectFile, onSelectFiles, remainingSlots],
   );
 
   const onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+    const list = event.target.files;
     event.target.value = "";
-    if (file) {
-      void processFile(file);
+    if (list && list.length > 0) {
+      void processFiles(list);
     }
   };
 
@@ -75,9 +96,9 @@ export const ClassroomPhotoDropZone = ({
       return;
     }
 
-    const file = event.dataTransfer.files?.[0];
-    if (file) {
-      void processFile(file);
+    const list = event.dataTransfer.files;
+    if (list && list.length > 0) {
+      void processFiles(list);
     }
   };
 
@@ -112,7 +133,11 @@ export const ClassroomPhotoDropZone = ({
         }}
         role="button"
         tabIndex={isDisabled ? -1 : 0}
-        aria-label="Upload classroom photo. Drag and drop or press Enter to select a file."
+        aria-label={
+          multiple
+            ? "Upload classroom photos. Drag and drop or press Enter to select files."
+            : "Upload classroom photo. Drag and drop or press Enter to select a file."
+        }
         aria-disabled={isDisabled}
         sx={{
           minHeight: 280,
@@ -157,9 +182,9 @@ export const ClassroomPhotoDropZone = ({
           </Box>
 
           <Stack spacing={1.5} sx={{ alignItems: "center", width: "100%" }}>
-            <Typography variant="h6" component="p" sx={{ fontWeight: 600 }}>
-              {CLASSROOM_PHOTO_DROP_TITLE}
-            </Typography>
+          <Typography variant="h6" component="p" sx={{ fontWeight: 600 }}>
+            {multiple ? "Drag & drop classroom photos" : CLASSROOM_PHOTO_DROP_TITLE}
+          </Typography>
 
             <Typography variant="body2" color="text.secondary" sx={{ letterSpacing: 1 }}>
               OR
@@ -210,6 +235,7 @@ export const ClassroomPhotoDropZone = ({
         ref={inputRef}
         type="file"
         accept={CLASSROOM_PHOTO_ACCEPT}
+        multiple={multiple}
         hidden
         onChange={onInputChange}
         aria-hidden
