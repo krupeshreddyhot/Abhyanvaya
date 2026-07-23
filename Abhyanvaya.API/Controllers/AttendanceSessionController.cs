@@ -1,3 +1,4 @@
+using System.Globalization;
 using Abhyanvaya.API.Common;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.DTOs.Attendance;
@@ -165,19 +166,39 @@ public sealed class AttendanceSessionController : ControllerBase
         return Ok(entries);
     }
 
-    /// <summary>Uploads a classroom photo and queues AI face detection + matching (teacher review required).</summary>
+    /// <summary>
+    /// Uploads a classroom photo and queues AI face detection + matching (teacher review required).
+    /// Optional form fields (AI22.7A): acquisitionMethod, captureDevice, captureTimestampUtc,
+    /// orientation, latitude, longitude, blurScore. Field name <c>file</c> is unchanged.
+    /// </summary>
     [HttpPost("~/api/attendance-sessions/{sessionId:guid}/classroom-photo")]
     [ProducesResponseType(typeof(ClassroomPhotoUploadResult), StatusCodes.Status200OK)]
     [RequestSizeLimit(15 * 1024 * 1024)]
     public async Task<ActionResult<ClassroomPhotoUploadResult>> UploadClassroomPhoto(
         Guid sessionId,
         IFormFile file,
-        CancellationToken cancellationToken)
+        [FromForm] string? acquisitionMethod = null,
+        [FromForm] string? captureDevice = null,
+        [FromForm] string? captureTimestampUtc = null,
+        [FromForm] short? orientation = null,
+        [FromForm] double? latitude = null,
+        [FromForm] double? longitude = null,
+        [FromForm] double? blurScore = null,
+        CancellationToken cancellationToken = default)
     {
         if (file == null || file.Length == 0)
         {
             return BadRequest("Image file is required.");
         }
+
+        var captureContext = BuildCaptureContext(
+            acquisitionMethod,
+            captureDevice,
+            captureTimestampUtc,
+            orientation,
+            latitude,
+            longitude,
+            blurScore);
 
         await using var stream = file.OpenReadStream();
         var (ok, error, result) = await _classroomPhotoService.UploadClassroomPhotoAsync(
@@ -185,7 +206,8 @@ public sealed class AttendanceSessionController : ControllerBase
             stream,
             file.FileName,
             file.Length,
-            cancellationToken);
+            cancellationToken,
+            captureContext);
 
         if (!ok)
         {
@@ -193,5 +215,53 @@ public sealed class AttendanceSessionController : ControllerBase
         }
 
         return Ok(result);
+    }
+
+    private static ClassroomPhotoCaptureContextDto? BuildCaptureContext(
+        string? acquisitionMethod,
+        string? captureDevice,
+        string? captureTimestampUtc,
+        short? orientation,
+        double? latitude,
+        double? longitude,
+        double? blurScore)
+    {
+        var hasAny =
+            !string.IsNullOrWhiteSpace(acquisitionMethod) ||
+            !string.IsNullOrWhiteSpace(captureDevice) ||
+            !string.IsNullOrWhiteSpace(captureTimestampUtc) ||
+            orientation.HasValue ||
+            latitude.HasValue ||
+            longitude.HasValue ||
+            blurScore.HasValue;
+
+        if (!hasAny)
+        {
+            return null;
+        }
+
+        DateTime? capturedUtc = null;
+        if (!string.IsNullOrWhiteSpace(captureTimestampUtc) &&
+            DateTime.TryParse(
+                captureTimestampUtc,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind,
+                out var parsed))
+        {
+            capturedUtc = parsed.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(parsed, DateTimeKind.Utc)
+                : parsed.ToUniversalTime();
+        }
+
+        return new ClassroomPhotoCaptureContextDto
+        {
+            AcquisitionMethod = acquisitionMethod,
+            CaptureDevice = captureDevice,
+            CaptureTimestampUtc = capturedUtc,
+            Orientation = orientation,
+            Latitude = latitude,
+            Longitude = longitude,
+            BlurScore = blurScore,
+        };
     }
 }

@@ -1,5 +1,6 @@
 import api from "../api/axios";
 import type { AttendanceContext } from "../types/attendanceContext";
+import type { ClassroomPhotoCaptureContext } from "../types/photoAcquisition";
 import { getUploadApiErrorMessage, isRetryableUploadError } from "../utils/apiErrorMessage";
 import { mapUploadProgressToMilestone, sleep } from "../utils/uploadProgress";
 
@@ -59,6 +60,7 @@ export const uploadClassroomPhoto = async (
     signal?: AbortSignal;
     onProgress?: UploadProgressHandler;
     onRetryAttempt?: (attempt: number) => void;
+    captureContext?: ClassroomPhotoCaptureContext;
   },
 ): Promise<ClassroomPhotoUploadResponse> => {
   let lastError: unknown;
@@ -72,6 +74,29 @@ export const uploadClassroomPhoto = async (
     try {
       const formData = new FormData();
       formData.append("file", file);
+
+      const ctx = options?.captureContext;
+      if (ctx?.acquisitionMethod) {
+        formData.append("acquisitionMethod", ctx.acquisitionMethod);
+      }
+      if (ctx?.captureDevice) {
+        formData.append("captureDevice", ctx.captureDevice);
+      }
+      if (ctx?.captureTimestampUtc) {
+        formData.append("captureTimestampUtc", ctx.captureTimestampUtc);
+      }
+      if (ctx?.orientation != null) {
+        formData.append("orientation", String(ctx.orientation));
+      }
+      if (ctx?.latitude != null) {
+        formData.append("latitude", String(ctx.latitude));
+      }
+      if (ctx?.longitude != null) {
+        formData.append("longitude", String(ctx.longitude));
+      }
+      if (ctx?.blurScore != null) {
+        formData.append("blurScore", String(ctx.blurScore));
+      }
 
       const response = await api.post<ClassroomPhotoUploadResponse>(
         `/attendance-sessions/${sessionId}/classroom-photo`,
