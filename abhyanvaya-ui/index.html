@@ -5,6 +5,42 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>abhyanvaya-ui</title>
+    <!-- AI22.7B-R1 — resolve theme before React to prevent Dark→Light flicker. Default = Light. -->
+    <script>
+      (function () {
+        try {
+          var KEY = "abhyanvaya.enterpriseWorkspace.v1";
+          var mode = "light";
+          var raw = localStorage.getItem(KEY);
+          if (raw) {
+            var p = JSON.parse(raw);
+            if (p && p.appearanceSelected && p.themeMode) {
+              mode = p.themeMode;
+            } else if (p && (p.themeMode === "dark" || p.themeMode === "highContrast")) {
+              mode = p.themeMode;
+            } else {
+              mode = "light";
+            }
+          }
+          var scheme = "light";
+          if (mode === "highContrast") scheme = "highContrast";
+          else if (mode === "dark") scheme = "dark";
+          else if (mode === "system") {
+            scheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          } else {
+            scheme = "light";
+          }
+          document.documentElement.dataset.colorScheme = scheme;
+          document.documentElement.style.colorScheme = scheme === "light" ? "light" : "dark";
+          document.documentElement.style.backgroundColor =
+            scheme === "light" ? "#fafafa" : scheme === "highContrast" ? "#000000" : "#121212";
+        } catch (e) {
+          document.documentElement.dataset.colorScheme = "light";
+          document.documentElement.style.colorScheme = "light";
+          document.documentElement.style.backgroundColor = "#fafafa";
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

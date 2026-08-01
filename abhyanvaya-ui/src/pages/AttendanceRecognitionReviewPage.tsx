@@ -43,6 +43,7 @@ import {
   type AttendanceRecognitionReviewHistoryDto,
 } from "../services/attendanceRecognitionService";
 import { useReviewFullscreen } from "../context/ReviewFullscreenContext";
+import { useThemeManagerOptional } from "../theme";
 import { listClassroomImages, reorderClassroomImages } from "../services/attendanceSessionService";
 import type { AttendanceSessionImage } from "../types/sessionImage";
 import { mediaAssetUrl } from "../utils/mediaAssetUrl";
@@ -107,7 +108,9 @@ const AttendanceRecognitionReviewPage = () => {
   const { sessionId = "" } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const { fullscreen, setFullscreen, toggleFullscreen } = useReviewFullscreen();
+  const themeManager = useThemeManagerOptional();
   const initialPrefs = useMemo(() => loadReviewWorkspacePrefs(), []);
+  const enterprisePrefs = themeManager?.prefs;
 
   const [session, setSession] = useState<AttendanceSessionReviewDto | null>(null);
   const [recognitions, setRecognitions] = useState<AttendanceRecognitionReviewDto[]>([]);
@@ -125,11 +128,19 @@ const AttendanceRecognitionReviewPage = () => {
   const [hideHighConfidence, setHideHighConfidence] = useState(false);
   const [assignRecognitionId, setAssignRecognitionId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<RejectTarget | null>(null);
-  const [heatMapEnabled, setHeatMapEnabled] = useState(initialPrefs.heatMapEnabled);
-  const [heatMapOpacity, setHeatMapOpacity] = useState(initialPrefs.heatMapOpacity);
-  const [miniMapVisible, setMiniMapVisible] = useState(initialPrefs.miniMapVisible);
+  const [heatMapEnabled, setHeatMapEnabled] = useState(
+    enterprisePrefs?.heatMapEnabled ?? initialPrefs.heatMapEnabled,
+  );
+  const [heatMapOpacity, setHeatMapOpacity] = useState(
+    enterprisePrefs?.heatMapOpacity ?? initialPrefs.heatMapOpacity,
+  );
+  const [miniMapVisible, setMiniMapVisible] = useState(
+    enterprisePrefs?.miniMapVisible ?? initialPrefs.miniMapVisible,
+  );
   const [smartQueueCategory, setSmartQueueCategory] = useState<SmartQueueCategory | "all">("all");
-  const [smartQueueOnlyPending, setSmartQueueOnlyPending] = useState(initialPrefs.smartQueueOnlyPending);
+  const [smartQueueOnlyPending, setSmartQueueOnlyPending] = useState(
+    enterprisePrefs?.smartQueueOnlyPending ?? initialPrefs.smartQueueOnlyPending,
+  );
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -241,6 +252,37 @@ const AttendanceRecognitionReviewPage = () => {
       smartQueueOnlyPending,
     });
   }, [fullscreen, heatMapEnabled, heatMapOpacity, miniMapVisible, smartQueueOnlyPending]);
+
+  // AI22.7B 5.8 — mirror into enterprise workspace profile store (only when values differ).
+  useEffect(() => {
+    if (!themeManager) {
+      return;
+    }
+    const current = themeManager.prefs;
+    if (
+      current.fullscreen === fullscreen &&
+      current.heatMapEnabled === heatMapEnabled &&
+      current.heatMapOpacity === heatMapOpacity &&
+      current.miniMapVisible === miniMapVisible &&
+      current.smartQueueOnlyPending === smartQueueOnlyPending
+    ) {
+      return;
+    }
+    themeManager.updatePrefs({
+      fullscreen,
+      heatMapEnabled,
+      heatMapOpacity,
+      miniMapVisible,
+      smartQueueOnlyPending,
+    });
+  }, [
+    fullscreen,
+    heatMapEnabled,
+    heatMapOpacity,
+    miniMapVisible,
+    smartQueueOnlyPending,
+    themeManager,
+  ]);
 
   const averageReviewLabel = useMemo(() => {
     const samples = reviewActionTimes.current;

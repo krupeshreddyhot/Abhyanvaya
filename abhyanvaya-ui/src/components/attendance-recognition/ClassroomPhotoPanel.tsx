@@ -15,10 +15,11 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { memo, useEffect, useMemo } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { useEnterpriseImageViewer } from "../../hooks/useEnterpriseImageViewer";
 import type { AttendanceRecognitionReviewDto } from "../../services/attendanceRecognitionService";
 import type { AttendanceSessionImage } from "../../types/sessionImage";
+import { resolveSwipe } from "../../theme";
 import { getEnterpriseConfidence } from "../../utils/enterpriseConfidence";
 import { getHeatMapTone, HEAT_MAP_COLORS } from "../../utils/confidenceHeatMap";
 import { mediaAssetUrl } from "../../utils/mediaAssetUrl";
@@ -42,6 +43,7 @@ export type ClassroomPhotoPanelProps = {
   heatMapEnabled?: boolean;
   heatMapOpacity?: number;
   miniMapVisible?: boolean;
+  filmstripHeight?: number;
 };
 
 function ClassroomPhotoPanelInner({
@@ -60,9 +62,11 @@ function ClassroomPhotoPanelInner({
   heatMapEnabled = false,
   heatMapOpacity = 0.35,
   miniMapVisible = true,
+  filmstripHeight = 96,
 }: ClassroomPhotoPanelProps) {
   const resolvedUrl = useMemo(() => mediaAssetUrl(imageUrl), [imageUrl]);
   const viewer = useEnterpriseImageViewer();
+  const swipeOrigin = useRef<{ x: number; y: number } | null>(null);
 
   const aspectRatio =
     imageWidth && imageHeight && imageWidth > 0 && imageHeight > 0
@@ -154,6 +158,7 @@ function ClassroomPhotoPanelInner({
           sequencesWithFaces={sequencesWithFaces}
           onSelectSequence={(sequence) => onActiveImageSequenceChange?.(sequence)}
           onReorder={onReorderImages}
+          thumbnailHeight={filmstripHeight}
         />
       )}
 
@@ -199,10 +204,35 @@ function ClassroomPhotoPanelInner({
 
       <Box
         data-pan-surface
+        className="enterprise-media"
         onWheel={viewer.onWheel}
-        onPointerDown={viewer.onPointerDown}
+        onPointerDown={(event) => {
+          // AI22.7B 5.4 — track swipe origin for image navigation (pen/finger).
+          if (event.pointerType === "touch" || event.pointerType === "pen") {
+            swipeOrigin.current = { x: event.clientX, y: event.clientY };
+          }
+          viewer.onPointerDown(event);
+        }}
         onPointerMove={viewer.onPointerMove}
-        onPointerUp={viewer.onPointerUp}
+        onPointerUp={(event) => {
+          viewer.onPointerUp(event);
+          if (swipeOrigin.current && !viewer.panning && onActiveImageSequenceChange) {
+            const direction = resolveSwipe(
+              swipeOrigin.current.x,
+              swipeOrigin.current.y,
+              event.clientX,
+              event.clientY,
+            );
+            const ordered = [...sessionImages].sort((a, b) => a.imageSequence - b.imageSequence);
+            const index = ordered.findIndex((image) => image.imageSequence === activeImageSequence);
+            if (direction === "left" && index >= 0 && index < ordered.length - 1) {
+              onActiveImageSequenceChange(ordered[index + 1].imageSequence);
+            } else if (direction === "right" && index > 0) {
+              onActiveImageSequenceChange(ordered[index - 1].imageSequence);
+            }
+          }
+          swipeOrigin.current = null;
+        }}
         onPointerCancel={viewer.onPointerUp}
         onTouchStart={viewer.onTouchStart}
         onTouchMove={viewer.onTouchMove}
@@ -220,7 +250,7 @@ function ClassroomPhotoPanelInner({
           touchAction: "none",
           userSelect: "none",
         }}
-        aria-label="Zoomable classroom photo canvas. Use + - 0 and arrows to navigate."
+        aria-label="Zoomable classroom photo canvas. Pinch to zoom, swipe to change image, Alt or middle-drag to pan."
       >
         {resolvedUrl ? (
           <Box
@@ -238,6 +268,7 @@ function ClassroomPhotoPanelInner({
                 component="img"
                 src={resolvedUrl}
                 alt={`Classroom attendance photo image ${activeImageSequence}`}
+                data-enterprise-media="true"
                 draggable={false}
                 sx={{
                   width: "100%",
@@ -245,6 +276,8 @@ function ClassroomPhotoPanelInner({
                   objectFit: "contain",
                   display: "block",
                   pointerEvents: "none",
+                  // Images must remain visually unchanged across themes (AI22.7B 5.2).
+                  filter: "none",
                 }}
               />
               {visibleRecognitions.map((recognition) => {

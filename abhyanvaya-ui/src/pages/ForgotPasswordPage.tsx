@@ -61,7 +61,8 @@ const ForgotPasswordPage = () => {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "linear-gradient(135deg, #1e3c72, #2a5298)",
+        background: (theme) =>
+          `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
         p: 2,
       }}
     >
