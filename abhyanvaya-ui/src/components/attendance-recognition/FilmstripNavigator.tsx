@@ -1,4 +1,5 @@
 import { Box, Chip, Stack, Typography } from "@mui/material";
+import { LazyMediaImage } from "../../mobility";
 import { mediaAssetUrl } from "../../utils/mediaAssetUrl";
 import type { AttendanceSessionImage } from "../../types/sessionImage";
 import { SESSION_IMAGE_STATUS } from "../../types/sessionImage";
@@ -42,7 +43,8 @@ export function FilmstripNavigator({
   }
 
   const ordered = [...images].sort((a, b) => a.imageSequence - b.imageSequence);
-  const thumbH = Math.max(48, Math.min(120, thumbnailHeight - 32));
+  const thumbH = Math.max(48, Math.min(140, thumbnailHeight - 32));
+  const thumbW = Math.max(96, thumbH + 28);
 
   return (
     <Stack spacing={0.75} aria-label="Classroom image filmstrip">
@@ -94,7 +96,7 @@ export function FilmstripNavigator({
               onClick={() => onSelectSequence(image.imageSequence)}
               sx={{
                 flex: "0 0 auto",
-                width: 96,
+                width: thumbW,
                 borderRadius: 1,
                 border: 2,
                 borderColor: active ? "primary.main" : "divider",
@@ -110,12 +112,10 @@ export function FilmstripNavigator({
                 "@media (prefers-reduced-motion: reduce)": { transition: "none", transform: "none" },
               }}
             >
-              <Box
-                component="img"
+              <LazyMediaImage
                 src={url ?? undefined}
                 alt={`Classroom image ${image.imageSequence}`}
-                data-enterprise-media="true"
-                sx={{ width: "100%", height: thumbH, objectFit: "cover", display: "block", bgcolor: "action.hover" }}
+                sx={{ width: "100%", height: thumbH, objectFit: "cover", bgcolor: "action.hover" }}
               />
               <Stack spacing={0.25} sx={{ p: 0.5 }}>
                 <Typography variant="caption" sx={{ fontWeight: 700 }}>
