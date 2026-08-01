@@ -33,6 +33,8 @@ using Abhyanvaya.Domain.Events;
 using Abhyanvaya.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Abhyanvaya.Infrastructure.Persistence.Repositories;
+using Abhyanvaya.Application.Common.Interfaces.Scheduling;
+using Abhyanvaya.Infrastructure.Persistence.Repositories.Scheduling;
 using Abhyanvaya.Infrastructure.Services;
 using Abhyanvaya.Infrastructure.Enrollment;
 using Abhyanvaya.Infrastructure.Enrollment.Configuration;
@@ -217,6 +219,33 @@ namespace Abhyanvaya.Infrastructure
             services.AddScoped<ITenantContextAccessor, TenantContextAccessor>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
             services.AddScoped<IStudentRepository, StudentRepository>();
+
+            services.AddScoped<IAcademicCalendarRepository, AcademicCalendarRepository>();
+            services.AddScoped<ICampusFacilityRepository, CampusFacilityRepository>();
+            services.AddScoped<ITimeSlotRepository, TimeSlotRepository>();
+            services.AddScoped<IFacultyWorkloadRepository, FacultyWorkloadRepository>();
+            services.AddScoped<ISubjectAllocationRepository, SubjectAllocationRepository>();
+            services.AddScoped<IRoomAllocationRuleRepository, RoomAllocationRuleRepository>();
+            services.AddScoped<IDepartmentRepository, DepartmentRepository>();
+            services.AddScoped<IFacultyAvailabilityRepository, FacultyAvailabilityRepository>();
+            services.AddScoped<IRoomAvailabilityRepository, RoomAvailabilityRepository>();
+            services.AddScoped<ISubjectCategoryRepository, SubjectCategoryRepository>();
+            services.AddScoped<ITimeSlotTemplateRepository, TimeSlotTemplateRepository>();
+            services.AddScoped<IFacultyTeachingPreferenceRepository, FacultyTeachingPreferenceRepository>();
+            services.AddScoped<IRoomFeatureRepository, RoomFeatureRepository>();
+            services.AddScoped<ISubjectDeliveryTypeRepository, SubjectDeliveryTypeRepository>();
+            services.AddScoped<IHolidayTypeCatalogRepository, HolidayTypeCatalogRepository>();
+            services.AddScoped<ITimetableRepository, TimetableRepository>();
+            services.AddScoped<IScheduleVersionRepository, ScheduleVersionRepository>();
+            services.AddScoped<ITimetableApprovalRepository, TimetableApprovalRepository>();
+            services.AddScoped<ITimetableCloneJobRepository, TimetableCloneJobRepository>();
+            services.AddScoped<ITimetableChangeHistoryRepository, TimetableChangeHistoryRepository>();
+            services.AddScoped<ITimetableWarningDismissalRepository, TimetableWarningDismissalRepository>();
+            services.AddScoped<IVersionComparisonRepository, VersionComparisonRepository>();
+            services.AddScoped<ITimetableApprovalCommentRepository, TimetableApprovalCommentRepository>();
+            services.AddScoped<ITimetableDecisionHistoryRepository, TimetableDecisionHistoryRepository>();
+            services.AddScoped<IArchiveReasonRepository, ArchiveReasonRepository>();
+            services.AddHostedService<TimetableCloneBackgroundService>();
 
             // AI20.PHASE2.1.1: enrollment batch/item persistence repositories (thin; no orchestration).
             services.AddScoped<IStudentEnrollmentBatchRepository, StudentEnrollmentBatchRepository>();

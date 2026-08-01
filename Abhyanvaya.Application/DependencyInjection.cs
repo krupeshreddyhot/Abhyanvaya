@@ -1,4 +1,6 @@
 using Abhyanvaya.Application.Common.Interfaces;
+using Abhyanvaya.Application.Scheduling;
+using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Abhyanvaya.Application;
@@ -7,6 +9,8 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
+
         services.AddScoped<IStudentService, StudentService>();
         services.AddScoped<IAttendanceSessionQueryService, AttendanceSessionQueryService>();
         services.AddScoped<IAttendanceRecognitionReviewService, AttendanceRecognitionReviewService>();
@@ -19,6 +23,34 @@ public static class DependencyInjection
         services.AddScoped<IAttendancePhotoService, AttendancePhotoService>();
         services.AddScoped<IClassroomPhotoService, AttendancePhotoService>();
         services.AddScoped<IClassScheduleService, ClassScheduleService>();
+
+        services.AddScoped<IAcademicCalendarService, AcademicCalendarService>();
+        services.AddScoped<ICampusFacilityService, CampusFacilityService>();
+        services.AddScoped<ITimeSlotService, TimeSlotService>();
+        services.AddScoped<IFacultyWorkloadService, FacultyWorkloadService>();
+        services.AddScoped<ISubjectAllocationService, SubjectAllocationService>();
+        services.AddScoped<IRoomAllocationRuleService, RoomAllocationRuleService>();
+        services.AddScoped<ISchedulingDashboardService, SchedulingDashboardService>();
+        services.AddScoped<IFacultyAvailabilityService, FacultyAvailabilityService>();
+        services.AddScoped<IRoomAvailabilityService, RoomAvailabilityService>();
+        services.AddScoped<ISubjectCategoryService, SubjectCategoryService>();
+        services.AddScoped<ITimeSlotTemplateService, TimeSlotTemplateService>();
+        services.AddScoped<IFacultyTeachingPreferenceService, FacultyTeachingPreferenceService>();
+        services.AddScoped<IRoomFeatureService, RoomFeatureService>();
+        services.AddScoped<ISubjectDeliveryTypeService, SubjectDeliveryTypeService>();
+        services.AddScoped<IHolidayTypeCatalogService, HolidayTypeCatalogService>();
+        services.AddScoped<ISchedulingValidationService, SchedulingValidationService>();
+        services.AddScoped<ITimetableService, TimetableService>();
+        services.AddScoped<ITimetableExportService, TimetableExportService>();
+        services.AddScoped<IScheduleVersionService, ScheduleVersionService>();
+        services.AddScoped<ITimetableApprovalService, TimetableApprovalService>();
+        services.AddScoped<ITimetableLifecycleService, TimetableLifecycleService>();
+        services.AddScoped<ITimetableCloneService, TimetableCloneService>();
+        services.AddScoped<ITimetableSoftValidationService, TimetableSoftValidationService>();
+        services.AddScoped<ITimetableChangeHistoryService, TimetableChangeHistoryService>();
+        services.AddScoped<ITimetableGovernanceDashboardService, TimetableGovernanceDashboardService>();
+        services.AddScoped<IVersionComparisonService, VersionComparisonService>();
+
         return services;
     }
 }

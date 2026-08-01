@@ -177,16 +177,25 @@ export type DepartmentRow = {
   name: string;
   code: string | null;
   sortOrder: number;
+  description?: string | null;
+  isActive?: boolean;
 };
 
-export const listDepartments = (collegeId?: number) =>
-  api.get<DepartmentRow[]>("/department", { params: collegeId != null && collegeId > 0 ? { collegeId } : undefined });
+export const listDepartments = (collegeId?: number, isActive?: boolean) =>
+  api.get<DepartmentRow[]>("/department", {
+    params: {
+      ...(collegeId != null && collegeId > 0 ? { collegeId } : {}),
+      ...(isActive != null ? { isActive } : {}),
+    },
+  });
 
 export const createDepartment = (payload: {
   collegeId: number;
   name: string;
   code: string | null;
   sortOrder: number;
+  description?: string | null;
+  isActive?: boolean;
 }) => api.post<DepartmentRow>("/department", payload);
 
 export const updateDepartment = (
@@ -195,6 +204,8 @@ export const updateDepartment = (
     name: string;
     code: string | null;
     sortOrder: number;
+    description?: string | null;
+    isActive?: boolean;
   },
 ) => api.put(`/department/${id}`, payload);
 

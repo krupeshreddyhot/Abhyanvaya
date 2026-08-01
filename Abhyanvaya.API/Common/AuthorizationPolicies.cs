@@ -38,5 +38,48 @@ namespace Abhyanvaya.API.Common
 
         /// <summary>Create, cancel, and retry enrollment batches.</summary>
         public const string CanManageEnrollment = "CanManageEnrollment";
+
+        /// <summary>View enterprise scheduling foundation data.</summary>
+        public const string CanViewScheduling = "CanViewScheduling";
+
+        /// <summary>Manage enterprise scheduling foundation data.</summary>
+        public const string CanManageScheduling = "CanManageScheduling";
+
+        /// <summary>Read Catalog Department for Catalog admins and Scheduling consumers (SSOT lookup).</summary>
+        public const string CanViewDepartmentLookup = "CanViewDepartmentLookup";
+
+        public const string CanViewSchedulingRoomAvailability = "CanViewSchedulingRoomAvailability";
+        public const string CanManageSchedulingRoomAvailability = "CanManageSchedulingRoomAvailability";
+        public const string CanViewSchedulingFacultyAvailability = "CanViewSchedulingFacultyAvailability";
+        public const string CanManageSchedulingFacultyAvailability = "CanManageSchedulingFacultyAvailability";
+        public const string CanViewSchedulingTemplate = "CanViewSchedulingTemplate";
+        public const string CanManageSchedulingTemplate = "CanManageSchedulingTemplate";
+        public const string CanViewSchedulingFacultyPreferences = "CanViewSchedulingFacultyPreferences";
+        public const string CanManageSchedulingFacultyPreferences = "CanManageSchedulingFacultyPreferences";
+        public const string CanViewSchedulingRoomFeatures = "CanViewSchedulingRoomFeatures";
+        public const string CanManageSchedulingRoomFeatures = "CanManageSchedulingRoomFeatures";
+        public const string CanViewSchedulingSubjectDelivery = "CanViewSchedulingSubjectDelivery";
+        public const string CanManageSchedulingSubjectDelivery = "CanManageSchedulingSubjectDelivery";
+        public const string CanViewSchedulingHolidayTypes = "CanViewSchedulingHolidayTypes";
+        public const string CanManageSchedulingHolidayTypes = "CanManageSchedulingHolidayTypes";
+        public const string CanViewSchedulingTimetable = "CanViewSchedulingTimetable";
+        public const string CanManageSchedulingTimetable = "CanManageSchedulingTimetable";
+        public const string CanViewSchedulingVersion = "CanViewSchedulingVersion";
+        public const string CanManageSchedulingVersion = "CanManageSchedulingVersion";
+        public const string CanReviewScheduling = "CanReviewScheduling";
+        public const string CanApproveScheduling = "CanApproveScheduling";
+        public const string CanPublishScheduling = "CanPublishScheduling";
+        public const string CanArchiveScheduling = "CanArchiveScheduling";
+        public const string CanCloneScheduling = "CanCloneScheduling";
+        public const string CanViewSchedulingHistory = "CanViewSchedulingHistory";
+        public const string CanViewSchedulingGovernanceDashboard = "CanViewSchedulingGovernanceDashboard";
+        public const string CanViewSchedulingVersionCompare = "CanViewSchedulingVersionCompare";
+        public const string CanExportSchedulingVersionCompare = "CanExportSchedulingVersionCompare";
+        public const string CanViewSchedulingApprovalComments = "CanViewSchedulingApprovalComments";
+        public const string CanManageSchedulingApprovalComments = "CanManageSchedulingApprovalComments";
+        public const string CanFreezeScheduling = "CanFreezeScheduling";
+        public const string CanUnlockScheduling = "CanUnlockScheduling";
+        public const string CanViewSchedulingArchive = "CanViewSchedulingArchive";
+        public const string CanManageSchedulingArchive = "CanManageSchedulingArchive";
     }
 }
