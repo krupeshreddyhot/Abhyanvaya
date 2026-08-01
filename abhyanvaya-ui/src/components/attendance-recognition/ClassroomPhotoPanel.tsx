@@ -15,8 +15,12 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useEnterpriseImageViewer } from "../../hooks/useEnterpriseImageViewer";
+import {
+  createLongPressController,
+  GestureContextMenu,
+} from "../../mobility";
 import type { AttendanceRecognitionReviewDto } from "../../services/attendanceRecognitionService";
 import type { AttendanceSessionImage } from "../../types/sessionImage";
 import { resolveSwipe } from "../../theme";
@@ -67,6 +71,8 @@ function ClassroomPhotoPanelInner({
   const resolvedUrl = useMemo(() => mediaAssetUrl(imageUrl), [imageUrl]);
   const viewer = useEnterpriseImageViewer();
   const swipeOrigin = useRef<{ x: number; y: number } | null>(null);
+  const longPress = useMemo(() => createLongPressController(), []);
+  const [contextMenu, setContextMenu] = useState<{ left: number; top: number } | null>(null);
 
   const aspectRatio =
     imageWidth && imageHeight && imageWidth > 0 && imageHeight > 0
@@ -210,11 +216,24 @@ function ClassroomPhotoPanelInner({
           // AI22.7B 5.4 — track swipe origin for image navigation (pen/finger).
           if (event.pointerType === "touch" || event.pointerType === "pen") {
             swipeOrigin.current = { x: event.clientX, y: event.clientY };
+            const left = event.clientX;
+            const top = event.clientY;
+            longPress.start(() => setContextMenu({ left, top }));
           }
           viewer.onPointerDown(event);
         }}
-        onPointerMove={viewer.onPointerMove}
+        onPointerMove={(event) => {
+          if (
+            swipeOrigin.current &&
+            (Math.abs(event.clientX - swipeOrigin.current.x) > 8 ||
+              Math.abs(event.clientY - swipeOrigin.current.y) > 8)
+          ) {
+            longPress.cancel();
+          }
+          viewer.onPointerMove(event);
+        }}
         onPointerUp={(event) => {
+          longPress.cancel();
           viewer.onPointerUp(event);
           if (swipeOrigin.current && !viewer.panning && onActiveImageSequenceChange) {
             const direction = resolveSwipe(
@@ -233,7 +252,10 @@ function ClassroomPhotoPanelInner({
           }
           swipeOrigin.current = null;
         }}
-        onPointerCancel={viewer.onPointerUp}
+        onPointerCancel={(event) => {
+          longPress.cancel();
+          viewer.onPointerUp(event);
+        }}
         onTouchStart={viewer.onTouchStart}
         onTouchMove={viewer.onTouchMove}
         onTouchEnd={viewer.onTouchEnd}
@@ -249,8 +271,9 @@ function ClassroomPhotoPanelInner({
           cursor: viewer.panning ? "grabbing" : "grab",
           touchAction: "none",
           userSelect: "none",
+          overscrollBehavior: "none",
         }}
-        aria-label="Zoomable classroom photo canvas. Pinch to zoom, swipe to change image, Alt or middle-drag to pan."
+        aria-label="Zoomable classroom photo canvas. Pinch to zoom, double-tap to zoom, swipe to change image, two-finger pan, Alt or middle-drag to pan."
       >
         {resolvedUrl ? (
           <Box
@@ -389,8 +412,17 @@ function ClassroomPhotoPanelInner({
       </Box>
 
       <Typography variant="caption" color="text.secondary">
-        Scroll to zoom · Alt+drag or middle-drag to pan · Pinch on touch · + / − / 0 / arrow pan
+        Scroll to zoom · Alt+drag or middle-drag to pan · Pinch / double-tap / two-finger pan · long-press
+        menu · + / − / 0 / arrow pan
       </Typography>
+
+      <GestureContextMenu
+        open={Boolean(contextMenu)}
+        anchor={contextMenu}
+        onClose={() => setContextMenu(null)}
+        onResetView={viewer.resetView}
+        onFitScreen={() => viewer.fit("screen")}
+      />
     </Paper>
   );
 }

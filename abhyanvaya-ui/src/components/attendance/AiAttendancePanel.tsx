@@ -8,6 +8,13 @@ import { Alert, Box, Card, CardContent, Grid, Paper, Stack, Typography } from "@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import {
+  ClassroomSessionDashboard,
+  MobileCaptureLayout,
+  OneHandedCaptureChrome,
+  SmartCaptureAssistant,
+  useMobilitySurface,
+} from "../../mobility";
+import {
   AttendanceSnackbarProvider,
   useAttendanceSnackbar,
 } from "../../context/AttendanceSnackbarContext";
@@ -46,8 +53,10 @@ export type AiAttendancePanelProps = {
 const AiAttendancePanelInner = ({ context, totalStudents }: AiAttendancePanelProps) => {
   const { user, token } = useAuth();
   const { notify } = useAttendanceSnackbar();
+  const { isMobileCapture, isPhone } = useMobilitySurface();
   const [aiState, setAiState] = useState(createInitialAiAttendanceState);
   const previousStatusRef = useRef(aiState.status);
+  const acquisitionAnchorRef = useRef<HTMLDivElement | null>(null);
 
   const {
     uploadState,
@@ -122,9 +131,76 @@ const AiAttendancePanelInner = ({ context, totalStudents }: AiAttendancePanelPro
     return AIStatus.NotStarted;
   }, [aiState.recognitionQueued, aiState.status]);
 
+  const lastBlur = images.length > 0 ? images[images.length - 1]?.blurScore ?? null : null;
+
+  const scrollToCapture = () => {
+    acquisitionAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const captureBlock = (
+    <Box ref={acquisitionAnchorRef}>
+      <ClassroomPhotoUpload
+        disabled={totalStudents <= 0}
+        uploadState={uploadState}
+        images={images}
+        canAddMore={canAddMore}
+        collectionError={collectionError}
+        sessionId={sessionId ?? aiState.attendanceSessionId}
+        detectedFaces={aiState.detectedFaces}
+        onSelectFile={handleSelectFile}
+        onSelectFiles={handleSelectFiles}
+        onDeleteImage={handleDeleteImage}
+        onDeleteAllImages={handleDeleteAllImages}
+        onReplaceImage={handleReplaceImage}
+        onReorderImages={handleReorderImages}
+        onRetryRecognition={handleRetryRecognition}
+        onRetryImageRecognition={handleRetryImageRecognition}
+        onReset={resetUploadState}
+        onRetry={retryUpload}
+        onNotify={notify}
+        isUploading={isUploading}
+      />
+    </Box>
+  );
+
   return (
-    <Stack spacing={2}>
-      <Card variant="outlined">
+    <Stack spacing={2} sx={{ pb: isPhone ? 12 : 0 }}>
+      {isMobileCapture && (
+        <ClassroomSessionDashboard
+          facultyName={facultyInfo.name}
+          todaysClassesCount={facultyInfo.todaysClasses}
+          current={
+            filtersReady
+              ? {
+                  id: "current",
+                  title: context.subjectName || "Current class",
+                  subtitle: [context.courseName, context.groupName].filter(Boolean).join(" · "),
+                  periodLabel: context.periodNumber ? `Period ${context.periodNumber}` : undefined,
+                  attendanceStatus: aiState.attendanceSessionId ? "Session active" : "Ready",
+                  recognitionStatus: recognitionSessionStatus,
+                  isCurrent: true,
+                }
+              : null
+          }
+          next={null}
+          recent={
+            aiState.attendanceSessionId
+              ? [
+                  {
+                    id: aiState.attendanceSessionId,
+                    title: "Latest AI session",
+                    subtitle: aiState.attendanceSessionId.slice(0, 8),
+                    recognitionStatus: aiState.status,
+                  },
+                ]
+              : []
+          }
+          onQuickStartAi={filtersReady ? scrollToCapture : undefined}
+          quickStartDisabled={!filtersReady || totalStudents <= 0}
+        />
+      )}
+
+      <Card variant="outlined" sx={{ display: isMobileCapture ? { xs: "none", md: "block" } : "block" }}>
         <CardContent sx={{ py: 1.75, "&:last-child": { pb: 1.75 } }}>
           <Stack spacing={1.5}>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
@@ -226,7 +302,7 @@ const AiAttendancePanelInner = ({ context, totalStudents }: AiAttendancePanelPro
             hasFailedImages={images.some((image) => image.status === 4)}
           />
 
-          {images.length > 0 && (
+          {images.length > 0 && !isMobileCapture && (
             <RecognitionCoverageSummary
               images={images}
               detectedFaces={aiState.detectedFaces}
@@ -240,27 +316,48 @@ const AiAttendancePanelInner = ({ context, totalStudents }: AiAttendancePanelPro
             />
           )}
 
-          <ClassroomPhotoUpload
-            disabled={totalStudents <= 0}
-            uploadState={uploadState}
-            images={images}
-            canAddMore={canAddMore}
-            collectionError={collectionError}
-            sessionId={sessionId ?? aiState.attendanceSessionId}
-            detectedFaces={aiState.detectedFaces}
-            onSelectFile={handleSelectFile}
-            onSelectFiles={handleSelectFiles}
-            onDeleteImage={handleDeleteImage}
-            onDeleteAllImages={handleDeleteAllImages}
-            onReplaceImage={handleReplaceImage}
-            onReorderImages={handleReorderImages}
-            onRetryRecognition={handleRetryRecognition}
-            onRetryImageRecognition={handleRetryImageRecognition}
-            onReset={resetUploadState}
-            onRetry={retryUpload}
-            onNotify={notify}
-            isUploading={isUploading}
-          />
+          {isMobileCapture ? (
+            <OneHandedCaptureChrome
+              onCapture={canAddMore && totalStudents > 0 ? scrollToCapture : undefined}
+              captureDisabled={totalStudents <= 0 || !canAddMore || isUploading}
+            >
+              <MobileCaptureLayout
+                title="Mobile Capture Workspace"
+                capture={
+                  <Stack spacing={1.25}>
+                    <SmartCaptureAssistant
+                      dense
+                      hints={{
+                        blurScore: lastBlur,
+                        estimatedFaces: aiState.detectedFaces || null,
+                        lighting: "ok",
+                        stability: "ok",
+                        distance: "ok",
+                        framing: "ok",
+                      }}
+                    />
+                    {captureBlock}
+                  </Stack>
+                }
+                status={
+                  <RecognitionProgressSummary
+                    detectedFaces={aiState.detectedFaces}
+                    matchedFaces={aiState.matchedFaces}
+                    reviewedFaces={aiState.reviewedFaces}
+                    recognitionAccuracy={aiState.recognitionAccuracy ?? null}
+                    status={aiState.status}
+                    imageCount={images.length}
+                    currentOperation={aiState.currentOperation}
+                  />
+                }
+                primaryActionLabel={canAddMore ? "Add / Capture photo" : "Session full"}
+                onPrimaryAction={scrollToCapture}
+                primaryActionDisabled={totalStudents <= 0 || !canAddMore || isUploading}
+              />
+            </OneHandedCaptureChrome>
+          ) : (
+            captureBlock
+          )}
 
           {showErrorPanel && (
             <RecognitionErrorPanel
@@ -303,19 +400,21 @@ const AiAttendancePanelInner = ({ context, totalStudents }: AiAttendancePanelPro
             />
           )}
 
-          {(showProcessingPanel || showReviewSection) && (
+          {(showProcessingPanel || showReviewSection) && !isMobileCapture && (
             <RecognitionActivityPanel entries={activityLog} />
           )}
 
-          <RecognitionProgressSummary
-            detectedFaces={aiState.detectedFaces}
-            matchedFaces={aiState.matchedFaces}
-            reviewedFaces={aiState.reviewedFaces}
-            recognitionAccuracy={aiState.recognitionAccuracy ?? null}
-            status={aiState.status}
-            imageCount={images.length}
-            currentOperation={aiState.currentOperation}
-          />
+          {!isMobileCapture && (
+            <RecognitionProgressSummary
+              detectedFaces={aiState.detectedFaces}
+              matchedFaces={aiState.matchedFaces}
+              reviewedFaces={aiState.reviewedFaces}
+              recognitionAccuracy={aiState.recognitionAccuracy ?? null}
+              status={aiState.status}
+              imageCount={images.length}
+              currentOperation={aiState.currentOperation}
+            />
+          )}
         </Stack>
       )}
     </Stack>

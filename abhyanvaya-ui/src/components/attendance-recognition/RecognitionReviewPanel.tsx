@@ -8,6 +8,7 @@ import type {
   RecognitionSummaryDto,
 } from "../../services/attendanceRecognitionService";
 import type { AttendanceSessionImage } from "../../types/sessionImage";
+import { useMobilitySurface } from "../../mobility";
 import { useThemeManagerOptional } from "../../theme";
 import {
   getRelatedRecognitionIds,
@@ -164,6 +165,7 @@ export function RecognitionReviewPanel({
   onShortcutHelpOpenChange,
 }: RecognitionReviewPanelProps) {
   const themeManager = useThemeManagerOptional();
+  const { isTabletReview, isLandscape } = useMobilitySurface();
   const [photoFlex, setPhotoFlex] = useState(themeManager?.prefs.photoFlex ?? 30);
   const [listFlex, setListFlex] = useState(themeManager?.prefs.listFlex ?? 40);
   const [localHelpOpen, setLocalHelpOpen] = useState(false);
@@ -171,7 +173,10 @@ export function RecognitionReviewPanel({
   const setHelpOpen = onShortcutHelpOpenChange ?? setLocalHelpOpen;
   const dragRef = useRef<"photo-list" | "list-details" | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
-  const filmstripHeight = themeManager?.prefs.filmstripHeight ?? 96;
+  // AI22.7C Phase 1.2 — larger filmstrip thumbnails on tablets (desktop prefs unchanged).
+  const filmstripHeight = isTabletReview
+    ? Math.max(themeManager?.prefs.filmstripHeight ?? 96, 120)
+    : (themeManager?.prefs.filmstripHeight ?? 96);
 
   // AI22.7B 5.5 / 5.8 — persist resizable panel sizes
   useEffect(() => {
@@ -234,7 +239,21 @@ export function RecognitionReviewPanel({
   const detailsFlex = Math.max(18, 100 - photoFlex - listFlex);
 
   return (
-    <Stack spacing={2}>
+    <Stack
+      spacing={2}
+      data-mobility={isTabletReview ? "tablet-review" : "desktop-review"}
+      sx={{
+        // AI22.7C Phase 1.2 — larger touch targets on tablets without desktop redesign.
+        ...(isTabletReview
+          ? {
+              "& .MuiButton-root": { minHeight: 44 },
+              "& .MuiIconButton-root": { minWidth: 44, minHeight: 44 },
+              "& .MuiChip-root": { height: 32 },
+              "& [role='option'], & .MuiCard-root": { minHeight: 56 },
+            }
+          : null),
+      }}
+    >
       <StickyReviewToolbar
         pendingCount={pendingCount}
         totalCount={recognitions.length}
@@ -290,10 +309,15 @@ export function RecognitionReviewPanel({
           alignItems: "stretch",
           minHeight: {
             xs: undefined,
-            md: fullscreen ? "calc(100vh - 140px)" : 560,
+            md: fullscreen
+              ? "calc(100vh - 140px)"
+              : isTabletReview && isLandscape
+                ? "min(70vh, 780px)"
+                : 560,
             lg: fullscreen ? "calc(100vh - 160px)" : 640,
             xl: fullscreen ? "calc(100vh - 160px)" : 720,
           },
+          overscrollBehavior: "contain",
         }}
       >
         <Box sx={{ minWidth: 0, minHeight: 0 }}>
