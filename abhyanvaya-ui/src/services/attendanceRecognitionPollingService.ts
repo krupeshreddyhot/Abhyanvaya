@@ -43,12 +43,16 @@ export class AttendanceRecognitionPollingService {
       return;
     }
 
-    this.stop();
-    this.sessionId = sessionId;
-    void this.pollOnce();
-    this.timerId = setInterval(() => {
-      void this.pollOnce();
-    }, POLL_INTERVAL_MS);
+    this.beginPolling(sessionId);
+  }
+
+  /**
+   * Force-restart polling for a session (e.g. after Retry Recognition).
+   * Required because polling stops on terminal Failed/Cancelled and will not
+   * resume for the same sessionId via {@link start} alone.
+   */
+  restart(sessionId: string): void {
+    this.beginPolling(sessionId);
   }
 
   stop(): void {
@@ -59,6 +63,15 @@ export class AttendanceRecognitionPollingService {
 
     this.sessionId = null;
     this.inFlight = false;
+  }
+
+  private beginPolling(sessionId: string): void {
+    this.stop();
+    this.sessionId = sessionId;
+    void this.pollOnce();
+    this.timerId = setInterval(() => {
+      void this.pollOnce();
+    }, POLL_INTERVAL_MS);
   }
 
   dispose(): void {

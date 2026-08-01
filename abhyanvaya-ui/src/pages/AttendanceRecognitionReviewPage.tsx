@@ -1,5 +1,5 @@
 import axios from "axios";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Alert,
@@ -20,6 +20,7 @@ import {
   RejectReasonDialog,
 } from "../components/attendance-recognition";
 import { useRecognitionReviewKeyboard } from "../hooks/useRecognitionReviewKeyboard";
+import { useReviewUndoRedo } from "../hooks/useReviewUndoRedo";
 import {
   finalizeAttendanceSession,
   getAttendanceSession,
@@ -41,11 +42,31 @@ import {
   type RecognitionSummaryDto,
   type AttendanceRecognitionReviewHistoryDto,
 } from "../services/attendanceRecognitionService";
+import { useReviewFullscreen } from "../context/ReviewFullscreenContext";
+import { listClassroomImages, reorderClassroomImages } from "../services/attendanceSessionService";
+import type { AttendanceSessionImage } from "../types/sessionImage";
+import { mediaAssetUrl } from "../utils/mediaAssetUrl";
 import {
   filterRecognitions,
   type RecognitionReviewFilter,
 } from "../utils/recognitionReviewFilters";
 import { isPendingReview } from "../utils/recognitionStatus";
+import {
+  buildReviewAnalytics,
+  buildSessionProductivity,
+} from "../utils/reviewAnalytics";
+import {
+  getLastImageSequence,
+  loadReviewWorkspacePrefs,
+  saveReviewWorkspacePrefs,
+  setLastImageSequence,
+} from "../utils/reviewWorkspacePrefs";
+import {
+  applySmartQueue,
+  countBySmartCategory,
+  estimateReviewMinutesRemaining,
+  type SmartQueueCategory,
+} from "../utils/smartReviewQueue";
 
 const SESSION_APPROVED_STATUS = 4;
 
@@ -70,6 +91,13 @@ function errMsg(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function formatElapsed(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 type RejectTarget = {
   recognitionIds: string[];
   batch: boolean;
@@ -78,9 +106,13 @@ type RejectTarget = {
 const AttendanceRecognitionReviewPage = () => {
   const { sessionId = "" } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const { fullscreen, setFullscreen, toggleFullscreen } = useReviewFullscreen();
+  const initialPrefs = useMemo(() => loadReviewWorkspacePrefs(), []);
 
   const [session, setSession] = useState<AttendanceSessionReviewDto | null>(null);
   const [recognitions, setRecognitions] = useState<AttendanceRecognitionReviewDto[]>([]);
+  const [sessionImages, setSessionImages] = useState<AttendanceSessionImage[]>([]);
+  const [activeImageSequence, setActiveImageSequence] = useState(1);
   const [summary, setSummary] = useState<RecognitionSummaryDto | null>(null);
   const [finalizationStatus, setFinalizationStatus] = useState<FinalizationStatusDto | null>(null);
   const [history, setHistory] = useState<AttendanceRecognitionReviewHistoryDto[]>([]);
@@ -90,8 +122,15 @@ const AttendanceRecognitionReviewPage = () => {
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState<Set<RecognitionReviewFilter>>(new Set());
   const [searchText, setSearchText] = useState("");
+  const [hideHighConfidence, setHideHighConfidence] = useState(false);
   const [assignRecognitionId, setAssignRecognitionId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<RejectTarget | null>(null);
+  const [heatMapEnabled, setHeatMapEnabled] = useState(initialPrefs.heatMapEnabled);
+  const [heatMapOpacity, setHeatMapOpacity] = useState(initialPrefs.heatMapOpacity);
+  const [miniMapVisible, setMiniMapVisible] = useState(initialPrefs.miniMapVisible);
+  const [smartQueueCategory, setSmartQueueCategory] = useState<SmartQueueCategory | "all">("all");
+  const [smartQueueOnlyPending, setSmartQueueOnlyPending] = useState(initialPrefs.smartQueueOnlyPending);
+  const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -101,13 +140,120 @@ const AttendanceRecognitionReviewPage = () => {
   const [finalizeResult, setFinalizeResult] = useState<AttendanceBuildSummaryDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const sessionStartedAt = useRef(Date.now());
+  const reviewActionTimes = useRef<number[]>([]);
+  const reviewTicks = useRef(0);
+  const [, setReviewTicks] = useState(0);
+  const undoRedo = useReviewUndoRedo();
+  const pushUndo = undoRedo.pushAction;
 
   const isApproved = session?.status === SESSION_APPROVED_STATUS;
 
-  const filteredRecognitions = useMemo(
-    () => filterRecognitions(recognitions, activeFilters, searchText),
-    [recognitions, activeFilters, searchText]
+  const filteredRecognitions = useMemo(() => {
+    const base = filterRecognitions(recognitions, activeFilters, searchText, {
+      hideHighConfidence,
+    });
+    return applySmartQueue(base, {
+      category: smartQueueCategory,
+      onlyPending: smartQueueOnlyPending,
+      collapseApproved: smartQueueOnlyPending,
+    });
+  }, [
+    recognitions,
+    activeFilters,
+    searchText,
+    hideHighConfidence,
+    smartQueueCategory,
+    smartQueueOnlyPending,
+  ]);
+
+  const smartQueueCounts = useMemo(() => countBySmartCategory(recognitions), [recognitions]);
+  const smartQueuePendingCount = useMemo(
+    () => recognitions.filter((row) => isPendingReview(row.status, row.verifiedByTeacher)).length,
+    [recognitions],
   );
+
+  const averageDecisionMs = useMemo(() => {
+    const samples = reviewActionTimes.current;
+    if (samples.length < 2) {
+      return 12_000;
+    }
+    let total = 0;
+    for (let i = 1; i < samples.length; i += 1) {
+      total += samples[i] - samples[i - 1];
+    }
+    return total / (samples.length - 1);
+  }, [reviewTicks]);
+
+  const analytics = useMemo(
+    () =>
+      buildReviewAnalytics({
+        imageCount: sessionImages.length || (session?.originalImageUrl ? 1 : 0),
+        recognitions,
+        statistics: summary?.statistics ?? null,
+        elapsedMs,
+        averageDecisionMs,
+        pendingCount: smartQueuePendingCount,
+      }),
+    [
+      sessionImages.length,
+      session?.originalImageUrl,
+      recognitions,
+      summary?.statistics,
+      elapsedMs,
+      averageDecisionMs,
+      smartQueuePendingCount,
+    ],
+  );
+
+  const productivity = useMemo(
+    () =>
+      buildSessionProductivity({
+        elapsedMs,
+        recognitions,
+        decisionTimesMs: reviewActionTimes.current,
+        pendingCount: smartQueuePendingCount,
+      }),
+    [elapsedMs, recognitions, smartQueuePendingCount, reviewTicks],
+  );
+
+  useEffect(() => {
+    sessionStartedAt.current = Date.now();
+    const timer = window.setInterval(() => {
+      setElapsedMs(Date.now() - sessionStartedAt.current);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [sessionId]);
+
+  useEffect(() => {
+    // Restore remembered fullscreen preference for this workspace.
+    setFullscreen(initialPrefs.fullscreen);
+    return () => setFullscreen(false);
+  }, [initialPrefs.fullscreen, setFullscreen]);
+
+  useEffect(() => {
+    saveReviewWorkspacePrefs({
+      fullscreen,
+      heatMapEnabled,
+      heatMapOpacity,
+      miniMapVisible,
+      smartQueueOnlyPending,
+    });
+  }, [fullscreen, heatMapEnabled, heatMapOpacity, miniMapVisible, smartQueueOnlyPending]);
+
+  const averageReviewLabel = useMemo(() => {
+    const samples = reviewActionTimes.current;
+    if (samples.length < 2) {
+      return "—";
+    }
+    let total = 0;
+    for (let i = 1; i < samples.length; i += 1) {
+      total += samples[i] - samples[i - 1];
+    }
+    const avg = total / (samples.length - 1);
+    return formatElapsed(avg);
+  }, [reviewTicks, history.length]);
 
   const refreshSummary = useCallback(async () => {
     if (!sessionId) {
@@ -134,7 +280,7 @@ const AttendanceRecognitionReviewPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const [sessionRes, recognitionsRes, summaryRes, historyRes, finalizationRes, auditRes] =
+      const [sessionRes, recognitionsRes, summaryRes, historyRes, finalizationRes, auditRes, images] =
         await Promise.all([
           getAttendanceSession(sessionId),
           getSessionRecognitions(sessionId),
@@ -142,20 +288,41 @@ const AttendanceRecognitionReviewPage = () => {
           getSessionReviewHistory(sessionId),
           getFinalizationStatus(sessionId),
           getSessionAuditEntries(sessionId),
+          listClassroomImages(sessionId).catch(() => [] as AttendanceSessionImage[]),
         ]);
       setSession(sessionRes.data);
       setRecognitions(recognitionsRes.data);
+      setSessionImages(images);
       setSummary(summaryRes.data);
       setHistory(historyRes.data);
       setFinalizationStatus(finalizationRes.data);
       setAuditEntries(auditRes.data);
       setNotesById(
         Object.fromEntries(
-          recognitionsRes.data.map((row) => [row.recognitionId, row.reviewNotes ?? ""])
-        )
+          recognitionsRes.data.map((row) => [row.recognitionId, row.reviewNotes ?? ""]),
+        ),
       );
       setSelectedIds(new Set());
-      setFocusedId(recognitionsRes.data[0]?.recognitionId ?? null);
+      const remembered = getLastImageSequence(sessionId);
+      const first = recognitionsRes.data[0];
+      const initialSequence =
+        remembered ??
+        first?.imageSequence ??
+        images[0]?.imageSequence ??
+        1;
+      setActiveImageSequence(initialSequence);
+      const focusForImage =
+        recognitionsRes.data.find((row) => (row.imageSequence ?? 1) === initialSequence) ?? first;
+      setFocusedId(focusForImage?.recognitionId ?? null);
+
+      // Phase 4.1 — warm image cache for smooth navigator switches
+      for (const image of images) {
+        const url = mediaAssetUrl(image.imageUrl);
+        if (url) {
+          const preload = new Image();
+          preload.src = url;
+        }
+      }
     } catch (loadError) {
       setError(errMsg(loadError, "Failed to load attendance recognition review."));
     } finally {
@@ -172,7 +339,7 @@ const AttendanceRecognitionReviewPage = () => {
       recognitions
         .filter((row) => isPendingReview(row.status, row.verifiedByTeacher))
         .map((row) => row.recognitionId),
-    [recognitions]
+    [recognitions],
   );
 
   const selectedOrPending = useMemo(() => {
@@ -185,7 +352,7 @@ const AttendanceRecognitionReviewPage = () => {
 
   const updateRecognition = useCallback((updated: AttendanceRecognitionReviewDto) => {
     setRecognitions((current) =>
-      current.map((row) => (row.recognitionId === updated.recognitionId ? updated : row))
+      current.map((row) => (row.recognitionId === updated.recognitionId ? updated : row)),
     );
     setNotesById((current) => ({
       ...current,
@@ -197,14 +364,20 @@ const AttendanceRecognitionReviewPage = () => {
     (row: AttendanceRecognitionReviewDto, updated: Parameters<typeof mergeReviewUpdate>[1]) => {
       updateRecognition(mergeReviewUpdate(row, updated));
     },
-    [updateRecognition]
+    [updateRecognition],
   );
+
+  const markReviewTiming = useCallback(() => {
+    reviewActionTimes.current = [...reviewActionTimes.current, Date.now()].slice(-40);
+    reviewTicks.current += 1;
+    setReviewTicks(reviewTicks.current);
+  }, []);
 
   const runSingleAction = useCallback(
     async (
       recognitionId: string,
       action: RecognitionReviewActionValue,
-      options?: { studentId?: number; reviewNotes?: string | null }
+      options?: { studentId?: number; reviewNotes?: string | null; trackUndo?: boolean },
     ): Promise<boolean> => {
       const row = recognitions.find((item) => item.recognitionId === recognitionId);
       if (!row) {
@@ -226,7 +399,16 @@ const AttendanceRecognitionReviewPage = () => {
           studentId: options?.studentId,
           reviewNotes,
         });
+        if (options?.trackUndo !== false && action !== RecognitionReviewAction.Reset) {
+          pushUndo({
+            recognitionId,
+            action,
+            previous: row,
+            redoStudentId: options?.studentId,
+          });
+        }
         applyMutation(row, response.data);
+        markReviewTiming();
         await refreshSummary();
         setMessage("Recognition updated.");
         return true;
@@ -237,7 +419,7 @@ const AttendanceRecognitionReviewPage = () => {
         setActionLoading(false);
       }
     },
-    [applyMutation, notesById, recognitions, refreshSummary]
+    [applyMutation, markReviewTiming, notesById, pushUndo, recognitions, refreshSummary],
   );
 
   const runBatchAction = useCallback(
@@ -267,16 +449,17 @@ const AttendanceRecognitionReviewPage = () => {
           current.map((row) => {
             const updated = updatedById.get(row.recognitionId);
             return updated ? mergeReviewUpdate(row, updated) : row;
-          })
+          }),
         );
         setSelectedIds(new Set());
+        markReviewTiming();
         await refreshSummary();
         setMessage(
           action === RecognitionReviewAction.Approve
             ? "Batch approve completed."
             : action === RecognitionReviewAction.Reject
               ? "Batch reject completed."
-              : "Batch mark unknown completed."
+              : "Batch mark unknown completed.",
         );
       } catch (batchError) {
         setError(errMsg(batchError, "Batch review failed."));
@@ -284,7 +467,7 @@ const AttendanceRecognitionReviewPage = () => {
         setActionLoading(false);
       }
     },
-    [notesById, refreshSummary, selectedOrPending, sessionId]
+    [markReviewTiming, notesById, refreshSummary, selectedOrPending, sessionId],
   );
 
   const openRejectDialog = useCallback((recognitionIds: string[], batch: boolean) => {
@@ -313,7 +496,7 @@ const AttendanceRecognitionReviewPage = () => {
         });
       }
     },
-    [rejectTarget, runBatchAction, runSingleAction]
+    [rejectTarget, runBatchAction, runSingleAction],
   );
 
   const handleKeyboardAction = useCallback(
@@ -325,13 +508,142 @@ const AttendanceRecognitionReviewPage = () => {
 
       void runSingleAction(recognitionId, action);
     },
-    [openRejectDialog, runSingleAction]
+    [openRejectDialog, runSingleAction],
   );
+
+  const handleActiveImageSequenceChange = useCallback(
+    (sequence: number) => {
+      setActiveImageSequence(sequence);
+      setLastImageSequence(sessionId, sequence);
+      const firstOnImage = recognitions.find((row) => (row.imageSequence ?? 1) === sequence);
+      if (firstOnImage) {
+        setFocusedId(firstOnImage.recognitionId);
+      }
+    },
+    [recognitions, sessionId],
+  );
+
+  const handleReorderImages = useCallback(
+    async (orderedIds: string[]) => {
+      if (!sessionId || orderedIds.length === 0) {
+        return;
+      }
+      try {
+        const listed = await reorderClassroomImages(sessionId, orderedIds);
+        setSessionImages(listed);
+        setMessage("Classroom images reordered.");
+      } catch (reorderError) {
+        setError(errMsg(reorderError, "Failed to reorder classroom images."));
+      }
+    },
+    [sessionId],
+  );
+
+  const focusRecognition = useCallback(
+    (recognitionId: string) => {
+      setFocusedId(recognitionId);
+      const row = recognitions.find((item) => item.recognitionId === recognitionId);
+      if (row) {
+        const sequence = row.imageSequence ?? 1;
+        setActiveImageSequence(sequence);
+        setLastImageSequence(sessionId, sequence);
+      }
+    },
+    [recognitions, sessionId],
+  );
+
+  const focusAdjacent = useCallback(
+    (delta: number) => {
+      if (filteredRecognitions.length === 0) {
+        return;
+      }
+      const index = filteredRecognitions.findIndex((row) => row.recognitionId === focusedId);
+      const nextIndex =
+        index < 0
+          ? 0
+          : Math.min(filteredRecognitions.length - 1, Math.max(0, index + delta));
+      const next = filteredRecognitions[nextIndex];
+      if (next) {
+        focusRecognition(next.recognitionId);
+      }
+    },
+    [filteredRecognitions, focusedId, focusRecognition],
+  );
+
+  const focusAdjacentImage = useCallback(
+    (delta: number) => {
+      const ordered = [...sessionImages].sort((a, b) => a.imageSequence - b.imageSequence);
+      if (ordered.length === 0) {
+        return;
+      }
+      const index = ordered.findIndex((image) => image.imageSequence === activeImageSequence);
+      const nextIndex =
+        index < 0
+          ? 0
+          : Math.min(ordered.length - 1, Math.max(0, index + delta));
+      const next = ordered[nextIndex];
+      if (next) {
+        handleActiveImageSequenceChange(next.imageSequence);
+      }
+    },
+    [activeImageSequence, handleActiveImageSequenceChange, sessionImages],
+  );
+
+  const handleUndo = useCallback(async () => {
+    const entry = undoRedo.popUndo();
+    if (!entry) {
+      return;
+    }
+    const ok = await runSingleAction(entry.recognitionId, RecognitionReviewAction.Reset, {
+      trackUndo: false,
+    });
+    if (ok) {
+      undoRedo.commitUndo(entry);
+      setMessage("Undid last review action.");
+    } else {
+      undoRedo.commitRedo(entry);
+    }
+  }, [runSingleAction, undoRedo]);
+
+  const handleRedo = useCallback(async () => {
+    const entry = undoRedo.popRedo();
+    if (!entry) {
+      return;
+    }
+    const ok = await runSingleAction(entry.recognitionId, entry.action, {
+      studentId: entry.redoStudentId,
+      trackUndo: false,
+    });
+    if (ok) {
+      undoRedo.commitRedo(entry);
+      setMessage("Redid review action.");
+    } else {
+      undoRedo.commitUndo(entry);
+    }
+  }, [runSingleAction, undoRedo]);
 
   useRecognitionReviewKeyboard({
     focusedId,
     disabled: actionLoading || isApproved || rejectTarget != null,
     onAction: handleKeyboardAction,
+    onNext: () => focusAdjacent(1),
+    onPrevious: () => focusAdjacent(-1),
+    onNextImage: () => focusAdjacentImage(1),
+    onPreviousImage: () => focusAdjacentImage(-1),
+    onManualMatch: (recognitionId) => setAssignRecognitionId(recognitionId),
+    onUndo: () => void handleUndo(),
+    onRedo: () => void handleRedo(),
+    onToggleFullscreen: toggleFullscreen,
+    onToggleHeatMap: () => setHeatMapEnabled((current) => !current),
+    onToggleMiniMap: () => setMiniMapVisible((current) => !current),
+    onToggleHelp: () => setShortcutHelpOpen((current) => !current),
+    onExitFullscreen: () => {
+      if (shortcutHelpOpen) {
+        setShortcutHelpOpen(false);
+        return;
+      }
+      setFullscreen(false);
+    },
   });
 
   const handleConfirmFinalize = async () => {
@@ -347,7 +659,7 @@ const AttendanceRecognitionReviewPage = () => {
 
     const progressTimer = window.setInterval(() => {
       setFinalizeProgressIndex((current) =>
-        Math.min(current + 1, FINALIZE_PROGRESS_MESSAGES.length - 1)
+        Math.min(current + 1, FINALIZE_PROGRESS_MESSAGES.length - 1),
       );
     }, 700);
 
@@ -397,10 +709,6 @@ const AttendanceRecognitionReviewPage = () => {
     });
   };
 
-  const focusRecognition = (recognitionId: string) => {
-    setFocusedId(recognitionId);
-  };
-
   const canFinalize = finalizationStatus?.canFinalize ?? false;
   const finalizeBlockers = finalizationStatus?.blockingReasons ?? [];
   const finalizeTooltip =
@@ -424,80 +732,87 @@ const AttendanceRecognitionReviewPage = () => {
 
   return (
     <Stack spacing={2} role="main" aria-label="Attendance recognition review">
-      <Stack
-        direction={{ xs: "column", md: "row" }}
-        spacing={1}
-        sx={{
-          justifyContent: "space-between",
-          alignItems: { xs: "stretch", md: "center" },
-        }}
-      >
-        <Box>
-          <Typography variant="h4" component="h1">
-            Recognition review
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Session {sessionId}
-            {session?.attendanceDate
-              ? ` · ${new Date(session.attendanceDate).toLocaleDateString()}`
-              : ""}
-          </Typography>
-        </Box>
+      {!fullscreen && (
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={1}
+          sx={{
+            justifyContent: "space-between",
+            alignItems: { xs: "stretch", md: "center" },
+          }}
+        >
+          <Box>
+            <Typography variant="h4" component="h1">
+              Recognition review
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Session {sessionId}
+              {session?.attendanceDate
+                ? ` · ${new Date(session.attendanceDate).toLocaleDateString()}`
+                : ""}
+            </Typography>
+          </Box>
 
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} role="toolbar" aria-label="Batch review actions">
-          <Button
-            variant="outlined"
-            disabled={actionLoading || isApproved || selectedOrPending.length === 0}
-            onClick={() => void runBatchAction(RecognitionReviewAction.Approve)}
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+            role="toolbar"
+            aria-label="Batch review actions"
           >
-            Approve selected
-          </Button>
-          <Button
-            variant="outlined"
-            color="error"
-            disabled={actionLoading || isApproved || selectedOrPending.length === 0}
-            onClick={() =>
-              openRejectDialog(
-                selectedOrPending.map((row) => row.recognitionId),
-                true
-              )
-            }
-          >
-            Reject selected
-          </Button>
-          <Button
-            variant="outlined"
-            disabled={actionLoading || isApproved || selectedOrPending.length === 0}
-            onClick={() => void runBatchAction(RecognitionReviewAction.Ignore)}
-          >
-            Mark unknown
-          </Button>
-          <Tooltip title={finalizeTooltip}>
-            <span>
-              <Button
-                variant="contained"
-                color="success"
-                disabled={finalizing || isApproved || !canFinalize}
-                onClick={() => setFinalizeDialogOpen(true)}
-                aria-describedby={finalizeBlockers.length > 0 ? "finalize-blockers" : undefined}
-              >
-                Finalize attendance
-              </Button>
-            </span>
-          </Tooltip>
+            <Button
+              variant="outlined"
+              disabled={actionLoading || isApproved || selectedOrPending.length === 0}
+              onClick={() => void runBatchAction(RecognitionReviewAction.Approve)}
+            >
+              Approve selected
+            </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              disabled={actionLoading || isApproved || selectedOrPending.length === 0}
+              onClick={() =>
+                openRejectDialog(
+                  selectedOrPending.map((row) => row.recognitionId),
+                  true,
+                )
+              }
+            >
+              Reject selected
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={actionLoading || isApproved || selectedOrPending.length === 0}
+              onClick={() => void runBatchAction(RecognitionReviewAction.Ignore)}
+            >
+              Mark unknown
+            </Button>
+            <Tooltip title={finalizeTooltip}>
+              <span>
+                <Button
+                  variant="contained"
+                  color="success"
+                  disabled={finalizing || isApproved || !canFinalize}
+                  onClick={() => setFinalizeDialogOpen(true)}
+                  aria-describedby={finalizeBlockers.length > 0 ? "finalize-blockers" : undefined}
+                >
+                  Finalize attendance
+                </Button>
+              </span>
+            </Tooltip>
+          </Stack>
         </Stack>
-      </Stack>
+      )}
 
-      {isApproved && (
+      {isApproved && !fullscreen && (
         <Alert severity="info">This session is approved. Review actions are read-only.</Alert>
       )}
-      {!canFinalize && finalizeBlockers.length > 0 && !isApproved && (
+      {!canFinalize && finalizeBlockers.length > 0 && !isApproved && !fullscreen && (
         <Alert severity="warning" id="finalize-blockers">
           {finalizeBlockers.join(" ")}
         </Alert>
       )}
       {error && <Alert severity="error">{error}</Alert>}
-      {message && <Alert severity="success">{message}</Alert>}
+      {message && !fullscreen && <Alert severity="success">{message}</Alert>}
 
       {finalizing && (
         <Paper variant="outlined" sx={{ p: 2 }} aria-live="polite">
@@ -521,40 +836,94 @@ const AttendanceRecognitionReviewPage = () => {
       )}
 
       <Box sx={{ opacity: finalizing ? 0.6 : 1, pointerEvents: finalizing ? "none" : "auto" }}>
-        <FinalizationSummaryCard status={finalizationStatus} />
+        {!fullscreen && <FinalizationSummaryCard status={finalizationStatus} />}
 
         <RecognitionReviewPanel
-        session={session}
-        summary={summary}
-        recognitions={recognitions}
-        filteredRecognitions={filteredRecognitions}
-        history={history}
-        auditEntries={auditEntries}
-        focusedId={focusedId}
-        selectedIds={selectedIds}
-        activeFilters={activeFilters}
-        searchText={searchText}
-        notesById={notesById}
-        isApproved={isApproved}
-        actionLoading={actionLoading}
-        pendingCount={pendingIds.length}
-        selectedCount={selectedIds.size}
-        allPendingSelected={pendingIds.length > 0 && selectedIds.size === pendingIds.length}
-        somePendingSelected={selectedIds.size > 0}
-        onSearchChange={setSearchText}
-        onToggleFilter={toggleFilter}
-        onClearFilters={() => setActiveFilters(new Set())}
-        onToggleSelectAllPending={toggleSelectAllPending}
-        onFocusRecognition={focusRecognition}
-        onToggleSelected={toggleSelected}
-        onNotesChange={(recognitionId, notes) =>
-          setNotesById((current) => ({ ...current, [recognitionId]: notes }))
-        }
-        onApprove={(recognitionId) => void runSingleAction(recognitionId, RecognitionReviewAction.Approve)}
-        onReject={(recognitionId) => openRejectDialog([recognitionId], false)}
-        onIgnore={(recognitionId) => void runSingleAction(recognitionId, RecognitionReviewAction.Ignore)}
-        onAssign={(recognitionId) => setAssignRecognitionId(recognitionId)}
-      />
+          session={session}
+          summary={summary}
+          recognitions={recognitions}
+          filteredRecognitions={filteredRecognitions}
+          history={history}
+          auditEntries={auditEntries}
+          sessionImages={sessionImages}
+          activeImageSequence={activeImageSequence}
+          onActiveImageSequenceChange={handleActiveImageSequenceChange}
+          onReorderImages={(orderedIds) => void handleReorderImages(orderedIds)}
+          focusedId={focusedId}
+          selectedIds={selectedIds}
+          activeFilters={activeFilters}
+          searchText={searchText}
+          hideHighConfidence={hideHighConfidence}
+          notesById={notesById}
+          isApproved={isApproved}
+          actionLoading={actionLoading}
+          pendingCount={pendingIds.length}
+          selectedCount={selectedIds.size}
+          allPendingSelected={pendingIds.length > 0 && selectedIds.size === pendingIds.length}
+          somePendingSelected={selectedIds.size > 0}
+          sessionElapsedLabel={formatElapsed(elapsedMs)}
+          averageReviewLabel={averageReviewLabel}
+          remainingLabel={`${pendingIds.length} · ~${estimateReviewMinutesRemaining(smartQueuePendingCount, averageDecisionMs)}m`}
+          canUndo={undoRedo.canUndo}
+          canRedo={undoRedo.canRedo}
+          fullscreen={fullscreen}
+          heatMapEnabled={heatMapEnabled}
+          heatMapOpacity={heatMapOpacity}
+          miniMapVisible={miniMapVisible}
+          smartQueueCategory={smartQueueCategory}
+          smartQueueOnlyPending={smartQueueOnlyPending}
+          smartQueueCounts={smartQueueCounts}
+          smartQueuePendingCount={smartQueuePendingCount}
+          smartQueueEstimatedMinutes={estimateReviewMinutesRemaining(
+            smartQueuePendingCount,
+            averageDecisionMs,
+          )}
+          analytics={analytics}
+          productivity={productivity}
+          onSearchChange={setSearchText}
+          onToggleFilter={toggleFilter}
+          onClearFilters={() => setActiveFilters(new Set())}
+          onHideHighConfidenceChange={setHideHighConfidence}
+          onToggleSelectAllPending={toggleSelectAllPending}
+          onFocusRecognition={focusRecognition}
+          onToggleSelected={toggleSelected}
+          onNotesChange={(recognitionId, notes) =>
+            setNotesById((current) => ({ ...current, [recognitionId]: notes }))
+          }
+          onApprove={(recognitionId) =>
+            void runSingleAction(recognitionId, RecognitionReviewAction.Approve)
+          }
+          onReject={(recognitionId) => openRejectDialog([recognitionId], false)}
+          onIgnore={(recognitionId) =>
+            void runSingleAction(recognitionId, RecognitionReviewAction.Ignore)
+          }
+          onAssign={(recognitionId) => setAssignRecognitionId(recognitionId)}
+          onApproveSelected={() => void runBatchAction(RecognitionReviewAction.Approve)}
+          onRejectSelected={() =>
+            openRejectDialog(
+              selectedIds.size > 0
+                ? [...selectedIds]
+                : selectedOrPending.map((row) => row.recognitionId),
+              true,
+            )
+          }
+          onManualMatchSelected={() => {
+            const only = [...selectedIds][0];
+            if (only) {
+              setAssignRecognitionId(only);
+            }
+          }}
+          onMarkUnknownSelected={() => void runBatchAction(RecognitionReviewAction.Ignore)}
+          onUndo={() => void handleUndo()}
+          onRedo={() => void handleRedo()}
+          onToggleFullscreen={toggleFullscreen}
+          onHeatMapEnabledChange={setHeatMapEnabled}
+          onHeatMapOpacityChange={setHeatMapOpacity}
+          onSmartQueueCategoryChange={setSmartQueueCategory}
+          onSmartQueueOnlyPendingChange={setSmartQueueOnlyPending}
+          shortcutHelpOpen={shortcutHelpOpen}
+          onShortcutHelpOpenChange={setShortcutHelpOpen}
+        />
       </Box>
 
       <AssignStudentDialog
@@ -568,7 +937,7 @@ const AttendanceRecognitionReviewPage = () => {
           const ok = await runSingleAction(
             assignRecognitionId,
             RecognitionReviewAction.AssignStudent,
-            { studentId }
+            { studentId },
           );
           if (!ok) {
             throw new Error("Assign failed");

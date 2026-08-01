@@ -35,6 +35,10 @@ import { useAuth } from "../context/AuthContext";
 import { useEffect } from "react";
 import { getHeaderInfo, type HeaderInfo } from "../services/uiService";
 import { brandingAssetUrl } from "../utils/brandingUrl";
+import {
+  ReviewFullscreenProvider,
+  useReviewFullscreen,
+} from "../context/ReviewFullscreenContext";
 
 const drawerWidth = 240;
 
@@ -58,10 +62,11 @@ type MenuItem = {
   accent?: "ai";
 };
 
-const MainLayout = () => {
+const MainLayoutChrome = () => {
   const { logout, user, hasPermission, hasAnyPermission } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { fullscreen } = useReviewFullscreen();
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -194,6 +199,7 @@ const MainLayout = () => {
     <Box sx={{ display: "flex", width: "100%", minWidth: 0, minHeight: "100vh", boxSizing: "border-box" }}>
       <CssBaseline />
 
+      {!fullscreen && (
       <AppBar
         position="fixed"
         sx={{
@@ -279,7 +285,9 @@ const MainLayout = () => {
           </Box>
         </Toolbar>
       </AppBar>
+      )}
 
+      {!fullscreen && (
       <Drawer
         variant={isMobile ? "temporary" : "permanent"}
         open={isMobile ? mobileOpen : true}
@@ -396,6 +404,7 @@ const MainLayout = () => {
           })}
         </List>
       </Drawer>
+      )}
 
       <Box
         component="main"
@@ -404,14 +413,18 @@ const MainLayout = () => {
           width: "100%",
           minWidth: 0,
           maxWidth: "100%",
-          p: 2,
-          pt: 10,
+          p: fullscreen ? 1 : 2,
+          pt: fullscreen ? 1 : 10,
+          pb: fullscreen ? 1 : 6,
           boxSizing: "border-box",
+          minHeight: fullscreen ? "100vh" : undefined,
+          bgcolor: fullscreen ? "background.default" : undefined,
         }}
       >
         <Outlet />
       </Box>
 
+      {!fullscreen && (
       <Box
         sx={{
           position: "fixed",
@@ -425,8 +438,15 @@ const MainLayout = () => {
       >
         <Typography variant="body2">© Abhyanvaya 2026 - All Rights Reserved</Typography>
       </Box>
+      )}
     </Box>
   );
 };
+
+const MainLayout = () => (
+  <ReviewFullscreenProvider>
+    <MainLayoutChrome />
+  </ReviewFullscreenProvider>
+);
 
 export default MainLayout;

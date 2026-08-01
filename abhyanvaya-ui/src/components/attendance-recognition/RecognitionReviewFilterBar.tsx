@@ -12,6 +12,7 @@ import {
   RECOGNITION_REVIEW_FILTERS,
   type RecognitionReviewFilter,
 } from "../../utils/recognitionReviewFilters";
+import { ConfidenceLegend } from "./ConfidenceLegend";
 
 type RecognitionReviewFilterBarProps = {
   searchText: string;
@@ -19,6 +20,8 @@ type RecognitionReviewFilterBarProps = {
   activeFilters: Set<RecognitionReviewFilter>;
   onToggleFilter: (filter: RecognitionReviewFilter) => void;
   onClearFilters: () => void;
+  hideHighConfidence: boolean;
+  onHideHighConfidenceChange: (value: boolean) => void;
   totalCount: number;
   filteredCount: number;
   pendingCount: number;
@@ -35,6 +38,8 @@ export function RecognitionReviewFilterBar({
   activeFilters,
   onToggleFilter,
   onClearFilters,
+  hideHighConfidence,
+  onHideHighConfidenceChange,
   totalCount,
   filteredCount,
   pendingCount,
@@ -44,6 +49,11 @@ export function RecognitionReviewFilterBar({
   selectionDisabled,
   onToggleSelectAllPending,
 }: RecognitionReviewFilterBarProps) {
+  const statusFilters = RECOGNITION_REVIEW_FILTERS.filter(
+    (f) => f.group === "status" || f.group === "legacy",
+  );
+  const confidenceFilters = RECOGNITION_REVIEW_FILTERS.filter((f) => f.group === "confidence");
+
   return (
     <Stack spacing={1.5}>
       <Stack
@@ -78,16 +88,20 @@ export function RecognitionReviewFilterBar({
 
       <TextField
         size="small"
-        label="Search student number or name"
+        label="Search name, roll, or student number"
         value={searchText}
         onChange={(event) => onSearchChange(event.target.value)}
         fullWidth
-        slotProps={{ htmlInput: { "aria-label": "Search recognitions by student number or name" } }}
+        slotProps={{
+          htmlInput: {
+            "aria-label": "Search recognitions by name, roll number, or student number",
+          },
+        }}
       />
 
       <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.75, alignItems: "center" }}>
         <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
-          Filter:
+          Status:
         </Typography>
         <Chip
           label="All"
@@ -97,7 +111,7 @@ export function RecognitionReviewFilterBar({
           variant={activeFilters.size === 0 ? "filled" : "outlined"}
           onClick={onClearFilters}
         />
-        {RECOGNITION_REVIEW_FILTERS.map((filter) => (
+        {statusFilters.map((filter) => (
           <Chip
             key={filter.id}
             label={filter.label}
@@ -108,6 +122,34 @@ export function RecognitionReviewFilterBar({
             onClick={() => onToggleFilter(filter.id)}
           />
         ))}
+      </Stack>
+
+      <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.75, alignItems: "center" }}>
+        <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+          Confidence:
+        </Typography>
+        {confidenceFilters.map((filter) => (
+          <Chip
+            key={filter.id}
+            label={filter.label}
+            size="small"
+            clickable
+            color={activeFilters.has(filter.id) ? "secondary" : "default"}
+            variant={activeFilters.has(filter.id) ? "filled" : "outlined"}
+            onClick={() => onToggleFilter(filter.id)}
+          />
+        ))}
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={hideHighConfidence}
+              onChange={(event) => onHideHighConfidenceChange(event.target.checked)}
+              size="small"
+              slotProps={{ input: { "aria-label": "Hide high confidence matches" } }}
+            />
+          }
+          label={<Typography variant="caption">Hide high confidence</Typography>}
+        />
         {activeFilters.size > 0 && (
           <Button size="small" onClick={onClearFilters}>
             Clear filters
@@ -115,8 +157,10 @@ export function RecognitionReviewFilterBar({
         )}
       </Stack>
 
+      <ConfidenceLegend />
+
       <Typography variant="caption" color="text.secondary">
-        Keyboard: A Approve · R Reject · I Mark unknown (focused face)
+        Keyboard: A Approve · R/Del Reject · N Next · P Previous · M Manual match
       </Typography>
     </Stack>
   );

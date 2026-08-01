@@ -266,8 +266,15 @@ const AiAttendancePanelInner = ({ context, totalStudents }: AiAttendancePanelPro
             <RecognitionErrorPanel
               errorCode={aiState.errorCode}
               processingError={aiState.processingError}
-              onRetry={retryUpload}
-              retryDisabled={isUploading || (images.length === 0 && !uploadState.selectedFile)}
+              onRetry={
+                images.length > 0
+                  ? () => void handleRetryRecognition()
+                  : retryUpload
+              }
+              retryDisabled={
+                isUploading ||
+                (images.length === 0 && !uploadState.selectedFile)
+              }
             />
           )}
 
@@ -306,6 +313,8 @@ const AiAttendancePanelInner = ({ context, totalStudents }: AiAttendancePanelPro
             reviewedFaces={aiState.reviewedFaces}
             recognitionAccuracy={aiState.recognitionAccuracy ?? null}
             status={aiState.status}
+            imageCount={images.length}
+            currentOperation={aiState.currentOperation}
           />
         </Stack>
       )}

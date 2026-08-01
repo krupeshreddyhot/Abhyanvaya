@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { attendanceRecognitionPollingService } from "../services/attendanceRecognitionPollingService";
 import {
   createPhotoAttendanceSession,
   deleteClassroomImage,
@@ -62,9 +63,10 @@ export const useClassroomPhotoUpload = ({
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
-      markUploadCancelled();
     };
-  }, [markUploadCancelled]);
+    // Unmount-only: including markUploadCancelled re-aborts in-flight uploads on Strict Mode remounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional unmount cleanup
+  }, []);
 
   const refreshImages = useCallback(async (sessionId: string) => {
     const listed = await listClassroomImages(sessionId);
@@ -101,7 +103,6 @@ export const useClassroomPhotoUpload = ({
 
   const runUpload = useCallback(
     async (file: File, captureContext?: ClassroomPhotoCaptureContext) => {
-      abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
       captureContextRef.current = captureContext;
@@ -117,6 +118,9 @@ export const useClassroomPhotoUpload = ({
 
       try {
         const sessionId = await ensureSession();
+        if (!sessionId) {
+          throw new Error("Unable to create attendance session for upload.");
+        }
 
         if (images.length >= CLASSROOM_PHOTO_MAX_IMAGES_PER_SESSION) {
           throw new Error(
@@ -124,6 +128,7 @@ export const useClassroomPhotoUpload = ({
           );
         }
 
+        setUploadProgress(5);
         const result = await uploadClassroomPhoto(sessionId, file, {
           signal: controller.signal,
           captureContext,
@@ -151,9 +156,15 @@ export const useClassroomPhotoUpload = ({
           uploadedImageUrl: result.imageUrl ?? listed[0]?.imageUrl ?? current.uploadedImageUrl,
           uploadProgress: 100,
           status: AIStatus.Pending,
+          sessionStatusCode: 1,
+          recognitionQueueStatus: result.queued ? 1 : current.recognitionQueueStatus,
           workflowStep: AIWorkflowStep.Upload,
           recognitionQueued: result.queued,
+          processingError: undefined,
+          errorCode: undefined,
         }));
+
+        attendanceRecognitionPollingService.restart(result.attendanceSessionId);
       } catch (error) {
         if (controller.signal.aborted) {
           markUploadCancelled();
@@ -161,7 +172,7 @@ export const useClassroomPhotoUpload = ({
             ...current,
             status: AIStatus.Ready,
           }));
-          return;
+          throw new Error("Upload was cancelled. Please select the photo again.");
         }
 
         const message = getApiErrorMessage(error, "Upload failed.");
@@ -171,6 +182,7 @@ export const useClassroomPhotoUpload = ({
           ...current,
           status: AIStatus.Failed,
         }));
+        throw error instanceof Error ? error : new Error(message);
       }
     },
     [
@@ -189,15 +201,10 @@ export const useClassroomPhotoUpload = ({
 
   const handleSelectFile = useCallback(
     async (file: File, captureContext?: ClassroomPhotoCaptureContext) => {
-      try {
-        await selectFile(file);
-      } catch {
-        return;
-      }
-
+      // Skip heavy preview pipeline — upload the prepared file directly.
       await runUpload(file, captureContext);
     },
-    [runUpload, selectFile],
+    [runUpload],
   );
 
   const handleSelectFiles = useCallback(
@@ -394,39 +401,57 @@ export const useClassroomPhotoUpload = ({
   const handleRetryRecognition = useCallback(async () => {
     const sessionId = sessionIdRef.current;
     if (!sessionId) {
+      setCollectionError("No attendance session is available to retry recognition.");
       return;
     }
 
     setCollectionError(null);
     try {
       await requeueClassroomRecognition(sessionId);
+      // Polling stops on Failed — must restart so Queued/Processing updates appear.
+      attendanceRecognitionPollingService.restart(sessionId);
+      await refreshImages(sessionId);
       setAiState((current) => ({
         ...current,
         recognitionQueued: true,
         status: AIStatus.Pending,
+        sessionStatusCode: 1,
+        recognitionQueueStatus: 1,
         workflowStep: AIWorkflowStep.Upload,
+        processingError: undefined,
+        errorCode: undefined,
+        currentOperation: "Upload complete — waiting for worker",
+        currentStage: "Queued",
       }));
     } catch (error) {
       setCollectionError(getApiErrorMessage(error, "Unable to requeue recognition."));
     }
-  }, [setAiState]);
+  }, [refreshImages, setAiState]);
 
   const handleRetryImageRecognition = useCallback(
     async (imageId: string) => {
       const sessionId = sessionIdRef.current;
       if (!sessionId) {
+        setCollectionError("No attendance session is available to retry recognition.");
         return;
       }
 
       setCollectionError(null);
       try {
         await requeueClassroomImage(sessionId, imageId);
+        attendanceRecognitionPollingService.restart(sessionId);
         await refreshImages(sessionId);
         setAiState((current) => ({
           ...current,
           recognitionQueued: true,
           status: AIStatus.Pending,
+          sessionStatusCode: 1,
+          recognitionQueueStatus: 1,
           workflowStep: AIWorkflowStep.Upload,
+          processingError: undefined,
+          errorCode: undefined,
+          currentOperation: "Upload complete — waiting for worker",
+          currentStage: "Queued",
         }));
       } catch (error) {
         setCollectionError(getApiErrorMessage(error, "Unable to retry recognition for this image."));

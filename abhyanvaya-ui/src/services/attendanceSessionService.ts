@@ -46,7 +46,9 @@ export const createPhotoAttendanceSession = async (
   context: AttendanceContext,
   totalStudents: number,
 ): Promise<CreatePhotoAttendanceSessionResponse> => {
-  const response = await api.post<CreatePhotoAttendanceSessionResponse>("/attendance-sessions", {
+  const response = await api.post<
+    CreatePhotoAttendanceSessionResponse & { AttendanceSessionId?: string }
+  >("/attendance-sessions", {
     courseId: context.courseId,
     groupId: context.groupId,
     semesterId: context.semesterId,
@@ -56,7 +58,13 @@ export const createPhotoAttendanceSession = async (
     totalStudents,
   });
 
-  return response.data;
+  const sessionId =
+    response.data.attendanceSessionId ?? response.data.AttendanceSessionId ?? "";
+  if (!sessionId) {
+    throw new Error("Server did not return an attendance session id.");
+  }
+
+  return { attendanceSessionId: sessionId };
 };
 
 export const uploadClassroomPhoto = async (
@@ -79,36 +87,15 @@ export const uploadClassroomPhoto = async (
 
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      // Include filename so ASP.NET binds IFormFile correctly.
+      formData.append("file", file, file.name || "classroom-photo.jpg");
+      appendCaptureContext(formData, options?.captureContext);
 
-      const ctx = options?.captureContext;
-      if (ctx?.acquisitionMethod) {
-        formData.append("acquisitionMethod", ctx.acquisitionMethod);
-      }
-      if (ctx?.captureDevice) {
-        formData.append("captureDevice", ctx.captureDevice);
-      }
-      if (ctx?.captureTimestampUtc) {
-        formData.append("captureTimestampUtc", ctx.captureTimestampUtc);
-      }
-      if (ctx?.orientation != null) {
-        formData.append("orientation", String(ctx.orientation));
-      }
-      if (ctx?.latitude != null) {
-        formData.append("latitude", String(ctx.latitude));
-      }
-      if (ctx?.longitude != null) {
-        formData.append("longitude", String(ctx.longitude));
-      }
-      if (ctx?.blurScore != null) {
-        formData.append("blurScore", String(ctx.blurScore));
-      }
-
+      // Do NOT set Content-Type manually — the browser must add the multipart boundary.
       const response = await api.post<ClassroomPhotoUploadResponse>(
         `/attendance-sessions/${sessionId}/classroom-photo`,
         formData,
         {
-          headers: { "Content-Type": "multipart/form-data" },
           signal: options?.signal,
           onUploadProgress: (event) => {
             const total = event.total ?? file.size;
@@ -205,14 +192,14 @@ export const replaceClassroomImage = async (
 
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", file, file.name || "classroom-photo.jpg");
       appendCaptureContext(formData, options?.captureContext);
 
+      // Do NOT set Content-Type manually — the browser must add the multipart boundary.
       const response = await api.put<ClassroomPhotoCollectionUploadResponse>(
         `/attendance-sessions/${sessionId}/classroom-images/${imageId}`,
         formData,
         {
-          headers: { "Content-Type": "multipart/form-data" },
           signal: options?.signal,
           onUploadProgress: (event) => {
             const total = event.total ?? file.size;

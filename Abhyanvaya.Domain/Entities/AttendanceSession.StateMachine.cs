@@ -9,16 +9,53 @@ namespace Abhyanvaya.Domain.Entities;
 public partial class AttendanceSession
 {
     /// <summary>Moves the session from <see cref="AttendanceSessionStatus.Draft"/> to pending submission.</summary>
-    public void MoveToPending() => TransitionTo(AttendanceSessionStatus.Pending);
+    public void MoveToPending()
+    {
+        if (Status == AttendanceSessionStatus.Pending)
+        {
+            return;
+        }
 
-    /// <summary>Moves the session into automated AI processing.</summary>
-    public void MoveToProcessing() => TransitionTo(AttendanceSessionStatus.Processing);
+        TransitionTo(AttendanceSessionStatus.Pending);
+    }
+
+    /// <summary>
+    /// Moves the session into automated AI processing.
+    /// Idempotent when already <see cref="AttendanceSessionStatus.Processing"/> so overlapping
+    /// multi-image / retry queue jobs do not throw <c>Processing → Processing</c>.
+    /// </summary>
+    public void MoveToProcessing()
+    {
+        if (Status == AttendanceSessionStatus.Processing)
+        {
+            return;
+        }
+
+        TransitionTo(AttendanceSessionStatus.Processing);
+        ProcessingError = null;
+    }
 
     /// <summary>Moves the session to teacher review after processing completes.</summary>
-    public void MoveToAwaitingReview() => TransitionTo(AttendanceSessionStatus.AwaitingReview);
+    public void MoveToAwaitingReview()
+    {
+        if (Status == AttendanceSessionStatus.AwaitingReview)
+        {
+            return;
+        }
+
+        TransitionTo(AttendanceSessionStatus.AwaitingReview);
+    }
 
     /// <summary>Moves the session into a failed processing state.</summary>
-    public void MoveToFailed() => TransitionTo(AttendanceSessionStatus.Failed);
+    public void MoveToFailed()
+    {
+        if (Status == AttendanceSessionStatus.Failed)
+        {
+            return;
+        }
+
+        TransitionTo(AttendanceSessionStatus.Failed);
+    }
 
     /// <summary>
     /// Marks the session approved after teacher review and attendance materialization.
@@ -99,6 +136,10 @@ public partial class AttendanceSession
         {
             (AttendanceSessionStatus.Draft, AttendanceSessionStatus.Pending) => true,
             (AttendanceSessionStatus.Pending, AttendanceSessionStatus.Processing) => true,
+            // Multi-image / selective requeue: restart recognition after failure or prior review.
+            (AttendanceSessionStatus.Failed, AttendanceSessionStatus.Processing) => true,
+            (AttendanceSessionStatus.AwaitingReview, AttendanceSessionStatus.Processing) => true,
+            (AttendanceSessionStatus.Failed, AttendanceSessionStatus.Pending) => true,
             (AttendanceSessionStatus.Processing, AttendanceSessionStatus.AwaitingReview) => true,
             (AttendanceSessionStatus.AwaitingReview, AttendanceSessionStatus.Approved) => true,
             (AttendanceSessionStatus.Approved, AttendanceSessionStatus.Completed) => true,
@@ -109,6 +150,7 @@ public partial class AttendanceSession
             (AttendanceSessionStatus.Draft, AttendanceSessionStatus.Failed) => true,
             (AttendanceSessionStatus.Pending, AttendanceSessionStatus.Failed) => true,
             (AttendanceSessionStatus.Processing, AttendanceSessionStatus.Failed) => true,
+            (AttendanceSessionStatus.AwaitingReview, AttendanceSessionStatus.Failed) => true,
             (AttendanceSessionStatus.Draft, AttendanceSessionStatus.Cancelled) => true,
             (AttendanceSessionStatus.Pending, AttendanceSessionStatus.Cancelled) => true,
             (AttendanceSessionStatus.Processing, AttendanceSessionStatus.Cancelled) => true,
