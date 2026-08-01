@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBlurDetection } from "../../hooks/useBlurDetection";
 import { useCameraDevices } from "../../hooks/useCameraDevices";
 import { useCameraStream } from "../../hooks/useCameraStream";
+import { LazyMediaImage, MOBILE_TOUCH_TARGET_PX, usePauseHiddenMedia } from "../../mobility";
 import type { CapturedFrame, PhotoAcquisitionMethod } from "../../types/photoAcquisition";
 import { getCameraStatusView } from "../../utils/cameraStatusMessages";
 import { captureFrameFromVideo } from "../../utils/classroomImageProcessing";
@@ -69,6 +70,9 @@ export const CameraCapturePanel = ({
     deviceId: deviceId || null,
     enabled: streamEnabled,
   });
+
+  // AI22.7C Phase 1.7 — pause preview when tab/viewport hidden (battery).
+  usePauseHiddenMedia(mediaVideoRef, streamEnabled && ready);
 
   const selectedDeviceLabel = devices.find((device) => device.deviceId === deviceId)?.label;
   const cameraStatus = getCameraStatusView({
@@ -285,7 +289,8 @@ export const CameraCapturePanel = ({
             borderColor: ready ? "success.main" : "divider",
             bgcolor: "common.black",
             aspectRatio: "4 / 3",
-            maxHeight: 420,
+            maxHeight: { xs: "52vh", sm: 420 },
+            minHeight: { xs: 240, sm: undefined },
           }}
           aria-label={ready ? "Live camera preview" : "Camera loading"}
         >
@@ -295,6 +300,7 @@ export const CameraCapturePanel = ({
             autoPlay
             playsInline
             muted
+            className="enterprise-media"
             sx={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
           {!ready && (
@@ -336,6 +342,7 @@ export const CameraCapturePanel = ({
               onClick={() => void captureNow()}
               disabled={disabled || busy || capturing || !ready}
               aria-label="Capture frame"
+              sx={{ minHeight: { xs: MOBILE_TOUCH_TARGET_PX, sm: undefined } }}
             >
               {capturing ? "Capturing…" : "Capture Frame"}
             </Button>
@@ -402,11 +409,10 @@ export const CameraCapturePanel = ({
                         },
                       }}
                     >
-                      <Box
-                        component="img"
+                      <LazyMediaImage
                         src={frame.previewUrl}
                         alt={`Capture ${index + 1}`}
-                        sx={{ width: "100%", height: 72, objectFit: "cover", display: "block" }}
+                        sx={{ width: "100%", height: 72, objectFit: "cover" }}
                       />
                       <Typography variant="caption" sx={{ display: "block", px: 0.5, py: 0.25 }}>
                         {quality.stars}
@@ -437,6 +443,7 @@ export const CameraCapturePanel = ({
           onClick={() => void captureNow()}
           disabled={disabled || busy || capturing || !ready}
           aria-label="Capture image"
+          sx={{ minHeight: { xs: MOBILE_TOUCH_TARGET_PX + 8, sm: undefined }, fontWeight: 700 }}
         >
           {capturing ? "Capturing…" : "Capture Image"}
         </Button>

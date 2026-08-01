@@ -26,9 +26,18 @@ export function useEnterpriseImageViewer() {
   const [fitMode, setFitMode] = useState<FitMode>("screen");
   const [panning, setPanning] = useState(false);
   const panOrigin = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
-  const pinchOrigin = useRef<{ distance: number; scale: number } | null>(null);
+  const pinchOrigin = useRef<{
+    distance: number;
+    scale: number;
+    midX: number;
+    midY: number;
+    ox: number;
+    oy: number;
+  } | null>(null);
   /** Alt (or Option) held — Phase 5.7 reserves Space for next-face navigation. */
   const altPanDown = useRef(false);
+  /** AI22.7C Phase 1.3 — double-tap zoom tracking. */
+  const lastTapRef = useRef<number | null>(null);
 
   const zoomBy = useCallback((factor: number, originX = 0, originY = 0) => {
     setScale((prev) => {
@@ -125,10 +134,36 @@ export function useEnterpriseImageViewer() {
       if (event.touches.length === 2) {
         const [a, b] = [event.touches[0], event.touches[1]];
         const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-        pinchOrigin.current = { distance, scale };
+        pinchOrigin.current = {
+          distance,
+          scale,
+          midX: (a.clientX + b.clientX) / 2,
+          midY: (a.clientY + b.clientY) / 2,
+          ox: offsetX,
+          oy: offsetY,
+        };
+        return;
+      }
+
+      // AI22.7C — double-tap toggles ~2x zoom (touch only; mouse unchanged).
+      if (event.touches.length === 1) {
+        const now = Date.now();
+        if (lastTapRef.current != null && now - lastTapRef.current < 280) {
+          event.preventDefault();
+          setScale((prev) => {
+            const next = prev > 1.5 ? 1 : 2;
+            setOffsetX(0);
+            setOffsetY(0);
+            setFitMode(next === 1 ? "screen" : "custom");
+            return next;
+          });
+          lastTapRef.current = null;
+        } else {
+          lastTapRef.current = now;
+        }
       }
     },
-    [scale],
+    [offsetX, offsetY, scale],
   );
 
   const onTouchMove = useCallback((event: React.TouchEvent) => {
@@ -142,6 +177,11 @@ export function useEnterpriseImageViewer() {
         MAX_SCALE,
       );
       setScale(next);
+      // Two-finger pan: track midpoint delta (AI22.7C Phase 1.3).
+      const midX = (a.clientX + b.clientX) / 2;
+      const midY = (a.clientY + b.clientY) / 2;
+      setOffsetX(pinchOrigin.current.ox + (midX - pinchOrigin.current.midX));
+      setOffsetY(pinchOrigin.current.oy + (midY - pinchOrigin.current.midY));
       setFitMode("custom");
     }
   }, []);
