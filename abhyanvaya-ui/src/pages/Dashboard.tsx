@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { Alert, Box, CircularProgress, Paper, Typography } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import PeopleIcon from "@mui/icons-material/People";
 import EventNoteIcon from "@mui/icons-material/EventNote";
 import SchoolIcon from "@mui/icons-material/School";
@@ -11,6 +12,7 @@ import { useAuth } from "../context/AuthContext";
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const theme = useTheme();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<DashboardOverviewDto | null>(null);
@@ -33,45 +35,46 @@ const Dashboard = () => {
 
   const stats = useMemo(() => {
     if (!data) return [];
+    // AI22.7B-R3 — semantic colors from enterprise theme (no hardcoded hex).
     return [
       {
         title: "Total Students",
         value: data.totalStudents,
         icon: <PeopleIcon fontSize="large" />,
-        color: "#1976d2",
+        color: theme.palette.primary.main,
       },
       {
         title: "Total Subjects",
         value: data.totalSubjects,
         icon: <SchoolIcon fontSize="large" />,
-        color: "#ed6c02",
+        color: theme.palette.warning.main,
       },
       {
         title: "Overall Attendance %",
         value: `${data.overallPercentage.toFixed(2)}%`,
         icon: <PercentIcon fontSize="large" />,
-        color: "#2e7d32",
+        color: theme.palette.success.main,
       },
       {
         title: "Today Present",
         value: data.todayPresent,
         icon: <CheckCircleIcon fontSize="large" />,
-        color: "#9c27b0",
+        color: theme.palette.secondary.main,
       },
       {
         title: "Today Absent",
         value: data.todayAbsent,
         icon: <PersonOffIcon fontSize="large" />,
-        color: "#d32f2f",
+        color: theme.palette.error.main,
       },
       {
         title: "Total Attendance Entries",
         value: data.totalAttendance,
         icon: <EventNoteIcon fontSize="large" />,
-        color: "#455a64",
+        color: theme.palette.text.secondary,
       },
     ];
-  }, [data]);
+  }, [data, theme]);
 
   return (
     <Box>

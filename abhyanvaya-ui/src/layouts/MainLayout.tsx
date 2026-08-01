@@ -10,9 +10,9 @@
   ListItemIcon,
   IconButton,
   Button,
-  CssBaseline,
   Collapse,
 } from "@mui/material";
+import AccessibilityNewIcon from "@mui/icons-material/AccessibilityNew";
 import MenuIcon from "@mui/icons-material/Menu";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import PeopleIcon from "@mui/icons-material/People";
@@ -26,7 +26,7 @@ import PsychologyIcon from "@mui/icons-material/Psychology";
 import FaceRetouchingNaturalIcon from "@mui/icons-material/FaceRetouchingNatural";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useMemo, useState } from "react";
 import { Outlet, useNavigate, useLocation, Link as RouterLink } from "react-router-dom";
@@ -39,15 +39,27 @@ import {
   ReviewFullscreenProvider,
   useReviewFullscreen,
 } from "../context/ReviewFullscreenContext";
+import {
+  AccessibilityReportDialog,
+  SkipToContentLink,
+  ThemeModeToggle,
+  WorkspaceProfileMenu,
+} from "../theme";
 
 const drawerWidth = 240;
 
-// AI20.UI.1: AI modules get a distinct violet accent (icon + selected-row background) instead of
-// the operational-module blue, so they are visually recognizable as a different category of
-// capability at a glance — see docs/AI20_UI1_VISUAL_IDENTITY_NOTE.md for the rationale.
-const OPERATIONAL_SELECTED_SX = { backgroundColor: "#e3f2fd", color: "#1976d2" };
-const AI_ACCENT_COLOR = "#6A1B9A";
-const AI_SELECTED_SX = { backgroundColor: "#f3e5f5", color: AI_ACCENT_COLOR };
+// AI20.UI.1 / AI22.7B-R3 — accents from enterprise theme tokens (no hardcoded hex).
+const OPERATIONAL_SELECTED_SX = {
+  backgroundColor: (theme: { palette: { primary: { main: string } } }) =>
+    alpha(theme.palette.primary.main, 0.12),
+  color: "primary.main",
+};
+const AI_SELECTED_SX = {
+  backgroundColor: (theme: { palette: { recognition: { aiAccent: string } } }) =>
+    alpha(theme.palette.recognition.aiAccent, 0.12),
+  color: (theme: { palette: { recognition: { aiAccent: string } } }) =>
+    theme.palette.recognition.aiAccent,
+};
 
 type MenuVisibilityCtx = { role: string; hasPermission: (k: string) => boolean; hasAnyPermission: (k: string[]) => boolean };
 
@@ -154,6 +166,7 @@ const MainLayoutChrome = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [header, setHeader] = useState<HeaderInfo | null>(null);
   const [logoFailed, setLogoFailed] = useState(false);
+  const [a11yOpen, setA11yOpen] = useState(false);
 
   useEffect(() => {
     const loadHeader = async () => {
@@ -197,7 +210,7 @@ const MainLayoutChrome = () => {
 
   return (
     <Box sx={{ display: "flex", width: "100%", minWidth: 0, minHeight: "100vh", boxSizing: "border-box" }}>
-      <CssBaseline />
+      <SkipToContentLink />
 
       {!fullscreen && (
       <AppBar
@@ -215,6 +228,7 @@ const MainLayoutChrome = () => {
               color="inherit"
               edge="start"
               onClick={handleDrawerToggle}
+              aria-label="Open navigation menu"
               sx={{ mr: 1, display: { xs: "inline-flex", sm: "none" } }}
             >
               <MenuIcon />
@@ -264,9 +278,19 @@ const MainLayoutChrome = () => {
             </Typography>
           </Box>
 
-          {/* Right side: role + logout */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Typography variant="body2" sx={{ display: { xs: "none", sm: "block" } }}>
+          {/* Right side: theme / profile / a11y / role + logout */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <ThemeModeToggle />
+            <WorkspaceProfileMenu />
+            <IconButton
+              color="inherit"
+              size="small"
+              onClick={() => setA11yOpen(true)}
+              aria-label="Open accessibility report"
+            >
+              <AccessibilityNewIcon fontSize="small" />
+            </IconButton>
+            <Typography variant="body2" sx={{ display: { xs: "none", sm: "block" }, ml: 0.5 }}>
               {user?.role || "User"}
             </Typography>
             <Button color="inherit" size={isMobile ? "small" : "medium"} component={RouterLink} to="/change-password">
@@ -355,12 +379,20 @@ const MainLayoutChrome = () => {
                   }}
                   sx={{
                     // Resting-state icon tint keeps AI Center visually distinct even when not selected.
-                    ...(isAiAccent && { color: AI_ACCENT_COLOR }),
+                    ...(isAiAccent && {
+                      color: (theme) => theme.palette.recognition.aiAccent,
+                    }),
                     "&.Mui-selected": selectedSx,
                     "&.Mui-selected:hover": selectedSx,
                   }}
                 >
-                  <ListItemIcon sx={isAiAccent ? { color: AI_ACCENT_COLOR } : undefined}>
+                  <ListItemIcon
+                    sx={
+                      isAiAccent
+                        ? { color: (theme) => theme.palette.recognition.aiAccent }
+                        : undefined
+                    }
+                  >
                     {item.icon}
                   </ListItemIcon>
                   <ListItemText primary={item.text} />
@@ -384,12 +416,20 @@ const MainLayoutChrome = () => {
                             }}
                             sx={{
                               pl: 4,
-                              ...(childIsAiAccent && { color: AI_ACCENT_COLOR }),
+                              ...(childIsAiAccent && {
+                                color: (theme) => theme.palette.recognition.aiAccent,
+                              }),
                               "&.Mui-selected": childSelectedSx,
                               "&.Mui-selected:hover": childSelectedSx,
                             }}
                           >
-                            <ListItemIcon sx={childIsAiAccent ? { color: AI_ACCENT_COLOR } : undefined}>
+                            <ListItemIcon
+                              sx={
+                                childIsAiAccent
+                                  ? { color: (theme) => theme.palette.recognition.aiAccent }
+                                  : undefined
+                              }
+                            >
                               {child.icon}
                             </ListItemIcon>
                             <ListItemText primary={child.text} />
@@ -408,21 +448,28 @@ const MainLayoutChrome = () => {
 
       <Box
         component="main"
+        id="main-content"
+        tabIndex={-1}
         sx={{
           flexGrow: 1,
           width: "100%",
           minWidth: 0,
-          maxWidth: "100%",
+          // AI22.7B 5.5 — ultrawide / 4K content comfort without redesign
+          maxWidth: 1920,
+          mx: "auto",
           p: fullscreen ? 1 : 2,
           pt: fullscreen ? 1 : 10,
           pb: fullscreen ? 1 : 6,
           boxSizing: "border-box",
           minHeight: fullscreen ? "100vh" : undefined,
           bgcolor: fullscreen ? "background.default" : undefined,
+          outline: "none",
         }}
       >
         <Outlet />
       </Box>
+
+      <AccessibilityReportDialog open={a11yOpen} onClose={() => setA11yOpen(false)} />
 
       {!fullscreen && (
       <Box
@@ -433,10 +480,14 @@ const MainLayoutChrome = () => {
           right: 0,
           textAlign: "center",
           p: 1,
-          backgroundColor: "#f5f5f5",
+          bgcolor: "background.paper",
+          borderTop: 1,
+          borderColor: "divider",
         }}
       >
-        <Typography variant="body2">© Abhyanvaya 2026 - All Rights Reserved</Typography>
+        <Typography variant="body2" color="text.secondary">
+          © Abhyanvaya 2026 - All Rights Reserved
+        </Typography>
       </Box>
       )}
     </Box>
