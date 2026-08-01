@@ -9,6 +9,8 @@ export type FilmstripNavigatorProps = {
   sequencesWithFaces: Set<number>;
   onSelectSequence: (sequence: number) => void;
   onReorder?: (orderedIds: string[]) => void;
+  /** AI22.7B 5.8 — personalized filmstrip thumbnail height. */
+  thumbnailHeight?: number;
 };
 
 function statusBadge(status: number): { label: string; color: "default" | "success" | "warning" | "error" | "info" } {
@@ -33,17 +35,19 @@ export function FilmstripNavigator({
   sequencesWithFaces,
   onSelectSequence,
   onReorder,
+  thumbnailHeight = 64,
 }: FilmstripNavigatorProps) {
   if (images.length === 0) {
     return null;
   }
 
   const ordered = [...images].sort((a, b) => a.imageSequence - b.imageSequence);
+  const thumbH = Math.max(48, Math.min(120, thumbnailHeight - 32));
 
   return (
     <Stack spacing={0.75} aria-label="Classroom image filmstrip">
       <Typography variant="caption" color="text.secondary">
-        Filmstrip · click to switch · drag to reorder
+        Filmstrip · click / swipe to switch · drag to reorder
       </Typography>
       <Box
         sx={{
@@ -52,6 +56,8 @@ export function FilmstripNavigator({
           overflowX: "auto",
           pb: 0.5,
           scrollBehavior: "smooth",
+          WebkitOverflowScrolling: "touch",
+          touchAction: "pan-x",
           "@media (prefers-reduced-motion: reduce)": { scrollBehavior: "auto" },
         }}
         role="listbox"
@@ -107,8 +113,9 @@ export function FilmstripNavigator({
               <Box
                 component="img"
                 src={url ?? undefined}
-                alt={`Image ${image.imageSequence}`}
-                sx={{ width: "100%", height: 64, objectFit: "cover", display: "block", bgcolor: "action.hover" }}
+                alt={`Classroom image ${image.imageSequence}`}
+                data-enterprise-media="true"
+                sx={{ width: "100%", height: thumbH, objectFit: "cover", display: "block", bgcolor: "action.hover" }}
               />
               <Stack spacing={0.25} sx={{ p: 0.5 }}>
                 <Typography variant="caption" sx={{ fontWeight: 700 }}>

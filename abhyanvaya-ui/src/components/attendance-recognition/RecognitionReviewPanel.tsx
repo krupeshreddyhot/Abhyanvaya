@@ -1,5 +1,5 @@
 import { Box, Collapse, Paper, Stack, Typography } from "@mui/material";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   AttendanceRecognitionReviewDto,
   AttendanceRecognitionReviewHistoryDto,
@@ -8,6 +8,7 @@ import type {
   RecognitionSummaryDto,
 } from "../../services/attendanceRecognitionService";
 import type { AttendanceSessionImage } from "../../types/sessionImage";
+import { useThemeManagerOptional } from "../../theme";
 import {
   getRelatedRecognitionIds,
   type RecognitionReviewFilter,
@@ -162,13 +163,29 @@ export function RecognitionReviewPanel({
   shortcutHelpOpen,
   onShortcutHelpOpenChange,
 }: RecognitionReviewPanelProps) {
-  const [photoFlex, setPhotoFlex] = useState(30);
-  const [listFlex, setListFlex] = useState(40);
+  const themeManager = useThemeManagerOptional();
+  const [photoFlex, setPhotoFlex] = useState(themeManager?.prefs.photoFlex ?? 30);
+  const [listFlex, setListFlex] = useState(themeManager?.prefs.listFlex ?? 40);
   const [localHelpOpen, setLocalHelpOpen] = useState(false);
   const helpOpen = shortcutHelpOpen ?? localHelpOpen;
   const setHelpOpen = onShortcutHelpOpenChange ?? setLocalHelpOpen;
   const dragRef = useRef<"photo-list" | "list-details" | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const filmstripHeight = themeManager?.prefs.filmstripHeight ?? 96;
+
+  // AI22.7B 5.5 / 5.8 — persist resizable panel sizes
+  useEffect(() => {
+    if (!themeManager) {
+      return;
+    }
+    if (
+      themeManager.prefs.photoFlex === photoFlex &&
+      themeManager.prefs.listFlex === listFlex
+    ) {
+      return;
+    }
+    themeManager.updatePrefs({ photoFlex, listFlex });
+  }, [photoFlex, listFlex, themeManager]);
 
   const focusedRecognition =
     recognitions.find((row) => row.recognitionId === focusedId) ?? null;
@@ -263,12 +280,20 @@ export function RecognitionReviewPanel({
           display: "grid",
           gridTemplateColumns: {
             xs: "1fr",
-            md: fullscreen ? `minmax(240px, ${photoFlex + 4}%) 6px minmax(0, ${listFlex}%) 6px minmax(240px, ${detailsFlex}%)` : undefined,
+            // AI22.7B 5.4 / 5.5 — tablet landscape + desktop adaptive columns
+            sm: fullscreen ? "1fr" : "1fr",
+            md: `minmax(220px, ${photoFlex}%) 6px minmax(0, ${listFlex}%) 6px minmax(200px, ${detailsFlex}%)`,
             lg: `minmax(200px, ${photoFlex}%) 6px minmax(0, ${listFlex}%) 6px minmax(220px, ${detailsFlex}%)`,
+            xl: `minmax(260px, ${photoFlex}%) 6px minmax(0, ${listFlex}%) 6px minmax(260px, ${detailsFlex}%)`,
           },
-          gap: { xs: 2, lg: 0 },
+          gap: { xs: 2, md: 0 },
           alignItems: "stretch",
-          minHeight: { lg: fullscreen ? "calc(100vh - 160px)" : 640 },
+          minHeight: {
+            xs: undefined,
+            md: fullscreen ? "calc(100vh - 140px)" : 560,
+            lg: fullscreen ? "calc(100vh - 160px)" : 640,
+            xl: fullscreen ? "calc(100vh - 160px)" : 720,
+          },
         }}
       >
         <Box sx={{ minWidth: 0, minHeight: 0 }}>
@@ -287,6 +312,7 @@ export function RecognitionReviewPanel({
             heatMapEnabled={heatMapEnabled}
             heatMapOpacity={heatMapOpacity}
             miniMapVisible={miniMapVisible}
+            filmstripHeight={filmstripHeight}
             onHighlightRecognition={(recognitionId) => {
               if (recognitionId) {
                 onFocusRecognition(recognitionId);
@@ -301,9 +327,10 @@ export function RecognitionReviewPanel({
             onDragStart("photo-list");
           }}
           sx={{
-            display: { xs: "none", lg: "block", md: fullscreen ? "block" : "none" },
+            display: { xs: "none", md: "block" },
             cursor: "col-resize",
             bgcolor: "divider",
+            touchAction: "none",
             "&:hover": { bgcolor: "primary.main" },
           }}
           role="separator"
@@ -386,9 +413,10 @@ export function RecognitionReviewPanel({
             onDragStart("list-details");
           }}
           sx={{
-            display: { xs: "none", lg: "block", md: fullscreen ? "block" : "none" },
+            display: { xs: "none", md: "block" },
             cursor: "col-resize",
             bgcolor: "divider",
+            touchAction: "none",
             "&:hover": { bgcolor: "primary.main" },
           }}
           role="separator"

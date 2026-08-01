@@ -109,7 +109,9 @@ export function ReviewAnalyticsDashboard({ analytics, compact = false }: ReviewA
               width: `${Math.min(100, Math.max(0, analytics.progressPercent))}%`,
               height: "100%",
               bgcolor: "primary.main",
-              transition: "width 240ms ease",
+              transition: (theme) =>
+                theme.transitions.create("width", { duration: theme.transitions.duration.short }),
+              "@media (prefers-reduced-motion: reduce)": { transition: "none" },
             }}
           />
         </Box>
