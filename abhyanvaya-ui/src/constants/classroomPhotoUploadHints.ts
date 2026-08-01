@@ -4,8 +4,8 @@ import {
   CLASSROOM_PHOTO_MIN_WIDTH,
 } from "./classroomPhotoConstraints";
 
-export const CLASSROOM_PHOTO_ACCEPT =
-  "image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp";
+/** Keep MIME + extensions simple — invalid types like image/jpg confuse Windows file filters. */
+export const CLASSROOM_PHOTO_ACCEPT = "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp";
 
 export const CLASSROOM_PHOTO_SUPPORTED_FORMATS = ["JPG", "PNG", "WEBP"] as const;
 

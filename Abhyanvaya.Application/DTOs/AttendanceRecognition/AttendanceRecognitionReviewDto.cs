@@ -13,6 +13,9 @@ public sealed class AttendanceRecognitionReviewDto
 
     public int FaceNumber { get; init; }
 
+    /// <summary>AI22.7A Phase 4 — classroom image sequence this face belongs to (1-based).</summary>
+    public short ImageSequence { get; init; } = 1;
+
     public int? StudentId { get; init; }
 
     public string? StudentNumber { get; init; }

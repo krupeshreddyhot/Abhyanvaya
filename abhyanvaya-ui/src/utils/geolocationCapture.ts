@@ -7,7 +7,7 @@ export type CaptureGeoLocation = {
  * Best-effort geolocation for capture metadata. Never blocks capture on denial/timeout.
  */
 export const tryGetCaptureLocation = async (
-  timeoutMs = 4000,
+  timeoutMs = 1500,
 ): Promise<CaptureGeoLocation | null> => {
   if (typeof navigator === "undefined" || !navigator.geolocation) {
     return null;
@@ -15,11 +15,36 @@ export const tryGetCaptureLocation = async (
 
   try {
     const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: false,
-        timeout: timeoutMs,
-        maximumAge: 60_000,
-      });
+      let settled = false;
+      const finish = (fn: () => void) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        fn();
+      };
+
+      // Hard ceiling: some browsers do not honor the Geolocation `timeout` option while a
+      // permission prompt is open, which made Upload Image appear to do nothing.
+      const timer = window.setTimeout(() => {
+        finish(() => reject(new Error("Geolocation timed out.")));
+      }, timeoutMs);
+
+      navigator.geolocation.getCurrentPosition(
+        (value) => {
+          window.clearTimeout(timer);
+          finish(() => resolve(value));
+        },
+        (error) => {
+          window.clearTimeout(timer);
+          finish(() => reject(error));
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: timeoutMs,
+          maximumAge: 60_000,
+        },
+      );
     });
 
     return {

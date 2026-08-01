@@ -27,6 +27,8 @@ export type AttendanceRecognitionReviewDto = {
   recognitionId: string;
   attendanceSessionId: string;
   faceNumber: number;
+  /** 1-based classroom image sequence (AI22.7A Phase 4 multi-image sync). */
+  imageSequence?: number;
   studentId: number | null;
   studentNumber: string | null;
   studentName: string | null;

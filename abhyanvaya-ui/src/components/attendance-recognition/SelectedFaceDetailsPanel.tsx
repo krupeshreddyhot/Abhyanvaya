@@ -17,7 +17,7 @@ import {
   recognitionStatusColor,
   recognitionStatusLabel,
 } from "../../utils/recognitionStatus";
-import { ConfidenceBar } from "./ConfidenceBar";
+import { EnterpriseConfidenceBadge } from "./EnterpriseConfidenceBadge";
 
 type SelectedFaceDetailsPanelProps = {
   recognition: AttendanceRecognitionReviewDto | null;
@@ -85,9 +85,16 @@ export const SelectedFaceDetailsPanel = memo(function SelectedFaceDetailsPanel({
           </Box>
         </Stack>
 
-        <ConfidenceBar score={recognition.confidence} />
+        <EnterpriseConfidenceBadge confidence={recognition.confidence} />
 
         <Divider />
+
+        <Box>
+          <Typography variant="caption" color="text.secondary">
+            Classroom image
+          </Typography>
+          <Typography variant="body2">Image {recognition.imageSequence ?? 1}</Typography>
+        </Box>
 
         <Box>
           <Typography variant="caption" color="text.secondary">
@@ -146,7 +153,7 @@ export const SelectedFaceDetailsPanel = memo(function SelectedFaceDetailsPanel({
               </Button>
             </span>
           </Tooltip>
-          <Tooltip title="Reject (R) — reason required">
+          <Tooltip title="Reject (R / Delete) — reason required">
             <span>
               <Button
                 size="small"
@@ -159,14 +166,18 @@ export const SelectedFaceDetailsPanel = memo(function SelectedFaceDetailsPanel({
               </Button>
             </span>
           </Tooltip>
-          <Button
-            size="small"
-            variant="outlined"
-            disabled={disabled || actionLoading}
-            onClick={onAssign}
-          >
-            Change student
-          </Button>
+          <Tooltip title="Manual match (M)">
+            <span>
+              <Button
+                size="small"
+                variant="outlined"
+                disabled={disabled || actionLoading}
+                onClick={onAssign}
+              >
+                Manual match
+              </Button>
+            </span>
+          </Tooltip>
           <Tooltip title="Mark unknown (I)">
             <span>
               <Button

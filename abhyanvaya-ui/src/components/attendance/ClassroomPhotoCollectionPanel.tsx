@@ -25,6 +25,7 @@ import {
   formatResolution,
   formatUploadedTimestamp,
 } from "../../utils/fileDisplay";
+import { mediaAssetUrl } from "../../utils/mediaAssetUrl";
 import {
   estimateFacesFromResolution,
   formatCaptureTime,
@@ -347,7 +348,7 @@ export const ClassroomPhotoCollectionPanel = ({
               >
                 <Box
                   component="img"
-                  src={image.imageUrl ?? undefined}
+                  src={mediaAssetUrl(image.imageUrl) ?? undefined}
                   alt={label || image.originalFileName || `Classroom image ${image.imageSequence}`}
                   loading="lazy"
                   decoding="async"
@@ -558,7 +559,7 @@ export const ClassroomPhotoCollectionPanel = ({
           <Stack spacing={1}>
             <Box
               component="img"
-              src={hoverAnchor.image.imageUrl ?? undefined}
+              src={mediaAssetUrl(hoverAnchor.image.imageUrl) ?? undefined}
               alt="Hover preview"
               sx={{ width: "100%", maxHeight: 200, objectFit: "contain", borderRadius: 1 }}
             />

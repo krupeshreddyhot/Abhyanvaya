@@ -1,5 +1,14 @@
 import PhotoCameraOutlinedIcon from "@mui/icons-material/PhotoCameraOutlined";
-import { Alert, Box, Button, Paper, Stack, Typography } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  LinearProgress,
+  Paper,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { useCallback, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import {
   CLASSROOM_PHOTO_ACCEPT,
@@ -15,6 +24,7 @@ import { validateMediaUploadFile } from "../media/mediaUploadValidation";
 export type ClassroomPhotoDropZoneProps = {
   disabled?: boolean;
   busy?: boolean;
+  busyLabel?: string | null;
   error?: string | null;
   multiple?: boolean;
   remainingSlots?: number;
@@ -39,6 +49,7 @@ const RequirementBlock = ({ title, children }: RequirementBlockProps) => (
 export const ClassroomPhotoDropZone = ({
   disabled = false,
   busy = false,
+  busyLabel = null,
   error = null,
   multiple = false,
   remainingSlots,
@@ -63,6 +74,11 @@ export const ClassroomPhotoDropZone = ({
       const limited =
         remainingSlots != null && remainingSlots >= 0 ? files.slice(0, remainingSlots) : files;
 
+      if (limited.length === 0) {
+        setValidationError("No remaining image slots in this session.");
+        return;
+      }
+
       for (const file of limited) {
         const validation = validateMediaUploadFile(file, CLASSROOM_PHOTO_MAX_BYTES);
         if (!validation.ok) {
@@ -71,21 +87,28 @@ export const ClassroomPhotoDropZone = ({
         }
       }
 
-      if (multiple && onSelectFiles) {
-        await onSelectFiles(limited);
-        return;
+      try {
+        if (multiple && onSelectFiles) {
+          await onSelectFiles(limited);
+          return;
+        }
+        await onSelectFile(limited[0]);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unable to upload image.";
+        setValidationError(message);
       }
-
-      await onSelectFile(limited[0]);
     },
     [multiple, onSelectFile, onSelectFiles, remainingSlots],
   );
 
   const onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const list = event.target.files;
+    // Copy FileList BEFORE clearing the input. In Chromium, `files` is live —
+    // resetting value="" empties the same FileList reference, so the picker
+    // path becomes a no-op while drag-and-drop (dataTransfer) still works.
+    const files = event.target.files ? Array.from(event.target.files) : [];
     event.target.value = "";
-    if (list && list.length > 0) {
-      void processFiles(list);
+    if (files.length > 0) {
+      void processFiles(files);
     }
   };
 
@@ -102,10 +125,12 @@ export const ClassroomPhotoDropZone = ({
     }
   };
 
-  const openFilePicker = () => {
-    if (!isDisabled) {
-      inputRef.current?.click();
+  const openFilePicker = (event?: { stopPropagation?: () => void }) => {
+    event?.stopPropagation?.();
+    if (isDisabled) {
+      return;
     }
+    inputRef.current?.click();
   };
 
   return (
@@ -124,19 +149,11 @@ export const ClassroomPhotoDropZone = ({
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
-        onClick={openFilePicker}
-        onKeyDown={(event) => {
-          if ((event.key === "Enter" || event.key === " ") && !isDisabled) {
-            event.preventDefault();
-            openFilePicker();
-          }
-        }}
-        role="button"
-        tabIndex={isDisabled ? -1 : 0}
+        role="group"
         aria-label={
           multiple
-            ? "Upload classroom photos. Drag and drop or press Enter to select files."
-            : "Upload classroom photo. Drag and drop or press Enter to select a file."
+            ? "Upload classroom photos. Drag and drop or use the select button."
+            : "Upload classroom photo. Drag and drop or use the select button."
         }
         aria-disabled={isDisabled}
         sx={{
@@ -144,7 +161,7 @@ export const ClassroomPhotoDropZone = ({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          cursor: isDisabled ? "not-allowed" : "pointer",
+          cursor: isDisabled ? "not-allowed" : "default",
           borderStyle: "dashed",
           borderWidth: 2,
           borderColor: dragOver ? "primary.main" : "divider",
@@ -154,17 +171,6 @@ export const ClassroomPhotoDropZone = ({
             theme.transitions.create(["border-color", "background-color", "box-shadow"], {
               duration: theme.transitions.duration.short,
             }),
-          "&:hover": isDisabled
-            ? undefined
-            : {
-                borderColor: "primary.main",
-                bgcolor: "action.hover",
-                boxShadow: 1,
-              },
-          "&:focus-visible": {
-            outline: (theme) => `2px solid ${theme.palette.primary.main}`,
-            outlineOffset: 2,
-          },
           px: { xs: 2.5, sm: 4 },
           py: { xs: 4, sm: 5 },
         }}
@@ -174,7 +180,6 @@ export const ClassroomPhotoDropZone = ({
             sx={{
               color: dragOver ? "primary.main" : "text.secondary",
               display: "flex",
-              transition: (theme) => theme.transitions.create("color"),
             }}
             aria-hidden
           >
@@ -182,27 +187,40 @@ export const ClassroomPhotoDropZone = ({
           </Box>
 
           <Stack spacing={1.5} sx={{ alignItems: "center", width: "100%" }}>
-          <Typography variant="h6" component="p" sx={{ fontWeight: 600 }}>
-            {multiple ? "Drag & drop classroom photos" : CLASSROOM_PHOTO_DROP_TITLE}
-          </Typography>
-
-            <Typography variant="body2" color="text.secondary" sx={{ letterSpacing: 1 }}>
-              OR
+            <Typography variant="h6" component="p" sx={{ fontWeight: 600 }}>
+              {busy
+                ? busyLabel || "Preparing classroom photo…"
+                : multiple
+                  ? "Drag & drop classroom photos"
+                  : CLASSROOM_PHOTO_DROP_TITLE}
             </Typography>
 
-            <Button
-              variant="contained"
-              size="large"
-              disabled={isDisabled}
-              onClick={(event) => {
-                event.stopPropagation();
-                openFilePicker();
-              }}
-              aria-label={CLASSROOM_PHOTO_SELECT_LABEL}
-              sx={{ px: 3 }}
-            >
-              {CLASSROOM_PHOTO_SELECT_LABEL}
-            </Button>
+            {busy ? (
+              <Stack spacing={1} sx={{ alignItems: "center", width: "100%", maxWidth: 280 }}>
+                <CircularProgress size={28} aria-label="Preparing upload" />
+                <LinearProgress sx={{ width: "100%" }} />
+                <Typography variant="body2" color="text.secondary">
+                  Please wait — processing and uploading your photo.
+                </Typography>
+              </Stack>
+            ) : (
+              <>
+                <Typography variant="body2" color="text.secondary" sx={{ letterSpacing: 1 }}>
+                  OR
+                </Typography>
+
+                <Button
+                  variant="contained"
+                  size="large"
+                  disabled={isDisabled}
+                  onClick={(event) => openFilePicker(event)}
+                  aria-label={CLASSROOM_PHOTO_SELECT_LABEL}
+                  sx={{ px: 3 }}
+                >
+                  {CLASSROOM_PHOTO_SELECT_LABEL}
+                </Button>
+              </>
+            )}
           </Stack>
 
           <Stack spacing={2} sx={{ pt: 1, width: "100%", maxWidth: 280 }}>
@@ -238,13 +256,17 @@ export const ClassroomPhotoDropZone = ({
         multiple={multiple}
         hidden
         onChange={onInputChange}
-        aria-hidden
-        tabIndex={-1}
       />
 
       {combinedError && (
         <Alert severity="error" role="alert">
           {combinedError}
+        </Alert>
+      )}
+
+      {disabled && !busy && (
+        <Alert severity="warning" role="status">
+          Upload is disabled until the class roster finishes loading.
         </Alert>
       )}
     </Stack>
