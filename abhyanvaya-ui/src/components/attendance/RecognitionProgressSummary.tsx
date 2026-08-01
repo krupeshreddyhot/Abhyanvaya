@@ -11,6 +11,9 @@ export type RecognitionProgressSummaryProps = {
   reviewedFaces: number;
   recognitionAccuracy: number | null;
   status: AIStatusType;
+  /** When images already exist, avoid the misleading “Waiting for classroom photo…” copy. */
+  imageCount?: number;
+  currentOperation?: string | null;
 };
 
 type SummaryMetricProps = {
@@ -48,8 +51,17 @@ export const RecognitionProgressSummary = ({
   reviewedFaces,
   recognitionAccuracy,
   status,
+  imageCount = 0,
+  currentOperation,
 }: RecognitionProgressSummaryProps) => {
   const showMetrics = shouldShowRecognitionMetrics(status);
+  const waitingMessage =
+    imageCount > 0
+      ? currentOperation?.trim() ||
+        (status === AIStatus.Pending
+          ? "Recognition queued — waiting for worker…"
+          : "Classroom photos ready — recognition will start shortly…")
+      : "Waiting for classroom photo…";
 
   return (
     <Card variant="outlined" aria-label="Recognition progress">
@@ -112,7 +124,7 @@ export const RecognitionProgressSummary = ({
             <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-start" }}>
               <InfoOutlinedIcon color="info" sx={{ mt: 0.25 }} aria-hidden />
               <Typography variant="body1" color="text.secondary">
-                Waiting for classroom photo…
+                {waitingMessage}
               </Typography>
             </Stack>
           )}

@@ -13,6 +13,7 @@ import {
 import type { AttendanceSessionImage } from "../../types/sessionImage";
 import { formatCaptureTime, getImageQualityIndicator } from "../../utils/imageQuality";
 import { formatFileSizeLabel, formatResolution } from "../../utils/fileDisplay";
+import { mediaAssetUrl } from "../../utils/mediaAssetUrl";
 
 export type ClassroomImageDetailsDialogProps = {
   open: boolean;
@@ -71,10 +72,10 @@ export const ClassroomImageDetailsDialog = ({
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={1.5}>
-          {image.imageUrl && (
+          {mediaAssetUrl(image.imageUrl) && (
             <Box
               component="img"
-              src={image.imageUrl}
+              src={mediaAssetUrl(image.imageUrl) ?? undefined}
               alt={image.originalFileName ?? `Image ${image.imageSequence}`}
               sx={{
                 width: "100%",

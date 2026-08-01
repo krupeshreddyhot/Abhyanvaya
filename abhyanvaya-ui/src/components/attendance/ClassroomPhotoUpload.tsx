@@ -10,7 +10,7 @@ import type {
 import type { AttendanceSessionImage } from "../../types/sessionImage";
 import { formatBytes } from "../../utils/uploadProgress";
 import { processClassroomImageFile } from "../../utils/classroomImageProcessing";
-import { tryGetCaptureLocation } from "../../utils/geolocationCapture";
+import { prepareClassroomUploadFile } from "../../utils/prepareClassroomUploadFile";
 import { getUploadRetryLabel } from "../../services/attendanceSessionService";
 import { CameraCapturePanel } from "./CameraCapturePanel";
 import { ClassroomPhotoCollectionPanel } from "./ClassroomPhotoCollectionPanel";
@@ -104,29 +104,38 @@ export const ClassroomPhotoUpload = ({
   const submitUploadFiles = async (files: File[]) => {
     setPrepareError(null);
     setPreparing(true);
+    onNotify?.("Preparing classroom photo…", "info");
     try {
-      const geo = await tryGetCaptureLocation();
       const device =
         typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 100) : undefined;
       const remaining = CLASSROOM_PHOTO_MAX_IMAGES_PER_SESSION - images.length;
       const batch = files.slice(0, Math.max(0, remaining));
 
+      if (batch.length === 0) {
+        throw new Error(
+          `A session may contain at most ${CLASSROOM_PHOTO_MAX_IMAGES_PER_SESSION} classroom images.`,
+        );
+      }
+
+      // Lightweight validate only — do not re-encode (canvas path was failing silently for some JPEGs).
       const prepared: File[] = [];
       for (const file of batch) {
-        const processed = await processClassroomImageFile(file, file.name);
-        prepared.push(processed.file);
+        const ready = await prepareClassroomUploadFile(file);
+        prepared.push(ready.file);
       }
 
       await onSelectFiles(prepared, {
         acquisitionMethod: "Upload",
         captureTimestampUtc: new Date().toISOString(),
-        latitude: geo?.latitude,
-        longitude: geo?.longitude,
         captureDevice: device,
       });
       setShowAcquisition(false);
+      onNotify?.(`Uploaded ${prepared.length} classroom photo(s).`, "success");
     } catch (error) {
-      setPrepareError(error instanceof Error ? error.message : "Unable to prepare image.");
+      const message = error instanceof Error ? error.message : "Unable to upload image.";
+      setPrepareError(message);
+      onNotify?.(message, "error");
+      throw error instanceof Error ? error : new Error(message);
     } finally {
       setPreparing(false);
     }
@@ -190,14 +199,10 @@ export const ClassroomPhotoUpload = ({
     setPrepareError(null);
     setPreparing(true);
     try {
-      const processed = await processClassroomImageFile(file, file.name);
-      const geo = await tryGetCaptureLocation();
-      await onReplaceImage(imageId, processed.file, {
+      const ready = await prepareClassroomUploadFile(file);
+      await onReplaceImage(imageId, ready.file, {
         acquisitionMethod: "Upload",
         captureTimestampUtc: new Date().toISOString(),
-        blurScore: processed.blurScore ?? undefined,
-        latitude: geo?.latitude,
-        longitude: geo?.longitude,
         captureDevice: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 100) : undefined,
       });
     } catch (error) {
@@ -253,11 +258,18 @@ export const ClassroomPhotoUpload = ({
             <ClassroomPhotoDropZone
               disabled={disabled || !canAddMore}
               busy={panelBusy}
+              busyLabel={
+                preparing
+                  ? "Preparing classroom photo…"
+                  : isUploading
+                    ? "Uploading classroom photo…"
+                    : null
+              }
               error={prepareError ?? collectionError ?? uploadState.errorMessage}
               multiple
               remainingSlots={CLASSROOM_PHOTO_MAX_IMAGES_PER_SESSION - images.length}
-              onSelectFile={(file) => void submitUploadFiles([file])}
-              onSelectFiles={(files) => void submitUploadFiles(files)}
+              onSelectFile={(file) => submitUploadFiles([file])}
+              onSelectFiles={(files) => submitUploadFiles(files)}
             />
           ) : (
             <Stack spacing={1.5}>

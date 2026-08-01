@@ -101,7 +101,8 @@ export const processClassroomImageFile = async (
     ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
   }
 
-  const blurScore = estimateBlurScore(ctx.getImageData(0, 0, targetWidth, targetHeight));
+  // Sample a small grayscale region for blur — full-frame Laplacian freezes the UI on large photos.
+  const blurScore = estimateBlurScore(sampleImageDataForBlur(ctx, targetWidth, targetHeight));
 
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
@@ -132,6 +133,34 @@ export const processClassroomImageFile = async (
     blurScore,
     orientationApplied,
   };
+};
+
+const BLUR_SAMPLE_MAX_EDGE = 320;
+
+/** Downscale draw buffer for blur estimation without blocking the main thread on megapixel frames. */
+const sampleImageDataForBlur = (
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+): ImageData => {
+  const scale = Math.min(1, BLUR_SAMPLE_MAX_EDGE / Math.max(width, height));
+  const sampleWidth = Math.max(3, Math.round(width * scale));
+  const sampleHeight = Math.max(3, Math.round(height * scale));
+
+  if (sampleWidth === width && sampleHeight === height) {
+    return ctx.getImageData(0, 0, width, height);
+  }
+
+  const sampleCanvas = document.createElement("canvas");
+  sampleCanvas.width = sampleWidth;
+  sampleCanvas.height = sampleHeight;
+  const sampleCtx = sampleCanvas.getContext("2d", { willReadFrequently: true });
+  if (!sampleCtx) {
+    return ctx.getImageData(0, 0, Math.min(width, 64), Math.min(height, 64));
+  }
+
+  sampleCtx.drawImage(ctx.canvas, 0, 0, width, height, 0, 0, sampleWidth, sampleHeight);
+  return sampleCtx.getImageData(0, 0, sampleWidth, sampleHeight);
 };
 
 /**

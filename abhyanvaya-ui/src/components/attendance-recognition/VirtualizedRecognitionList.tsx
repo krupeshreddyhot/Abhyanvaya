@@ -1,5 +1,13 @@
 import { Box } from "@mui/material";
-import { memo, useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 type VirtualizedRecognitionListProps<T> = {
   items: T[];
@@ -7,6 +15,8 @@ type VirtualizedRecognitionListProps<T> = {
   height: number;
   getKey: (item: T) => string;
   renderItem: (item: T) => ReactNode;
+  /** Scroll this key into view when it changes (Phase 4.2 face↔list sync). */
+  scrollToKey?: string | null;
 };
 
 function VirtualizedRecognitionListInner<T>({
@@ -15,6 +25,7 @@ function VirtualizedRecognitionListInner<T>({
   height,
   getKey,
   renderItem,
+  scrollToKey,
 }: VirtualizedRecognitionListProps<T>) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -24,6 +35,28 @@ function VirtualizedRecognitionListInner<T>({
       setScrollTop(scrollRef.current.scrollTop);
     }
   }, []);
+
+  const keyIndex = useMemo(() => {
+    if (!scrollToKey) {
+      return -1;
+    }
+    return items.findIndex((item) => getKey(item) === scrollToKey);
+  }, [items, getKey, scrollToKey]);
+
+  useEffect(() => {
+    if (keyIndex < 0 || !scrollRef.current) {
+      return;
+    }
+    const top = keyIndex * itemHeight;
+    const viewTop = scrollRef.current.scrollTop;
+    const viewBottom = viewTop + height;
+    if (top < viewTop || top + itemHeight > viewBottom) {
+      scrollRef.current.scrollTo({
+        top: Math.max(0, top - itemHeight),
+        behavior: "smooth",
+      });
+    }
+  }, [keyIndex, itemHeight, height]);
 
   const { startIndex, endIndex, offsetY, totalHeight } = useMemo(() => {
     const overscan = 2;
@@ -51,15 +84,37 @@ function VirtualizedRecognitionListInner<T>({
         overflowY: "auto",
         position: "relative",
         pr: 0.5,
+        scrollBehavior: "smooth",
+        "@media (prefers-reduced-motion: reduce)": {
+          scrollBehavior: "auto",
+        },
       }}
     >
       <Box sx={{ height: totalHeight, position: "relative" }}>
         <Box sx={{ transform: `translateY(${offsetY}px)` }}>
-          {visibleItems.map((item) => (
-            <Box key={getKey(item)} role="listitem" sx={{ height: itemHeight, pb: 1 }}>
-              {renderItem(item)}
-            </Box>
-          ))}
+          {visibleItems.map((item) => {
+            const key = getKey(item);
+            const focused = scrollToKey === key;
+            return (
+              <Box
+                key={key}
+                role="listitem"
+                data-recognition-id={key}
+                sx={{
+                  height: itemHeight,
+                  pb: 1,
+                  transition: (theme) =>
+                    theme.transitions.create("background-color", {
+                      duration: theme.transitions.duration.shortest,
+                    }),
+                  bgcolor: focused ? "action.selected" : "transparent",
+                  borderRadius: 1,
+                }}
+              >
+                {renderItem(item)}
+              </Box>
+            );
+          })}
         </Box>
       </Box>
     </Box>
@@ -67,5 +122,5 @@ function VirtualizedRecognitionListInner<T>({
 }
 
 export const VirtualizedRecognitionList = memo(
-  VirtualizedRecognitionListInner
+  VirtualizedRecognitionListInner,
 ) as typeof VirtualizedRecognitionListInner;

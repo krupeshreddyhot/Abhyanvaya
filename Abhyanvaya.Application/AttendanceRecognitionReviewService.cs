@@ -523,6 +523,7 @@ public sealed class AttendanceRecognitionReviewService : IAttendanceRecognitionR
             RecognitionId = recognition.Id,
             AttendanceSessionId = recognition.AttendanceSessionId,
             FaceNumber = recognition.FaceNumber,
+            ImageSequence = recognition.ImageSequence < 1 ? (short)1 : recognition.ImageSequence,
             StudentId = recognition.StudentId,
             StudentNumber = student?.StudentNumber,
             StudentName = student?.Name,

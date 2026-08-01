@@ -435,24 +435,43 @@ public sealed class AttendancePhotoService : IAttendancePhotoService, IClassroom
             return (false, "Attendance session was not found.");
         }
 
-        var pending = await _context.AttendanceSessionImages
-            .Where(i =>
-                i.AttendanceSessionId == sessionId &&
-                i.TenantId == _currentUser.TenantId &&
-                (i.Status == AttendanceSessionImageStatus.Uploaded ||
-                 i.Status == AttendanceSessionImageStatus.Failed))
-            .OrderBy(i => i.ImageSequence)
-            .FirstOrDefaultAsync(cancellationToken);
+        if (IsFinalized(session))
+        {
+            return (false, "Cannot requeue recognition on a finalized session.");
+        }
 
-        var first = pending ?? await _context.AttendanceSessionImages
+        var images = await _context.AttendanceSessionImages
             .Where(i => i.AttendanceSessionId == sessionId && i.TenantId == _currentUser.TenantId)
             .OrderBy(i => i.ImageSequence)
-            .FirstOrDefaultAsync(cancellationToken);
+            .ToListAsync(cancellationToken);
 
-        if (first == null)
+        if (images.Count == 0)
         {
             return (false, "No classroom images are available to recognize.");
         }
+
+        // Reset failed/stuck images so PendingOnly scope picks them up again.
+        foreach (var image in images.Where(i =>
+                     i.Status is AttendanceSessionImageStatus.Failed
+                         or AttendanceSessionImageStatus.Processing))
+        {
+            image.Status = AttendanceSessionImageStatus.Uploaded;
+            image.ProcessingError = null;
+        }
+
+        // Move Failed → Pending so status polling shows "Queued" immediately after retry
+        // (worker may still be picking up the in-memory job).
+        if (session.Status == AttendanceSessionStatus.Failed)
+        {
+            session.MoveToPending();
+            session.ProcessingError = null;
+            session.CompletedUtc = null;
+        }
+
+        await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
+
+        // After reset above, prefer the first Uploaded row for the queue message storage key.
+        var first = images.FirstOrDefault(i => i.Status == AttendanceSessionImageStatus.Uploaded) ?? images[0];
 
         await QueueProcessingAsync(
             sessionId,
@@ -490,6 +509,14 @@ public sealed class AttendancePhotoService : IAttendancePhotoService, IClassroom
 
         image.Status = AttendanceSessionImageStatus.Uploaded;
         image.ProcessingError = null;
+
+        if (session.Status == AttendanceSessionStatus.Failed)
+        {
+            session.MoveToPending();
+            session.ProcessingError = null;
+            session.CompletedUtc = null;
+        }
+
         await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
 
         await QueueProcessingAsync(
