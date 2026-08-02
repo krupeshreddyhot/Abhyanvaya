@@ -51,6 +51,8 @@ export const PermissionKeys = {
   SchedulingUnlock: "Scheduling.Unlock",
   SchedulingArchiveView: "Scheduling.Archive.View",
   SchedulingArchiveManage: "Scheduling.Archive.Manage",
+  SchedulingConflictView: "Scheduling.Conflict.View",
+  SchedulingConflictManage: "Scheduling.Conflict.Manage",
 } as const;
 
 export type PermissionKey = (typeof PermissionKeys)[keyof typeof PermissionKeys];

@@ -1580,3 +1580,689 @@ export const exportTimetableChangeHistoryExcel = (
     params,
     responseType: "blob",
   });
+
+// --- AI30 Phase 2B Conflict Detection ---
+
+export type ConflictCategory = 1 | 2 | 3 | 4 | 99;
+export type ConflictSeverity = 1 | 2 | 3 | 4;
+
+export type ConflictRecommendationDto = {
+  suggestedResolution: string;
+  navigationPath?: string | null;
+  timetableId?: number | null;
+  timetableEntryId?: number | null;
+  dayOfWeek?: number | null;
+  timeSlotId?: number | null;
+};
+
+export type ConflictResultDto = {
+  ruleCode: string;
+  ruleName: string;
+  category: ConflictCategory;
+  severity: ConflictSeverity;
+  description: string;
+  whyOccurred: string;
+  recommendation: ConflictRecommendationDto;
+  timetableId?: number | null;
+  timetableEntryId?: number | null;
+  relatedEntryId?: number | null;
+  dayOfWeek?: number | null;
+  timeSlotId?: number | null;
+  staffId?: number | null;
+  roomId?: number | null;
+  departmentId?: number | null;
+  courseId?: number | null;
+  groupId?: number | null;
+  semesterId?: number | null;
+  subjectId?: number | null;
+};
+
+export type ConflictSummaryDto = {
+  runId: number;
+  timetableId?: number | null;
+  academicYearId: number;
+  departmentId?: number | null;
+  startedUtc: string;
+  completedUtc?: string | null;
+  status: string;
+  triggerSource: string;
+  totalConflicts: number;
+  facultyCount: number;
+  roomCount: number;
+  studentCount: number;
+  calendarCount: number;
+  criticalCount: number;
+  errorCount: number;
+  warningCount: number;
+  informationCount: number;
+  blocksEditing: boolean;
+};
+
+export type ConflictWorkspaceDto = {
+  summary: ConflictSummaryDto;
+  conflicts: ConflictResultDto[];
+  groupedByRule: Record<string, number>;
+  groupedByCategory: Record<string, number>;
+};
+
+export type HeatMapCellDto = {
+  dayOfWeek: number;
+  timeSlotId: number;
+  timeSlotName?: string | null;
+  loadCount: number;
+  colour: string;
+  maxSeverity: ConflictSeverity;
+};
+
+export type HeatMapDto = {
+  kind: string;
+  entityId?: number | null;
+  entityName?: string | null;
+  academicYearId: number;
+  timetableId?: number | null;
+  cells: HeatMapCellDto[];
+  loadDistribution: Record<string, number>;
+};
+
+export type ConflictTrendPointDto = {
+  dateUtc: string;
+  warningCount: number;
+  errorCount: number;
+  criticalCount: number;
+  totalConflicts: number;
+};
+
+export type ConflictDashboardDto = {
+  latestSummary: ConflictSummaryDto;
+  facultyConflicts: number;
+  roomConflicts: number;
+  studentConflicts: number;
+  calendarConflicts: number;
+  validationStatus: string;
+  conflictCategories: Record<string, number>;
+  warningTrends: ConflictTrendPointDto[];
+  heatMaps: HeatMapDto[];
+};
+
+export type AttendanceSessionResolutionDto = {
+  mode: "Legacy" | "Timetable" | string;
+  hasTimetable: boolean;
+  message: string;
+  timetableId?: number | null;
+  timetableEntryId?: number | null;
+  courseId?: number | null;
+  groupId?: number | null;
+  semesterId?: number | null;
+  subjectId?: number | null;
+  periodNumber?: number | null;
+  timeSlotId?: number | null;
+  roomId?: number | null;
+  subjectName?: string | null;
+  roomName?: string | null;
+  attendanceDate?: string | null;
+};
+
+export const analyzeConflicts = (payload: {
+  timetableId?: number;
+  academicYearId?: number;
+  departmentId?: number;
+  triggerSource?: string;
+}) => api.post<{ summary: ConflictSummaryDto; conflicts: ConflictResultDto[] }>("/scheduling/conflicts/analyze", payload);
+
+export const getConflictWorkspace = (params?: {
+  timetableId?: number;
+  academicYearId?: number;
+  departmentId?: number;
+  staffId?: number;
+  roomId?: number;
+  category?: ConflictCategory;
+  severity?: ConflictSeverity;
+  search?: string;
+  reanalyze?: boolean;
+}) => api.get<ConflictWorkspaceDto>("/scheduling/conflicts/workspace", { params });
+
+export const getConflictDashboard = (params?: { academicYearId?: number; timetableId?: number }) =>
+  api.get<ConflictDashboardDto>("/scheduling/conflicts/dashboard", { params });
+
+export const getFacultyHeatMap = (academicYearId: number, params?: { staffId?: number; timetableId?: number }) =>
+  api.get<HeatMapDto>("/scheduling/conflicts/heatmaps/faculty", { params: { academicYearId, ...params } });
+
+export const getRoomHeatMap = (academicYearId: number, params?: { roomId?: number; timetableId?: number }) =>
+  api.get<HeatMapDto>("/scheduling/conflicts/heatmaps/room", { params: { academicYearId, ...params } });
+
+export const getDepartmentHeatMap = (
+  academicYearId: number,
+  params?: { departmentId?: number; timetableId?: number },
+) => api.get<HeatMapDto>("/scheduling/conflicts/heatmaps/department", { params: { academicYearId, ...params } });
+
+export const resolveAttendanceSession = (params?: { staffId?: number; date?: string }) =>
+  api.get<AttendanceSessionResolutionDto>("/attendance-resolution/current", { params });
+
+// AI30 Phase 2B.5 â€” Conflict Intelligence (advisory only)
+export type ConflictResolutionDto = {
+  recommendationId: string;
+  title: string;
+  summary: string;
+  providerCode: string;
+  options: {
+    optionCode: string;
+    label: string;
+    description: string;
+    actionHint: string;
+    suggestedRoomId?: number | null;
+    suggestedStaffId?: number | null;
+    suggestedTimeSlotId?: number | null;
+    suggestedDayOfWeek?: number | null;
+    navigationPath?: string | null;
+  }[];
+  score: { confidence: number; impact: number; difficulty: number; rank: number };
+  reasons: { code: string; message: string }[];
+  estimatedResolution?: string | null;
+  navigationPath?: string | null;
+  isAdvisoryOnly: boolean;
+  modifiesTimetable: boolean;
+};
+
+export type ConflictExplanationDto = {
+  ruleCode: string;
+  ruleName: string;
+  ruleCategory: string;
+  ruleDescription: string;
+  businessReason: string;
+  severity: ConflictSeverity;
+  priority: number;
+  whyTriggered: string;
+  suggestedAction: string;
+  impact: string;
+  references: string[];
+  navigationPath?: string | null;
+  timetableId?: number | null;
+  timetableEntryId?: number | null;
+};
+
+export type ImpactGraphDto = {
+  summary: {
+    facultyAffected: number;
+    studentsAffected: number;
+    roomsAffected: number;
+    departmentsAffected: number;
+    publishedVersionsAffected: number;
+    workloadSignals: number;
+    availabilitySignals: number;
+    attendanceSignals: number;
+    maxSeverity: ConflictSeverity;
+    riskLevel: string;
+  };
+  nodes: { nodeId: string; category: number; label: string; entityId?: number | null; severity: ConflictSeverity; detail?: string | null }[];
+  edges: { fromNodeId: string; toNodeId: string; relation: string }[];
+  navigationPath?: string | null;
+  isAdvisoryOnly: boolean;
+};
+
+export type DependencyGraphDto = {
+  nodeCount: number;
+  edgeCount: number;
+  clusterCount: number;
+  rootConflictCount: number;
+  nodes: {
+    nodeId: string;
+    ruleCode: string;
+    label: string;
+    severity: ConflictSeverity;
+    timetableEntryId?: number | null;
+    relatedEntryId?: number | null;
+    navigationPath?: string | null;
+    clusterKey?: string | null;
+  }[];
+  edges: { fromNodeId: string; toNodeId: string; relation: string; reason: string }[];
+  mermaid: string;
+  clusters: Record<string, string[]>;
+};
+
+export type ConflictGuidanceDto = {
+  conflict: ConflictResultDto;
+  suggestedResolutions: ConflictResolutionDto[];
+  explanation: ConflictExplanationDto;
+  impact: ImpactGraphDto;
+};
+
+export type ConflictRuleThresholdDto = {
+  thresholdKey: string;
+  displayName: string;
+  description?: string | null;
+  unit: string;
+  value: number;
+  version: number;
+  source: string;
+  isActive: boolean;
+};
+
+export type ConflictAnalyticsDashboardDto = {
+  topConflictTypes: { name: string; count: number }[];
+  mostViolatedRules: { name: string; count: number }[];
+  facultyConflictTrends: { name: string; count: number }[];
+  roomConflictTrends: { name: string; count: number }[];
+  departmentConflictTrends: { name: string; count: number }[];
+  weeklyComparison: ConflictTrendPointDto[];
+  monthlyComparison: ConflictTrendPointDto[];
+  conflictResolutionRatePercent: number;
+  averageResolutionTimeHours: number;
+  totalHistoricalFindings: number;
+  totalRuns: number;
+};
+
+export type EnhancedConflictWorkspaceDto = {
+  workspace: ConflictWorkspaceDto;
+  groupedByRule: Record<string, ConflictResultDto[]>;
+  groupedByDepartment: Record<string, ConflictResultDto[]>;
+  groupedByFaculty: Record<string, ConflictResultDto[]>;
+  groupedBySeverity: Record<string, ConflictResultDto[]>;
+  groupedByRoom: Record<string, ConflictResultDto[]>;
+  pins: { id: number; conflictDetectionRunId: number; ruleCode: string; timetableEntryId?: number | null }[];
+  bookmarks: { id: number; name: string; filterJson: string }[];
+  notes: { id: number; conflictDetectionRunId: number; ruleCode: string; timetableEntryId?: number | null; noteText: string; userId: number }[];
+  dependencyGraph: DependencyGraphDto;
+};
+
+export const getConflictGuidance = (params: {
+  ruleCode: string;
+  timetableEntryId?: number;
+  academicYearId?: number;
+  timetableId?: number;
+}) => api.get<ConflictGuidanceDto>("/scheduling/conflicts/guidance", { params });
+
+export const getConflictExplanation = (params: {
+  ruleCode: string;
+  timetableEntryId?: number;
+  academicYearId?: number;
+  timetableId?: number;
+}) => api.get<ConflictExplanationDto>("/scheduling/conflicts/explain", { params });
+
+export const getConflictImpact = (params: {
+  ruleCode: string;
+  timetableEntryId?: number;
+  academicYearId?: number;
+  timetableId?: number;
+}) => api.get<ImpactGraphDto>("/scheduling/conflicts/impact", { params });
+
+export const getConflictDependencies = (params?: { academicYearId?: number; timetableId?: number }) =>
+  api.get<DependencyGraphDto>("/scheduling/conflicts/dependencies", { params });
+
+export const getEnhancedConflictWorkspace = (params?: {
+  timetableId?: number;
+  academicYearId?: number;
+  departmentId?: number;
+  staffId?: number;
+  roomId?: number;
+  category?: ConflictCategory;
+  severity?: ConflictSeverity;
+  search?: string;
+  reanalyze?: boolean;
+}) => api.get<EnhancedConflictWorkspaceDto>("/scheduling/conflicts/workspace/enhanced", { params });
+
+export const pinConflict = (payload: { conflictDetectionRunId: number; ruleCode: string; timetableEntryId?: number }) =>
+  api.post("/scheduling/conflicts/workspace/pins", payload);
+
+export const addConflictNote = (payload: {
+  conflictDetectionRunId: number;
+  ruleCode: string;
+  timetableEntryId?: number;
+  noteText: string;
+}) => api.post("/scheduling/conflicts/workspace/notes", payload);
+
+export const saveConflictBookmark = (payload: { name: string; filterJson: string }) =>
+  api.post("/scheduling/conflicts/workspace/bookmarks", payload);
+
+export const getConflictAnalytics = (params?: { academicYearId?: number }) =>
+  api.get<ConflictAnalyticsDashboardDto>("/scheduling/conflicts/analytics", { params });
+
+export const exportConflictAnalyticsExcel = (params?: { academicYearId?: number }) =>
+  api.get<Blob>("/scheduling/conflicts/analytics/export/excel", { params, responseType: "blob" });
+
+export const exportConflictAnalyticsPdf = (params?: { academicYearId?: number }) =>
+  api.get<Blob>("/scheduling/conflicts/analytics/export/pdf", { params, responseType: "blob" });
+
+export const getConflictRuleThresholds = () =>
+  api.get<ConflictRuleThresholdDto[]>("/scheduling/conflicts/rules/thresholds");
+
+export const updateConflictRuleThreshold = (payload: { thresholdKey: string; value: number; changeReason?: string }) =>
+  api.put<ConflictRuleThresholdDto>("/scheduling/conflicts/rules/thresholds", payload);
+
+export const getConflictRuleThresholdHistory = (thresholdKey?: string) =>
+  api.get<{ thresholdKey: string; oldValue: number; newValue: number; version: number; changeReason?: string; changedByUserId?: number; changedUtc: string }[]>(
+    "/scheduling/conflicts/rules/thresholds/history",
+    { params: { thresholdKey } },
+  );
+
+// AI30 Phase 2B.6 — Optimization Readiness (preview only, no apply)
+export type OptimizationScoreDto = {
+  totalScore: number;
+  normalizedScore: number;
+  dimensions: { dimension: number; dimensionName: string; rawValue: number; weight: number; weightedScore: number }[];
+};
+
+export type OptimizationMetricDto = {
+  metricKind: number;
+  metricName: string;
+  value: number;
+  unit: string;
+  capturedUtc: string;
+  timetableId?: number | null;
+  academicYearId: number;
+};
+
+export type OptimizationSimulationDto = {
+  simulationId: string;
+  scenarioName: string;
+  strategyKind: number;
+  status: number;
+  currentScore: number;
+  projectedScore: number;
+  scoreDelta: number;
+  currentConflictCount: number;
+  projectedConflictCount: number;
+  baselineScore: OptimizationScoreDto;
+  projectedScoreDetail: OptimizationScoreDto;
+  metrics: OptimizationMetricDto[];
+  candidates: { candidateId: string; description: string; proposedChangeSummaries: string[]; isAdvisoryOnly: boolean; modifiesLiveTimetable: boolean }[];
+  proposedChanges: string[];
+  canApply: boolean;
+  modifiesTimetable: boolean;
+  message: string;
+  scoringTimeMs: number;
+  executionTimeMs: number;
+};
+
+export type OptimizationPreviewDto = {
+  simulation: OptimizationSimulationDto;
+  conflictSnapshot?: ConflictDashboardDto | null;
+  heatMaps: HeatMapDto[];
+  telemetry: {
+    simulationCount: number;
+    executionTimeMs: number;
+    scoringTimeMs: number;
+    averageImprovement: number;
+    rejectedSimulations: number;
+    acceptedSimulations: number;
+    mostUsedMetrics: { name: string; count: number }[];
+  };
+  showApplyButton: boolean;
+};
+
+export const getOptimizationPreview = (params?: { simulationId?: string; academicYearId?: number; timetableId?: number }) =>
+  api.get<OptimizationPreviewDto>("/scheduling/optimization/preview", { params });
+
+export const runOptimizationSimulation = (payload?: {
+  timetableId?: number;
+  academicYearId?: number;
+  departmentId?: number;
+  strategyKind?: number;
+  scenarioName?: string;
+}) => api.post<OptimizationSimulationDto>("/scheduling/optimization/simulate", payload ?? {});
+
+export const getOptimizationScore = (params?: { academicYearId?: number; timetableId?: number; departmentId?: number }) =>
+  api.get<OptimizationScoreDto>("/scheduling/optimization/score", { params });
+
+export const getOptimizationPlugins = () =>
+  api.get<{ category: string; providerCode: string; providerName: string; isImplemented: boolean; notes: string }[]>(
+    "/scheduling/optimization/plugins",
+  );
+
+// AI30 Phase 2B.7 — Optimization Sandbox
+export type ScenarioSummaryDto = {
+  scenarioId: string;
+  id: number;
+  name: string;
+  description?: string | null;
+  status: number;
+  owner: { userId: number; displayName: string };
+  academicYearId: number;
+  departmentId?: number | null;
+  semesterId?: number | null;
+  timetableId?: number | null;
+  isFavorite: boolean;
+  isPinned: boolean;
+  isTemplate: boolean;
+  isImmutable: boolean;
+  category: string;
+  tags: string[];
+  currentScore: number;
+  projectedScore: number;
+  conflictCount: number;
+  replayCount: number;
+  comparisonCount: number;
+  viewCount: number;
+  snapshotCount: number;
+  createdUtc: string;
+  lastReplayedUtc?: string | null;
+  modifiesProductionTimetable: boolean;
+  canApply: boolean;
+};
+
+export type OptimizationScenarioDetailDto = {
+  summary: ScenarioSummaryDto;
+  snapshots: {
+    snapshotId: string;
+    sequence: number;
+    label: string;
+    simulationId?: string | null;
+    capturedUtc: string;
+    isImmutable: boolean;
+  }[];
+  history: { action: number; actionName: string; actorUserId?: number | null; details?: string | null; occurredUtc: string }[];
+  notes: { id: number; userId: number; noteText: string; createdUtc: string }[];
+  comments: { id: number; userId: number; commentText: string; createdUtc: string }[];
+  bookmarks: { id: number; name: string }[];
+  approvals: { id: number; status: string; message?: string | null; requestedByUserId: number; requestedUtc: string }[];
+};
+
+export type OptimizationWorkspaceDto = {
+  scenarios: ScenarioSummaryDto[];
+  favorites: ScenarioSummaryDto[];
+  templates: ScenarioSummaryDto[];
+  evolution: {
+    scoreEvolution: { dateUtc: string; label: string; value: number }[];
+    conflictEvolution: { dateUtc: string; label: string; value: number }[];
+    utilization: { dateUtc: string; label: string; value: number }[];
+    facultySatisfaction: { dateUtc: string; label: string; value: number }[];
+    roomUsage: { dateUtc: string; label: string; value: number }[];
+    travel: { dateUtc: string; label: string; value: number }[];
+    breakCompliance: { dateUtc: string; label: string; value: number }[];
+    notes: string;
+  };
+  showApplyButton: boolean;
+};
+
+export type ScenarioComparisonResultDto = {
+  left: ScenarioSummaryDto;
+  right: ScenarioSummaryDto;
+  differences: { scoreDelta: number; conflictDelta: number; projectedScoreDelta: number; verdict: string };
+  improvementHighlights: string[];
+  canApply: boolean;
+};
+
+export const getOptimizationSandboxWorkspace = (params?: { academicYearId?: number; departmentId?: number }) =>
+  api.get<OptimizationWorkspaceDto>("/scheduling/optimization/sandbox/workspace", { params });
+
+export const createSandboxScenario = (payload: {
+  name: string;
+  description?: string;
+  academicYearId?: number;
+  departmentId?: number;
+  semesterId?: number;
+  timetableId?: number;
+  sourceSimulationId?: string;
+  category?: string;
+  tagsCsv?: string;
+  captureFromLatestSimulation?: boolean;
+}) => api.post<ScenarioSummaryDto>("/scheduling/optimization/sandbox/scenarios", payload);
+
+export const getSandboxScenarioDetail = (scenarioId: string) =>
+  api.get<OptimizationScenarioDetailDto>(`/scheduling/optimization/sandbox/scenarios/${scenarioId}`);
+
+export const saveSandboxScenario = (scenarioId: string) =>
+  api.post<ScenarioSummaryDto>(`/scheduling/optimization/sandbox/scenarios/${scenarioId}/save`);
+
+export const duplicateSandboxScenario = (payload: { scenarioId: string; newName?: string }) =>
+  api.post<ScenarioSummaryDto>("/scheduling/optimization/sandbox/scenarios/duplicate", payload);
+
+export const deleteSandboxScenario = (scenarioId: string) =>
+  api.delete(`/scheduling/optimization/sandbox/scenarios/${scenarioId}`);
+
+export const favoriteSandboxScenario = (scenarioId: string, value = true) =>
+  api.post<ScenarioSummaryDto>(`/scheduling/optimization/sandbox/scenarios/${scenarioId}/favorite`, null, { params: { value } });
+
+export const pinSandboxScenario = (scenarioId: string, value = true) =>
+  api.post<ScenarioSummaryDto>(`/scheduling/optimization/sandbox/scenarios/${scenarioId}/pin`, null, { params: { value } });
+
+export const archiveSandboxScenario = (scenarioId: string) =>
+  api.post<ScenarioSummaryDto>(`/scheduling/optimization/sandbox/scenarios/${scenarioId}/archive`);
+
+export const replaySandboxScenario = (scenarioId: string) =>
+  api.post(`/scheduling/optimization/sandbox/scenarios/${scenarioId}/replay`);
+
+export const compareSandboxScenarios = (payload: { leftScenarioId: string; rightScenarioId: string }) =>
+  api.post<ScenarioComparisonResultDto>("/scheduling/optimization/sandbox/scenarios/compare", payload);
+
+// AI30 Phase 3 — Enterprise Optimization Engine
+export type OptimizationProgressDto = {
+  runId: string;
+  sessionId: string;
+  currentStrategy: string;
+  progressPercent: number;
+  elapsedMs: number;
+  estimatedRemainingMs?: number | null;
+  currentScore: number;
+  improvementDelta: number;
+  statusMessage: string;
+  status: number;
+};
+
+export type OptimizationComparisonDto = {
+  originalScore: number;
+  optimizedScore: number;
+  scoreImprovement: number;
+  originalConflicts: number;
+  optimizedConflicts: number;
+  conflictReduction: number;
+  facultySatisfactionDelta: number;
+  roomUsageDelta: number;
+  travelDelta: number;
+  breaksDelta: number;
+  highlights: string[];
+};
+
+export type OptimizationRunSummaryDto = {
+  runId: string;
+  sessionId: string;
+  status: number;
+  strategyKind: number;
+  academicYearId: number;
+  timetableId?: number | null;
+  baselineScore: number;
+  projectedScore: number;
+  improvementDelta: number;
+  baselineConflictCount: number;
+  projectedConflictCount: number;
+  sandboxScenarioId?: string | null;
+  resultDraftScheduleVersionId?: number | null;
+  startedUtc: string;
+  completedUtc?: string | null;
+  elapsedMs: number;
+  modifiesProductionTimetable: boolean;
+};
+
+export type OptimizationExecutionResultDto = {
+  runId: string;
+  sessionId: string;
+  status: number;
+  sandboxScenarioId?: string | null;
+  comparison?: OptimizationComparisonDto | null;
+  intermediateResults: Array<{
+    strategyCode: string;
+    strategyName: string;
+    kind: number;
+    candidateCount: number;
+    scoreAfter: number;
+    conflictCountAfter: number;
+    elapsedMs: number;
+    message: string;
+  }>;
+  elapsedMs: number;
+  errorMessage?: string | null;
+  combinedResult: {
+    summary: {
+      candidateCount: number;
+      baselineScore: number;
+      bestProjectedScore: number;
+      improvementDelta: number;
+      baselineConflictCount: number;
+      projectedConflictCount: number;
+      statusMessage: string;
+    };
+    candidates: Array<{
+      candidateId: string;
+      description: string;
+      proposedChangeSummaries: string[];
+      changeType: string;
+      entryId?: number | null;
+      strategyCode: string;
+    }>;
+  };
+  modifiesProductionTimetable: boolean;
+};
+
+export type OptimizationDashboardDto = {
+  totalRuns: number;
+  completedRuns: number;
+  approvedRuns: number;
+  bestScore: number;
+  averageImprovement: number;
+  averageConflictReduction: number;
+  averageFacultySatisfactionDelta: number;
+  topStrategies: Array<{ strategyCode: string; candidateCount: number }>;
+  recentRuns: OptimizationRunSummaryDto[];
+  scenarioHistory: Array<{
+    scenarioId?: string | null;
+    runId: string;
+    projectedScore: number;
+    improvementDelta: number;
+    startedUtc: string;
+    status: number;
+  }>;
+};
+
+export type OptimizationApprovalResultDto = {
+  runId: string;
+  draftScheduleVersionId: number;
+  draftVersionName: string;
+  appliedCandidateCount: number;
+  overwrotePublishedTimetable: boolean;
+  modifiedExistingDraft: boolean;
+  message: string;
+};
+
+export const runOptimizationEngine = (payload: {
+  academicYearId?: number;
+  timetableId?: number;
+  departmentId?: number;
+  scenarioName?: string;
+}) => api.post<OptimizationExecutionResultDto>("/scheduling/optimization/engine/run", payload);
+
+export const listOptimizationRuns = (params?: { academicYearId?: number; departmentId?: number }) =>
+  api.get<OptimizationRunSummaryDto[]>("/scheduling/optimization/engine/runs", { params });
+
+export const getOptimizationRun = (runId: string) =>
+  api.get<OptimizationExecutionResultDto>(`/scheduling/optimization/engine/runs/${runId}`);
+
+export const getOptimizationComparison = (runId: string) =>
+  api.get<OptimizationComparisonDto>(`/scheduling/optimization/engine/runs/${runId}/comparison`);
+
+export const approveOptimizationRun = (payload: { runId: string; newVersionName?: string; remarks?: string }) =>
+  api.post<OptimizationApprovalResultDto>("/scheduling/optimization/engine/approve", payload);
+
+export const rejectOptimizationRun = (payload: { runId: string; reason?: string }) =>
+  api.post("/scheduling/optimization/engine/reject", payload);
+
+export const getOptimizationDashboard = (params?: { academicYearId?: number; departmentId?: number }) =>
+  api.get<OptimizationDashboardDto>("/scheduling/optimization/engine/dashboard", { params });

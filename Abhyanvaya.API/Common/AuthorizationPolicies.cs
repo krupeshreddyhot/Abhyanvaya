@@ -81,5 +81,7 @@ namespace Abhyanvaya.API.Common
         public const string CanUnlockScheduling = "CanUnlockScheduling";
         public const string CanViewSchedulingArchive = "CanViewSchedulingArchive";
         public const string CanManageSchedulingArchive = "CanManageSchedulingArchive";
+        public const string CanViewSchedulingConflict = "CanViewSchedulingConflict";
+        public const string CanManageSchedulingConflict = "CanManageSchedulingConflict";
     }
 }

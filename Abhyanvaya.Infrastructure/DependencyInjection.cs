@@ -2,6 +2,7 @@
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Enrollment.Storage;
 using Abhyanvaya.Application.Recognition;
+using Abhyanvaya.Infrastructure.BackgroundServices;
 using Abhyanvaya.Infrastructure.BackgroundWorkers;
 using Abhyanvaya.Infrastructure.Diagnostics;
 using Abhyanvaya.Infrastructure.Diagnostics.MemoryAudit;
@@ -245,7 +246,10 @@ namespace Abhyanvaya.Infrastructure
             services.AddScoped<ITimetableApprovalCommentRepository, TimetableApprovalCommentRepository>();
             services.AddScoped<ITimetableDecisionHistoryRepository, TimetableDecisionHistoryRepository>();
             services.AddScoped<IArchiveReasonRepository, ArchiveReasonRepository>();
+            services.AddScoped<IConflictDetectionRepository, ConflictDetectionRepository>();
+            services.AddScoped<IOptimizationScenarioRepository, OptimizationScenarioRepository>();
             services.AddHostedService<TimetableCloneBackgroundService>();
+            services.AddHostedService<ConflictValidationBackgroundService>();
 
             // AI20.PHASE2.1.1: enrollment batch/item persistence repositories (thin; no orchestration).
             services.AddScoped<IStudentEnrollmentBatchRepository, StudentEnrollmentBatchRepository>();

@@ -60,6 +60,8 @@ namespace Abhyanvaya.Domain.Authorization
         public const string SchedulingUnlock = "Scheduling.Unlock";
         public const string SchedulingArchiveView = "Scheduling.Archive.View";
         public const string SchedulingArchiveManage = "Scheduling.Archive.Manage";
+        public const string SchedulingConflictView = "Scheduling.Conflict.View";
+        public const string SchedulingConflictManage = "Scheduling.Conflict.Manage";
 
         public static IReadOnlyList<string> All { get; } =
         [
@@ -114,6 +116,8 @@ namespace Abhyanvaya.Domain.Authorization
             SchedulingUnlock,
             SchedulingArchiveView,
             SchedulingArchiveManage,
+            SchedulingConflictView,
+            SchedulingConflictManage,
         ];
 
         /// <summary>Fallback when <see cref="Entities.UserApplicationRole"/> rows are absent (legacy enum roles).</summary>

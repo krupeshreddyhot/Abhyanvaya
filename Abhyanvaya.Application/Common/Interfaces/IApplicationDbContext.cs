@@ -169,6 +169,27 @@ namespace Abhyanvaya.Application.Common.Interfaces
         IQueryable<TimetableApprovalComment> SchedulingTimetableApprovalComments { get; }
         IQueryable<TimetableDecisionHistory> SchedulingTimetableDecisionHistories { get; }
         IQueryable<ArchiveReasonLookup> SchedulingArchiveReasons { get; }
+        IQueryable<ConflictDetectionRun> SchedulingConflictDetectionRuns { get; }
+        IQueryable<ConflictFinding> SchedulingConflictFindings { get; }
+        IQueryable<ConflictRuleThresholdSetting> SchedulingConflictRuleThresholdSettings { get; }
+        IQueryable<ConflictRuleConfigChangeHistory> SchedulingConflictRuleConfigChangeHistories { get; }
+        IQueryable<ConflictWorkspacePin> SchedulingConflictWorkspacePins { get; }
+        IQueryable<ConflictWorkspaceBookmark> SchedulingConflictWorkspaceBookmarks { get; }
+        IQueryable<ConflictWorkspaceNote> SchedulingConflictWorkspaceNotes { get; }
+        IQueryable<OptimizationSimulationRun> SchedulingOptimizationSimulationRuns { get; }
+        IQueryable<OptimizationMetricSnapshot> SchedulingOptimizationMetricSnapshots { get; }
+        IQueryable<OptimizationTelemetryAggregate> SchedulingOptimizationTelemetryAggregates { get; }
+        IQueryable<OptimizationScenario> SchedulingOptimizationScenarios { get; }
+        IQueryable<OptimizationSnapshot> SchedulingOptimizationSnapshots { get; }
+        IQueryable<OptimizationScenarioFavorite> SchedulingOptimizationScenarioFavorites { get; }
+        IQueryable<OptimizationScenarioNote> SchedulingOptimizationScenarioNotes { get; }
+        IQueryable<OptimizationScenarioComment> SchedulingOptimizationScenarioComments { get; }
+        IQueryable<OptimizationScenarioBookmark> SchedulingOptimizationScenarioBookmarks { get; }
+        IQueryable<OptimizationScenarioApprovalRequest> SchedulingOptimizationScenarioApprovalRequests { get; }
+        IQueryable<OptimizationScenarioShare> SchedulingOptimizationScenarioShares { get; }
+        IQueryable<OptimizationScenarioHistory> SchedulingOptimizationScenarioHistories { get; }
+
+        IQueryable<OptimizationEngineRun> SchedulingOptimizationEngineRuns { get; }
 
         Task AddAsync<T>(T entity) where T : class;
 

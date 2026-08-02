@@ -55,9 +55,12 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<IHubFilter, TenantContextHubFilter>();
 builder.Services.AddHostedService<EnrollmentStartupValidationHostedService>();
 builder.Services.AddSingleton<IEnrollmentSignalRPublisher, EnrollmentSignalRPublisher>();
+builder.Services.AddScoped<Abhyanvaya.Application.Scheduling.Optimization.Progress.IOptimizationProgressPublisher, Abhyanvaya.API.SignalR.OptimizationSignalRPublisher>();
 builder.Services.AddScoped<IEnrollmentActorPermissions, EnrollmentActorPermissions>();
 builder.Services.Configure<EnrollmentProgressBroadcastOptions>(
     builder.Configuration.GetSection(EnrollmentProgressBroadcastOptions.SectionName));
+builder.Services.Configure<Abhyanvaya.Application.Scheduling.Conflicts.Intelligence.ConflictRuleThresholds>(
+    builder.Configuration.GetSection(Abhyanvaya.Application.Scheduling.Conflicts.Intelligence.ConflictRuleThresholds.SectionName));
 if (builder.Configuration.GetValue<bool>($"{EnrollmentProgressBroadcastOptions.SectionName}:Enabled", true))
 {
     builder.Services.AddHostedService<EnrollmentProgressBroadcastService>();
@@ -410,6 +413,8 @@ builder.Services.AddAuthorization(options =>
     AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingVersionCompare, PermissionKeys.SchedulingVersionCompareView, PermissionKeys.SchedulingVersionCompareExport);
     AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingApprovalComments, PermissionKeys.SchedulingApprovalCommentsView, PermissionKeys.SchedulingApprovalCommentsManage);
     AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingArchive, PermissionKeys.SchedulingArchiveView, PermissionKeys.SchedulingArchiveManage);
+    AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingConflict, PermissionKeys.SchedulingConflictView, PermissionKeys.SchedulingConflictManage);
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingConflict, PermissionKeys.SchedulingConflictManage);
 
     AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingRoomAvailability, PermissionKeys.SchedulingRoomAvailabilityManage);
     AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingFacultyAvailability, PermissionKeys.SchedulingFacultyAvailabilityManage);
@@ -572,6 +577,7 @@ app.UseTenantContext();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<EnrollmentHub>("/hubs/enrollment").RequireCors("AllowReact");
+app.MapHub<Abhyanvaya.API.Hubs.OptimizationHub>("/hubs/optimization").RequireCors("AllowReact");
 
 MapPlatformHealthEndpoints(app);
 

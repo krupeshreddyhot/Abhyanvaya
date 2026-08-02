@@ -67,7 +67,9 @@ namespace Abhyanvaya.Infrastructure.Persistence
                 new Permission { Id = 50, Key = PermissionKeys.SchedulingFreeze, Resource = "Scheduling", Action = "Freeze" },
                 new Permission { Id = 51, Key = PermissionKeys.SchedulingUnlock, Resource = "Scheduling", Action = "Unlock" },
                 new Permission { Id = 52, Key = PermissionKeys.SchedulingArchiveView, Resource = "Scheduling.Archive", Action = "View" },
-                new Permission { Id = 53, Key = PermissionKeys.SchedulingArchiveManage, Resource = "Scheduling.Archive", Action = "Manage" });
+                new Permission { Id = 53, Key = PermissionKeys.SchedulingArchiveManage, Resource = "Scheduling.Archive", Action = "Manage" },
+                new Permission { Id = 54, Key = PermissionKeys.SchedulingConflictView, Resource = "Scheduling.Conflict", Action = "View" },
+                new Permission { Id = 55, Key = PermissionKeys.SchedulingConflictManage, Resource = "Scheduling.Conflict", Action = "Manage" });
 
             builder.Entity<ArchiveReasonLookup>().HasData(
                 new ArchiveReasonLookup { Id = 701, TenantId = 1, Code = ArchiveReasonCode.Superseded, Name = "Superseded", Description = "Replaced by a newer schedule version", SortOrder = 1, IsActive = true, CreatedDate = SeedUtc, IsDeleted = false },
@@ -99,7 +101,8 @@ namespace Abhyanvaya.Infrastructure.Persistence
                     IsDeleted = false
                 });
 
-            var adminLinks = Enumerable.Range(1, 53)
+            // Include AI30 Phase 2B Conflict permissions (54–55)
+            var adminLinks = Enumerable.Range(1, 55)
                 .Select(pid => new ApplicationRolePermission { ApplicationRoleId = 100, PermissionId = pid })
                 .ToArray();
 

@@ -1,5 +1,7 @@
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Scheduling;
+using Abhyanvaya.Application.Scheduling.Conflicts;
+using Abhyanvaya.Application.Scheduling.Optimization;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -50,6 +52,8 @@ public static class DependencyInjection
         services.AddScoped<ITimetableChangeHistoryService, TimetableChangeHistoryService>();
         services.AddScoped<ITimetableGovernanceDashboardService, TimetableGovernanceDashboardService>();
         services.AddScoped<IVersionComparisonService, VersionComparisonService>();
+        services.AddConflictDetection();
+        services.AddOptimizationReadiness();
 
         return services;
     }

@@ -128,6 +128,26 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<TimetableApprovalComment> SchedulingTimetableApprovalComments => Set<TimetableApprovalComment>();
         public IQueryable<TimetableDecisionHistory> SchedulingTimetableDecisionHistories => Set<TimetableDecisionHistory>();
         public IQueryable<ArchiveReasonLookup> SchedulingArchiveReasons => Set<ArchiveReasonLookup>();
+        public IQueryable<ConflictDetectionRun> SchedulingConflictDetectionRuns => Set<ConflictDetectionRun>();
+        public IQueryable<ConflictFinding> SchedulingConflictFindings => Set<ConflictFinding>();
+        public IQueryable<ConflictRuleThresholdSetting> SchedulingConflictRuleThresholdSettings => Set<ConflictRuleThresholdSetting>();
+        public IQueryable<ConflictRuleConfigChangeHistory> SchedulingConflictRuleConfigChangeHistories => Set<ConflictRuleConfigChangeHistory>();
+        public IQueryable<ConflictWorkspacePin> SchedulingConflictWorkspacePins => Set<ConflictWorkspacePin>();
+        public IQueryable<ConflictWorkspaceBookmark> SchedulingConflictWorkspaceBookmarks => Set<ConflictWorkspaceBookmark>();
+        public IQueryable<ConflictWorkspaceNote> SchedulingConflictWorkspaceNotes => Set<ConflictWorkspaceNote>();
+        public IQueryable<OptimizationSimulationRun> SchedulingOptimizationSimulationRuns => Set<OptimizationSimulationRun>();
+        public IQueryable<OptimizationMetricSnapshot> SchedulingOptimizationMetricSnapshots => Set<OptimizationMetricSnapshot>();
+        public IQueryable<OptimizationTelemetryAggregate> SchedulingOptimizationTelemetryAggregates => Set<OptimizationTelemetryAggregate>();
+        public IQueryable<OptimizationScenario> SchedulingOptimizationScenarios => Set<OptimizationScenario>();
+        public IQueryable<OptimizationSnapshot> SchedulingOptimizationSnapshots => Set<OptimizationSnapshot>();
+        public IQueryable<OptimizationScenarioFavorite> SchedulingOptimizationScenarioFavorites => Set<OptimizationScenarioFavorite>();
+        public IQueryable<OptimizationScenarioNote> SchedulingOptimizationScenarioNotes => Set<OptimizationScenarioNote>();
+        public IQueryable<OptimizationScenarioComment> SchedulingOptimizationScenarioComments => Set<OptimizationScenarioComment>();
+        public IQueryable<OptimizationScenarioBookmark> SchedulingOptimizationScenarioBookmarks => Set<OptimizationScenarioBookmark>();
+        public IQueryable<OptimizationScenarioApprovalRequest> SchedulingOptimizationScenarioApprovalRequests => Set<OptimizationScenarioApprovalRequest>();
+        public IQueryable<OptimizationScenarioShare> SchedulingOptimizationScenarioShares => Set<OptimizationScenarioShare>();
+        public IQueryable<OptimizationScenarioHistory> SchedulingOptimizationScenarioHistories => Set<OptimizationScenarioHistory>();
+        public IQueryable<OptimizationEngineRun> SchedulingOptimizationEngineRuns => Set<OptimizationEngineRun>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

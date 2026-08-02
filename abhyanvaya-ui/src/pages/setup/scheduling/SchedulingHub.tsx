@@ -29,6 +29,8 @@ import LayersIcon from "@mui/icons-material/Layers";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import PublishIcon from "@mui/icons-material/Publish";
 import PolicyIcon from "@mui/icons-material/Policy";
+import ReportProblemIcon from "@mui/icons-material/ReportProblem";
+import MapIcon from "@mui/icons-material/Map";
 
 type HubLink = {
   to: string;
@@ -212,6 +214,48 @@ const links: HubLink[] = [
     title: "Change history",
     description: "Filter timetable change timeline and export to Excel",
     icon: <HistoryIcon />,
+  },
+  {
+    to: "/setup/scheduling/conflicts/dashboard",
+    title: "Conflict dashboard",
+    description: "Conflict counts, categories, warning trends, and heat maps",
+    icon: <MapIcon />,
+  },
+  {
+    to: "/setup/scheduling/conflicts/workspace",
+    title: "Conflict workspace",
+    description: "Explain, guide, pin, and navigate conflicts — advisory only",
+    icon: <ReportProblemIcon />,
+  },
+  {
+    to: "/setup/scheduling/conflicts/analytics",
+    title: "Conflict analytics",
+    description: "Historical conflict trends, resolution rate, Excel/PDF export",
+    icon: <MapIcon />,
+  },
+  {
+    to: "/setup/scheduling/conflicts/rules",
+    title: "Conflict rule thresholds",
+    description: "Configure detection thresholds with audit history",
+    icon: <ReportProblemIcon />,
+  },
+  {
+    to: "/setup/scheduling/optimization/preview",
+    title: "Optimization preview",
+    description: "Readiness preview — score, metrics, conflicts (no apply)",
+    icon: <MapIcon />,
+  },
+  {
+    to: "/setup/scheduling/optimization/workspace",
+    title: "Optimization workspace",
+    description: "Sandbox scenarios — save, replay, compare, collaborate (no apply)",
+    icon: <MapIcon />,
+  },
+  {
+    to: "/setup/scheduling/optimization/dashboard",
+    title: "Optimization dashboard",
+    description: "Run enterprise pipeline, review comparison, approve new draft versions",
+    icon: <MapIcon />,
   },
 ];
 

@@ -55,6 +55,13 @@ import ApprovalQueuePage from "../pages/setup/scheduling/governance/ApprovalQueu
 import PublishingPage from "../pages/setup/scheduling/governance/PublishingPage";
 import CloneWizardPage from "../pages/setup/scheduling/governance/CloneWizardPage";
 import ChangeHistoryPage from "../pages/setup/scheduling/governance/ChangeHistoryPage";
+import ConflictDashboardPage from "../pages/setup/scheduling/conflicts/ConflictDashboardPage";
+import ConflictWorkspacePage from "../pages/setup/scheduling/conflicts/ConflictWorkspacePage";
+import ConflictAnalyticsPage from "../pages/setup/scheduling/conflicts/ConflictAnalyticsPage";
+import ConflictRuleThresholdsPage from "../pages/setup/scheduling/conflicts/ConflictRuleThresholdsPage";
+import OptimizationPreviewPage from "../pages/setup/scheduling/optimization/OptimizationPreviewPage";
+import OptimizationWorkspacePage from "../pages/setup/scheduling/optimization/OptimizationWorkspacePage";
+import OptimizationDashboardPage from "../pages/setup/scheduling/optimization/OptimizationDashboardPage";
 import ChangePasswordPage from "../pages/ChangePasswordPage";
 import ForgotPasswordPage from "../pages/ForgotPasswordPage";
 import ResetPasswordPage from "../pages/ResetPasswordPage";
@@ -107,6 +114,8 @@ const schedulingHubPermissions = [
   PermissionKeys.SchedulingArchive,
   PermissionKeys.SchedulingClone,
   PermissionKeys.SchedulingHistoryView,
+  PermissionKeys.SchedulingConflictView,
+  PermissionKeys.SchedulingConflictManage,
 ];
 
 const AppRoutes = () => {
@@ -591,6 +600,76 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute anyPermission={[PermissionKeys.SchedulingHistoryView]}>
                 <ChangeHistoryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="setup/scheduling/conflicts/dashboard"
+            element={
+              <ProtectedRoute
+                anyPermission={[PermissionKeys.SchedulingConflictView, PermissionKeys.SchedulingConflictManage]}
+              >
+                <ConflictDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="setup/scheduling/conflicts/workspace"
+            element={
+              <ProtectedRoute
+                anyPermission={[PermissionKeys.SchedulingConflictView, PermissionKeys.SchedulingConflictManage]}
+              >
+                <ConflictWorkspacePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="setup/scheduling/conflicts/analytics"
+            element={
+              <ProtectedRoute
+                anyPermission={[PermissionKeys.SchedulingConflictView, PermissionKeys.SchedulingConflictManage]}
+              >
+                <ConflictAnalyticsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="setup/scheduling/conflicts/rules"
+            element={
+              <ProtectedRoute
+                anyPermission={[PermissionKeys.SchedulingConflictView, PermissionKeys.SchedulingConflictManage]}
+              >
+                <ConflictRuleThresholdsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="setup/scheduling/optimization/preview"
+            element={
+              <ProtectedRoute
+                anyPermission={[PermissionKeys.SchedulingConflictView, PermissionKeys.SchedulingConflictManage]}
+              >
+                <OptimizationPreviewPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="setup/scheduling/optimization/workspace"
+            element={
+              <ProtectedRoute
+                anyPermission={[PermissionKeys.SchedulingConflictView, PermissionKeys.SchedulingConflictManage]}
+              >
+                <OptimizationWorkspacePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="setup/scheduling/optimization/dashboard"
+            element={
+              <ProtectedRoute
+                anyPermission={[PermissionKeys.SchedulingConflictView, PermissionKeys.SchedulingConflictManage]}
+              >
+                <OptimizationDashboardPage />
               </ProtectedRoute>
             }
           />

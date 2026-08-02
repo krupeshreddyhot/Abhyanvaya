@@ -2,6 +2,7 @@ using Abhyanvaya.API.Media;
 using Abhyanvaya.Application;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.DTOs.Student;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace Abhyanvaya.API.Services;
@@ -74,6 +75,14 @@ public sealed class StudentPhotoService : IStudentPhotoService
             student.PhotoUploadedUtc = uploadedUtc;
             student.PhotoVerified = false;
             student.UpdatedDate = uploadedUtc;
+
+            // Immediately drop stale gallery vectors so classroom matching cannot use the old photo/model.
+            var activeEmbeddings = await _context.StudentFaceEmbeddings
+                .Where(e => e.StudentId == studentId && e.IsActive)
+                .ToListAsync(cancellationToken);
+            foreach (var embedding in activeEmbeddings)
+                embedding.IsActive = false;
+
             await _context.SaveChangesAsync(cancellationToken);
 
             await _embeddingQueue.EnqueueAsync(
@@ -87,9 +96,10 @@ public sealed class StudentPhotoService : IStudentPhotoService
                 cancellationToken);
 
             _logger.LogInformation(
-                "Student photo uploaded; embedding job enqueued. StudentId={StudentId} TenantId={TenantId}",
+                "Student photo uploaded; stale embeddings deactivated and regenerate enqueued. StudentId={StudentId} TenantId={TenantId} Deactivated={DeactivatedCount}",
                 studentId,
-                tenantId);
+                tenantId,
+                activeEmbeddings.Count);
 
             var publicBaseUrl = _mediaOptions.Value.PublicBaseUrl;
             var result = new StudentPhotoUploadResult
@@ -135,6 +145,13 @@ public sealed class StudentPhotoService : IStudentPhotoService
             student.PhotoUploadedUtc = null;
             student.PhotoVerified = false;
             student.UpdatedDate = DateTime.UtcNow;
+
+            var activeEmbeddings = await _context.StudentFaceEmbeddings
+                .Where(e => e.StudentId == studentId && e.IsActive)
+                .ToListAsync(cancellationToken);
+            foreach (var embedding in activeEmbeddings)
+                embedding.IsActive = false;
+
             await _context.SaveChangesAsync(cancellationToken);
 
             return (true, null);
