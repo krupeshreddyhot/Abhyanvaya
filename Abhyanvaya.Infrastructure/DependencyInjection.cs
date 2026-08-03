@@ -105,6 +105,11 @@ namespace Abhyanvaya.Infrastructure
                 .Bind(configuration.GetSection(AttendanceSessionRecoveryOptions.SectionName));
             services.AddSingleton<IAttendanceSessionRecoveryMetrics, AttendanceSessionRecoveryMetrics>();
 
+            services.AddOptions<Abhyanvaya.Application.AttendanceRecovery.AttendanceRecoveryOptions>()
+                .Bind(configuration.GetSection(Abhyanvaya.Application.AttendanceRecovery.AttendanceRecoveryOptions.SectionName));
+            services.AddHostedService<AttendanceSessionExpirationCleanupService>();
+            services.AddHostedService<AttendanceHealthMonitorHostedService>();
+
             services.AddOptions<RecognitionDiagnosticsOptions>()
                 .Bind(configuration.GetSection(RecognitionDiagnosticsOptions.SectionName));
             services.AddSingleton<IRecognitionDiagnosticsStore, RecognitionDiagnosticsStore>();

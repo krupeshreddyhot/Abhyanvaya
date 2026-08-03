@@ -24,4 +24,11 @@ public class WorkspacePreference : BaseEntity
         """{"UpcomingClass":true,"AttendanceReminder":true,"AiReviewPending":true,"RoomChanged":true,"FacultySubstitution":true,"HolidayUpdate":true,"WorkingDayChange":true}""";
     public bool OneHandedMode { get; set; }
     public bool HighContrast { get; set; }
+
+    /// <summary>
+    /// AI22.8 — JSON recovery preferences (auto-resume prompt dismissals, remember decision).
+    /// Example: {"dismissAutoResumeUntilUtc":"...","promptOnLogin":true}
+    /// </summary>
+    public string RecoveryPreferencesJson { get; set; } =
+        """{"promptOnLogin":true,"dismissAutoResumeUntilUtc":null}""";
 }

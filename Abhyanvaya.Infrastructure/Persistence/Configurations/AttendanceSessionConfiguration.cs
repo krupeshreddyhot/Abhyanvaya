@@ -133,6 +133,19 @@ public sealed class AttendanceSessionConfiguration : IEntityTypeConfiguration<At
             .HasConversion<int>()
             .HasDefaultValue(AttendanceSessionStatus.Draft);
 
+        // AI22.8 — additive workflow recovery fields (do not replace Status)
+        builder.Property(x => x.WorkflowStatus)
+            .HasConversion<int>()
+            .HasDefaultValue(AttendanceWorkflowStatus.Created);
+        builder.Property(x => x.LastActivityUtc)
+            .HasColumnType("timestamp with time zone");
+        builder.Property(x => x.ResumeCheckpointJson)
+            .HasColumnType("text");
+        builder.Property(x => x.WorkflowExpiredUtc)
+            .HasColumnType("timestamp with time zone");
+        builder.HasIndex(x => new { x.TenantId, x.WorkflowStatus, x.LastActivityUtc });
+        builder.HasIndex(x => new { x.TenantId, x.StaffId, x.WorkflowExpiredUtc });
+
         builder.Property(x => x.RecognitionProvider)
             .HasMaxLength(100)
             .HasColumnType("character varying(100)");
