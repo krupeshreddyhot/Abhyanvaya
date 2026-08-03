@@ -1,7 +1,9 @@
 using System.Text.Json;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Common.Interfaces.Scheduling;
+using Abhyanvaya.Application.DTOs.Faculty;
 using Abhyanvaya.Application.DTOs.Scheduling;
+using Abhyanvaya.Application.Faculty;
 using Abhyanvaya.Application.Internal;
 using Abhyanvaya.Domain.Entities.Scheduling;
 using Abhyanvaya.Domain.Enums.Scheduling;
@@ -16,15 +18,18 @@ public sealed class TimetableChangeHistoryService : ITimetableChangeHistoryServi
     private readonly ITimetableChangeHistoryRepository _repository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUserService _currentUser;
+    private readonly IFacultyScheduleNotifier _facultyNotifier;
 
     public TimetableChangeHistoryService(
         ITimetableChangeHistoryRepository repository,
         IUnitOfWork unitOfWork,
-        ICurrentUserService currentUser)
+        ICurrentUserService currentUser,
+        IFacultyScheduleNotifier facultyNotifier)
     {
         _repository = repository;
         _unitOfWork = unitOfWork;
         _currentUser = currentUser;
+        _facultyNotifier = facultyNotifier;
     }
 
     private int TenantId => _currentUser.TenantId;
@@ -45,6 +50,28 @@ public sealed class TimetableChangeHistoryService : ITimetableChangeHistoryServi
         };
         await _repository.AddAsync(entity, cancellationToken);
         await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
+
+        // AI31 — push schedule change to faculty workspace (SignalR, no polling)
+        await _facultyNotifier.PublishAsync(
+            TenantId,
+            _currentUser.StaffId > 0 ? _currentUser.StaffId : null,
+            new FacultyScheduleNotificationDto
+            {
+                NotificationId = $"chg-{entity.Id}",
+                Kind = operation switch
+                {
+                    TimetableChangeOperation.Delete => "Cancelled",
+                    TimetableChangeOperation.Move => "Rescheduled",
+                    TimetableChangeOperation.Update => "Rescheduled",
+                    _ => "ScheduleChange"
+                },
+                Title = operation.ToString(),
+                Message = string.IsNullOrWhiteSpace(reason) ? $"Timetable {operation} recorded." : reason!,
+                OccurredUtc = entity.OccurredUtc,
+                TimetableId = timetableId,
+                EntryId = entryId
+            },
+            cancellationToken);
     }
 
     public async Task<IReadOnlyList<TimetableChangeHistoryDto>> ListAsync(TimetableChangeHistoryFilter filter, CancellationToken cancellationToken = default)

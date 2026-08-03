@@ -6,6 +6,7 @@ import ProtectedRoute from "./ProtectedRoute";
 import MainLayout from "../layouts/MainLayout";
 import OrganizationPage from "../pages/OrganizationPage";
 import AttendanceMarking from "../pages/AttendanceMarking";
+import FacultyWorkspacePage from "../pages/faculty/FacultyWorkspacePage";
 import AttendanceRecognitionReviewPage from "../pages/AttendanceRecognitionReviewPage";
 import ContextAwareLayout from "../layouts/ContextAwareLayout";
 import StudentsPage from "../pages/StudentsPage";
@@ -687,6 +688,17 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute anyPermission={[PermissionKeys.StudentsView]}>
                 <StudentsPageWithContext />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="faculty"
+            element={
+              <ProtectedRoute anyPermission={[PermissionKeys.AttendanceManage]}>
+                <ContextAwareLayout breadcrumbItems={[{ label: "Faculty Workspace" }]}>
+                  <FacultyWorkspacePage />
+                </ContextAwareLayout>
               </ProtectedRoute>
             }
           />

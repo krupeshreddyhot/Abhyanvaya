@@ -18,8 +18,30 @@ import { getUniversities, login as loginApi, superAdminLogin, type UniversityOpt
 import { useAuth } from "../context/AuthContext";
 import { Link as RouterLink, useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
+import { PermissionKeys } from "../auth/permissionKeys";
 
 type LoginMode = "institution" | "superadmin";
+
+/** Faculty with Attendance.Manage land on AI31 Faculty Workspace; others keep /dashboard. */
+function resolvePostLoginPath(token: string, mustChangePassword?: boolean): string {
+  if (mustChangePassword) return "/change-password?first=1";
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return "/dashboard";
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const claims = JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "="))) as Record<
+      string,
+      unknown
+    >;
+    const raw = claims.permission ?? claims.Permission;
+    const permissions = Array.isArray(raw) ? raw.map(String) : typeof raw === "string" && raw ? [raw] : [];
+    const staffId = Number.parseInt(String(claims.StaffId ?? "0"), 10) || 0;
+    if (staffId > 0 && permissions.includes(PermissionKeys.AttendanceManage)) return "/faculty";
+  } catch {
+    /* fall through */
+  }
+  return "/dashboard";
+}
 
 function resolveLoginError(err: unknown, loginMode: LoginMode): string {
   const apiBase = import.meta.env.VITE_API_BASE_URL ?? "https://localhost:7063/api";
@@ -105,7 +127,7 @@ const Login = () => {
       if (loginMode === "superadmin") {
         const res = await superAdminLogin(username, password);
         login(res.data.token);
-        navigate(res.data.mustChangePassword ? "/change-password?first=1" : "/dashboard");
+        navigate(resolvePostLoginPath(res.data.token, res.data.mustChangePassword));
         return;
       }
 
@@ -116,7 +138,7 @@ const Login = () => {
 
       const res = await loginApi(universityCode, collegeCode, username, password);
       login(res.data.token);
-      navigate(res.data.mustChangePassword ? "/change-password?first=1" : "/dashboard");
+      navigate(resolvePostLoginPath(res.data.token, res.data.mustChangePassword));
     } catch (err) {
       setError(resolveLoginError(err, loginMode));
     } finally {

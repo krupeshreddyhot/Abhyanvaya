@@ -148,6 +148,7 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<OptimizationScenarioShare> SchedulingOptimizationScenarioShares => Set<OptimizationScenarioShare>();
         public IQueryable<OptimizationScenarioHistory> SchedulingOptimizationScenarioHistories => Set<OptimizationScenarioHistory>();
         public IQueryable<OptimizationEngineRun> SchedulingOptimizationEngineRuns => Set<OptimizationEngineRun>();
+        public IQueryable<WorkspacePreference> SchedulingWorkspacePreferences => Set<WorkspacePreference>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

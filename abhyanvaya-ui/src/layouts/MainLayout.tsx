@@ -130,6 +130,12 @@ const MainLayoutChrome = () => {
       visible: ({ hasPermission: hp }) => hp(PermissionKeys.DashboardView),
     },
     {
+      text: "Faculty Workspace",
+      icon: <EventNoteIcon />,
+      path: "/faculty",
+      visible: ({ hasPermission: hp }) => hp(PermissionKeys.AttendanceManage),
+    },
+    {
       text: "Students",
       icon: <PeopleIcon />,
       path: "/students",

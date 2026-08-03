@@ -25,7 +25,7 @@ import {
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { PermissionKeys } from "../../../auth/permissionKeys";
 import { useAuth } from "../../../context/AuthContext";
 import {
@@ -45,7 +45,17 @@ import {
   type CreateSubjectAllocationRequest,
   type SubjectAllocationDto,
 } from "../../../services/schedulingService";
-import { errMsg, parseOptionalSelectNumber } from "./schedulingFormUtils";
+import { errMsg, parseOptionalSelectNumber, resolveSemestersForCourseGroup } from "./schedulingFormUtils";
+
+type SubjectOption = {
+  /** Course-offering Subject.Id (FK for allocations / timetable) — not TenantSubjectId. */
+  id: number;
+  name: string;
+  courseId: number;
+  groupId: number;
+  semesterId: number;
+  label: string;
+};
 
 const SubjectAllocationPage = () => {
   const { hasPermission } = useAuth();
@@ -56,7 +66,7 @@ const SubjectAllocationPage = () => {
   const [courses, setCourses] = useState<{ id: number; name: string }[]>([]);
   const [groups, setGroups] = useState<{ id: number; name: string; courseId: number }[]>([]);
   const [semesters, setSemesters] = useState<{ id: number; name: string; courseId: number; groupId: number | null }[]>([]);
-  const [subjects, setSubjects] = useState<{ id: number; name: string }[]>([]);
+  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
   const [staff, setStaff] = useState<{ id: number; label: string }[]>([]);
 
   const [departments, setDepartments] = useState<{ id: number; name: string }[]>([]);
@@ -95,6 +105,47 @@ const SubjectAllocationPage = () => {
     },
   });
 
+  const watchedCourseId = useWatch({ control: form.control, name: "courseId" });
+  const watchedGroupId = useWatch({ control: form.control, name: "groupId" });
+  const watchedSemesterId = useWatch({ control: form.control, name: "semesterId" });
+  const watchedSubjectId = useWatch({ control: form.control, name: "subjectId" });
+
+  const dialogGroups = useMemo(
+    () => groups.filter((g) => !watchedCourseId || g.courseId === watchedCourseId),
+    [groups, watchedCourseId],
+  );
+  const dialogSemesters = useMemo(
+    () =>
+      resolveSemestersForCourseGroup(semesters, watchedCourseId, watchedGroupId, {
+        subjects,
+        selectedSemesterId: watchedSemesterId,
+      }),
+    [semesters, subjects, watchedCourseId, watchedGroupId, watchedSemesterId],
+  );
+  const dialogSubjects = useMemo(() => {
+    const forCourseGroup = subjects.filter(
+      (s) =>
+        (!watchedCourseId || s.courseId === watchedCourseId) &&
+        (!watchedGroupId || s.groupId === watchedGroupId),
+    );
+    // Prefer semester filter, but if it empties the list keep course/group subjects so the dropdown stays usable.
+    if (!watchedSemesterId) return forCourseGroup;
+    const forSemester = forCourseGroup.filter((s) => s.semesterId === watchedSemesterId);
+    return forSemester.length > 0 ? forSemester : forCourseGroup;
+  }, [subjects, watchedCourseId, watchedGroupId, watchedSemesterId]);
+
+  useEffect(() => {
+    if (!dialogOpen || !watchedCourseId) return;
+    if (watchedSemesterId && dialogSemesters.some((s) => s.id === watchedSemesterId)) return;
+    form.setValue("semesterId", dialogSemesters[0]?.id ?? 0);
+  }, [dialogOpen, dialogSemesters, form, watchedCourseId, watchedSemesterId]);
+
+  useEffect(() => {
+    if (!dialogOpen) return;
+    if (watchedSubjectId && dialogSubjects.some((s) => s.id === watchedSubjectId)) return;
+    form.setValue("subjectId", dialogSubjects[0]?.id ?? 0);
+  }, [dialogOpen, dialogSubjects, form, watchedSubjectId]);
+
   useEffect(() => {
     void (async () => {
       try {
@@ -111,7 +162,17 @@ const SubjectAllocationPage = () => {
         setCourses(c.data.map((x) => ({ id: x.id, name: x.name })));
         setGroups(g.data.map((x) => ({ id: x.id, name: x.name, courseId: x.courseId })));
         setSemesters(sem.data.map((x) => ({ id: x.id, name: x.name, courseId: x.courseId, groupId: x.groupId })));
-        setSubjects(sub.data.map((x) => ({ id: x.tenantSubjectId, name: x.name })));
+        // Must use Subject.Id (catalog.id). TenantSubjectId is the master subject name key and is wrong for allocations.
+        setSubjects(
+          sub.data.map((x) => ({
+            id: x.id,
+            name: x.name,
+            courseId: x.courseId,
+            groupId: x.groupId,
+            semesterId: x.semesterId,
+            label: `${x.name} (${x.courseName} / ${x.groupName} / ${x.semesterName})`,
+          })),
+        );
         setStaff(st.data.items.map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` })));
         setDepartments(dept.data.map((d) => ({ id: d.id, name: d.name })));
         const current = y.data.find((a) => a.isCurrent) ?? y.data[0];
@@ -212,8 +273,10 @@ const SubjectAllocationPage = () => {
     }
   };
 
-  const labelFor = (id: number, list: { id: number; name?: string; label?: string }[]) =>
-    list.find((x) => x.id === id)?.name ?? list.find((x) => x.id === id)?.label ?? id;
+  const labelFor = (id: number, list: { id: number; name?: string; label?: string }[]) => {
+    const hit = list.find((x) => x.id === id);
+    return hit?.name ?? hit?.label ?? `Unknown (#${id})`;
+  };
 
   return (
     <Stack spacing={2}>
@@ -289,13 +352,14 @@ const SubjectAllocationPage = () => {
           <InputLabel id="fs">Semester</InputLabel>
           <Select labelId="fs" label="Semester" value={filterSemesterId === "" ? "" : filterSemesterId} onChange={(e) => setFilterSemesterId(parseOptionalSelectNumber(e.target.value))} disabled={!filterGroupId}>
             <MenuItem value="">All</MenuItem>
-            {semesters
-              .filter((s) => (!filterCourseId || s.courseId === filterCourseId) && (!filterGroupId || s.groupId === filterGroupId))
-              .map((s) => (
-                <MenuItem key={s.id} value={s.id}>
-                  {s.name}
-                </MenuItem>
-              ))}
+            {resolveSemestersForCourseGroup(semesters, filterCourseId, filterGroupId, {
+              subjects,
+              selectedSemesterId: filterSemesterId === "" ? null : filterSemesterId,
+            }).map((s) => (
+              <MenuItem key={s.id} value={s.id}>
+                {s.name}
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
         <FormControl size="small" sx={{ minWidth: 160 }}>
@@ -395,15 +459,100 @@ const SubjectAllocationPage = () => {
             />
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <Controller
+                name="courseId"
+                control={form.control}
+                render={({ field }) => (
+                  <FormControl fullWidth>
+                    <InputLabel id="course">Course</InputLabel>
+                    <Select
+                      labelId="course"
+                      label="Course"
+                      value={field.value}
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        field.onChange(next);
+                        const nextGroups = groups.filter((g) => g.courseId === next);
+                        const nextGroupId = nextGroups[0]?.id ?? 0;
+                        form.setValue("groupId", nextGroupId);
+                        const nextSemesters = resolveSemestersForCourseGroup(semesters, next, nextGroupId, {
+                          subjects,
+                        });
+                        form.setValue("semesterId", nextSemesters[0]?.id ?? 0);
+                      }}
+                    >
+                      {courses.map((c) => (
+                        <MenuItem key={c.id} value={c.id}>
+                          {c.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+              />
+              <Controller
+                name="groupId"
+                control={form.control}
+                render={({ field }) => (
+                  <FormControl fullWidth>
+                    <InputLabel id="group">Group</InputLabel>
+                    <Select
+                      labelId="group"
+                      label="Group"
+                      value={field.value}
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        field.onChange(next);
+                        const nextSemesters = resolveSemestersForCourseGroup(semesters, watchedCourseId, next, {
+                          subjects,
+                        });
+                        form.setValue("semesterId", nextSemesters[0]?.id ?? 0);
+                      }}
+                    >
+                      {dialogGroups.map((g) => (
+                        <MenuItem key={g.id} value={g.id}>
+                          {g.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+              />
+              <Controller
+                name="semesterId"
+                control={form.control}
+                render={({ field }) => (
+                  <FormControl fullWidth>
+                    <InputLabel id="sem">Semester</InputLabel>
+                    <Select
+                      labelId="sem"
+                      label="Semester"
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    >
+                      {dialogSemesters.length === 0 && <MenuItem value="">No semesters for this course / group</MenuItem>}
+                      {dialogSemesters.map((s) => (
+                        <MenuItem key={s.id} value={s.id}>
+                          {s.name}
+                          {s.groupId == null ? " (all groups)" : ""}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+              />
+            </Stack>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <Controller
                 name="subjectId"
                 control={form.control}
                 render={({ field }) => (
                   <FormControl fullWidth>
                     <InputLabel id="sub">Subject</InputLabel>
-                    <Select labelId="sub" label="Subject" value={field.value} onChange={(e) => field.onChange(Number(e.target.value))}>
-                      {subjects.map((s) => (
+                    <Select labelId="sub" label="Subject" value={field.value || ""} onChange={(e) => field.onChange(Number(e.target.value))}>
+                      {dialogSubjects.length === 0 && <MenuItem value="">No subjects for this course / group / semester</MenuItem>}
+                      {dialogSubjects.map((s) => (
                         <MenuItem key={s.id} value={s.id}>
-                          {s.name}
+                          {s.label}
                         </MenuItem>
                       ))}
                     </Select>
@@ -420,56 +569,6 @@ const SubjectAllocationPage = () => {
                       {staff.map((s) => (
                         <MenuItem key={s.id} value={s.id}>
                           {s.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-              />
-            </Stack>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <Controller
-                name="courseId"
-                control={form.control}
-                render={({ field }) => (
-                  <FormControl fullWidth>
-                    <InputLabel id="course">Course</InputLabel>
-                    <Select labelId="course" label="Course" value={field.value} onChange={(e) => field.onChange(Number(e.target.value))}>
-                      {courses.map((c) => (
-                        <MenuItem key={c.id} value={c.id}>
-                          {c.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-              />
-              <Controller
-                name="groupId"
-                control={form.control}
-                render={({ field }) => (
-                  <FormControl fullWidth>
-                    <InputLabel id="group">Group</InputLabel>
-                    <Select labelId="group" label="Group" value={field.value} onChange={(e) => field.onChange(Number(e.target.value))}>
-                      {groups.map((g) => (
-                        <MenuItem key={g.id} value={g.id}>
-                          {g.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-              />
-              <Controller
-                name="semesterId"
-                control={form.control}
-                render={({ field }) => (
-                  <FormControl fullWidth>
-                    <InputLabel id="sem">Semester</InputLabel>
-                    <Select labelId="sem" label="Semester" value={field.value} onChange={(e) => field.onChange(Number(e.target.value))}>
-                      {semesters.map((s) => (
-                        <MenuItem key={s.id} value={s.id}>
-                          {s.name}
                         </MenuItem>
                       ))}
                     </Select>

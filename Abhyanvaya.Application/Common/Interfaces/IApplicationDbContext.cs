@@ -191,6 +191,8 @@ namespace Abhyanvaya.Application.Common.Interfaces
 
         IQueryable<OptimizationEngineRun> SchedulingOptimizationEngineRuns { get; }
 
+        IQueryable<WorkspacePreference> SchedulingWorkspacePreferences { get; }
+
         Task AddAsync<T>(T entity) where T : class;
 
         void Remove<T>(T entity) where T : class;

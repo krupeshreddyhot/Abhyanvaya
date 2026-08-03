@@ -78,7 +78,7 @@ import {
   type CellCoord,
   type CellSelection,
 } from "./timetableSelection";
-import { listStaff } from "../../../../services/setupService";
+import { listStaff, listSubjectCatalog } from "../../../../services/setupService";
 import { useTimetableHistory } from "./useTimetableHistory";
 
 import { periodTimeSlots, TIMETABLE_STATUS_COLORS, TIMETABLE_STATUS_LABELS, timetablePrintSx } from "./timetableUtils";
@@ -108,6 +108,7 @@ const TimetableDesignerPage = () => {
   const [allocations, setAllocations] = useState<SubjectAllocationDto[]>([]);
   const [staffOptions, setStaffOptions] = useState<{ id: number; label: string }[]>([]);
   const [roomOptions, setRoomOptions] = useState<{ id: number; label: string }[]>([]);
+  const [subjectNameById, setSubjectNameById] = useState<Map<number, string>>(new Map());
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -147,6 +148,15 @@ const TimetableDesignerPage = () => {
 
   const history = useTimetableHistory();
   const cellWarningCounts = useMemo(() => buildCellWarningCounts(softWarnings), [softWarnings]);
+  const staffLabelById = useMemo(() => new Map(staffOptions.map((s) => [s.id, s.label])), [staffOptions]);
+  const allocationLabel = useCallback(
+    (a: SubjectAllocationDto) => {
+      const subject = subjectNameById.get(a.subjectId) ?? `Subject #${a.subjectId}`;
+      const staff = staffLabelById.get(a.staffId) ?? `Staff #${a.staffId}`;
+      return { primary: subject, secondary: `${staff} · ${a.weeklyHours}h/wk` };
+    },
+    [subjectNameById, staffLabelById],
+  );
   const activeWarningCount = useMemo(() => softWarnings.filter((w) => !w.dismissed).length, [softWarnings]);
 
   const isFrozen = !!grid?.timetable.isFrozen;
@@ -191,14 +201,16 @@ const TimetableDesignerPage = () => {
         await refreshSoftWarnings();
         const g = await getTimetableGrid(timetableId);
         const yearId = g.data.timetable.academicYearId;
-        const [allocRes, staffRes, roomRes] = await Promise.all([
+        const [allocRes, staffRes, roomRes, subjectRes] = await Promise.all([
           listSubjectAllocations({ academicYearId: yearId }),
           listStaff({ page: 1, pageSize: 500 }),
           searchRooms({ page: 1, pageSize: 500, isActive: true }),
+          listSubjectCatalog(),
         ]);
         setAllocations(allocRes.data);
         setStaffOptions(staffRes.data.items.map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` })));
         setRoomOptions(roomRes.data.items.map((r) => ({ id: r.id, label: `${r.code} — ${r.name}` })));
+        setSubjectNameById(new Map(subjectRes.data.map((s) => [s.id, s.name])));
       } catch (e) {
         setError(errMsg(e));
       } finally {
@@ -709,26 +721,29 @@ const TimetableDesignerPage = () => {
               Drag onto a cell to schedule
             </Typography>
             <List dense disablePadding>
-              {allocations.map((a) => (
-                <ListItem key={a.id} disablePadding>
-                  <ListItemButton
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData(DND_ALLOCATION, String(a.id));
-                      e.dataTransfer.effectAllowed = "copy";
-                    }}
-                  >
-                    <ListItemText
-                      primary={`Allocation #${a.id}`}
-                      secondary={`Subject ${a.subjectId} · Staff ${a.staffId}`}
-                      slotProps={{
-                        primary: { sx: { fontSize: "0.85rem" } },
-                        secondary: { sx: { fontSize: "0.7rem" } },
+              {allocations.map((a) => {
+                const label = allocationLabel(a);
+                return (
+                  <ListItem key={a.id} disablePadding>
+                    <ListItemButton
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData(DND_ALLOCATION, String(a.id));
+                        e.dataTransfer.effectAllowed = "copy";
                       }}
-                    />
-                  </ListItemButton>
-                </ListItem>
-              ))}
+                    >
+                      <ListItemText
+                        primary={label.primary}
+                        secondary={label.secondary}
+                        slotProps={{
+                          primary: { sx: { fontSize: "0.85rem" } },
+                          secondary: { sx: { fontSize: "0.7rem" } },
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                );
+              })}
             </List>
           </Box>
         )}

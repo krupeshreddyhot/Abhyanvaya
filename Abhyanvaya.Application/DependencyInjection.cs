@@ -1,4 +1,5 @@
 using Abhyanvaya.Application.Common.Interfaces;
+using Abhyanvaya.Application.Faculty;
 using Abhyanvaya.Application.Scheduling;
 using Abhyanvaya.Application.Scheduling.Conflicts;
 using Abhyanvaya.Application.Scheduling.Optimization;
@@ -54,6 +55,19 @@ public static class DependencyInjection
         services.AddScoped<IVersionComparisonService, VersionComparisonService>();
         services.AddConflictDetection();
         services.AddOptimizationReadiness();
+
+        // AI31 — Intelligent Faculty Experience Platform (aggregates existing services)
+        services.AddScoped<IFacultyDashboardService, FacultyDashboardService>();
+        services.AddScoped<IFacultyScheduleNotifier, NoOpFacultyScheduleNotifier>();
+
+        // AI31.5 — Faculty workspace enhancements (composition only)
+        services.AddScoped<IWorkspacePreferenceService, WorkspacePreferenceService>();
+        services.AddScoped<IFacultyCalendarService, FacultyCalendarService>();
+        services.AddScoped<IFacultyTimelineService, FacultyTimelineService>();
+        services.AddScoped<IClassroomNavigationService, ClassroomNavigationService>();
+        services.AddScoped<IFacultyProductivityService, FacultyProductivityService>();
+        services.AddScoped<IFacultySearchService, FacultySearchService>();
+        services.AddScoped<IFacultySmartNotificationService, FacultySmartNotificationService>();
 
         return services;
     }

@@ -19,6 +19,7 @@ import {
   listMasterGroups,
   listSemesters,
   listStaff,
+  listSubjectCatalog,
 } from "../../../../services/setupService";
 import {
   copyTimetableEntry,
@@ -33,8 +34,7 @@ import {
   type TimeSlotDto,
   type TimetableEntryDto,
 } from "../../../../services/schedulingService";
-import { DAY_LABELS } from "../schedulingFormUtils";
-import { errMsg, parseOptionalSelectNumber } from "../schedulingFormUtils";
+import { DAY_LABELS, errMsg, parseOptionalSelectNumber, resolveSemestersForCourseGroup } from "../schedulingFormUtils";
 import { periodTimeSlots } from "./timetableUtils";
 
 export type TimetableEntryDialogProps = {
@@ -72,6 +72,7 @@ const TimetableEntryDialog = ({
   const [semesters, setSemesters] = useState<{ id: number; name: string; courseId: number; groupId: number | null }[]>([]);
   const [staff, setStaff] = useState<{ id: number; label: string }[]>([]);
   const [rooms, setRooms] = useState<{ id: number; label: string }[]>([]);
+  const [subjectNameById, setSubjectNameById] = useState<Map<number, string>>(new Map());
 
   const [departmentId, setDepartmentId] = useState<number | "">("");
   const [courseId, setCourseId] = useState<number | "">("");
@@ -94,7 +95,7 @@ const TimetableEntryDialog = ({
     if (!open) return;
     void (async () => {
       try {
-        const [c, g, sem, st, roomRes, allocRes, deptRes] = await Promise.all([
+        const [c, g, sem, st, roomRes, allocRes, deptRes, subjectRes] = await Promise.all([
           listMasterCourses(),
           listMasterGroups(),
           listSemesters(),
@@ -102,6 +103,7 @@ const TimetableEntryDialog = ({
           searchRooms({ page: 1, pageSize: 500, isActive: true }),
           listSubjectAllocations({ academicYearId }),
           listDepartments(undefined, true),
+          listSubjectCatalog(),
         ]);
         setCourses(c.data.map((x) => ({ id: x.id, name: x.name })));
         setGroups(g.data.map((x) => ({ id: x.id, name: x.name, courseId: x.courseId })));
@@ -110,6 +112,7 @@ const TimetableEntryDialog = ({
         setRooms(roomRes.data.items.map((r) => ({ id: r.id, label: `${r.code} — ${r.name}` })));
         setAllocations(allocRes.data);
         setDepartments(deptRes.data.map((d) => ({ id: d.id, name: d.name })));
+        setSubjectNameById(new Map(subjectRes.data.map((s) => [s.id, s.name])));
       } catch (e) {
         setError(errMsg(e));
       }
@@ -348,17 +351,13 @@ const TimetableEntryDialog = ({
               onChange={(e) => setSemesterId(parseOptionalSelectNumber(e.target.value))}
             >
               <MenuItem value="">All</MenuItem>
-              {semesters
-                .filter(
-                  (s) =>
-                    (courseId === "" || s.courseId === courseId) &&
-                    (groupId === "" || s.groupId === groupId),
-                )
-                .map((s) => (
-                  <MenuItem key={s.id} value={s.id}>
-                    {s.name}
-                  </MenuItem>
-                ))}
+              {resolveSemestersForCourseGroup(semesters, courseId, groupId, {
+                selectedSemesterId: semesterId === "" ? null : semesterId,
+              }).map((s) => (
+                <MenuItem key={s.id} value={s.id}>
+                  {s.name}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
 
@@ -370,11 +369,15 @@ const TimetableEntryDialog = ({
               onChange={(e) => onAllocationChange(parseOptionalSelectNumber(e.target.value))}
             >
               <MenuItem value="">Select</MenuItem>
-              {filteredAllocations.map((a) => (
-                <MenuItem key={a.id} value={a.id}>
-                  #{a.id} — subject {a.subjectId} ({a.weeklyHours}h/wk)
-                </MenuItem>
-              ))}
+              {filteredAllocations.map((a) => {
+                const subject = subjectNameById.get(a.subjectId) ?? `Subject #${a.subjectId}`;
+                const faculty = staff.find((s) => s.id === a.staffId)?.label ?? `Staff #${a.staffId}`;
+                return (
+                  <MenuItem key={a.id} value={a.id}>
+                    {subject} — {faculty} ({a.weeklyHours}h/wk)
+                  </MenuItem>
+                );
+              })}
             </Select>
           </FormControl>
 

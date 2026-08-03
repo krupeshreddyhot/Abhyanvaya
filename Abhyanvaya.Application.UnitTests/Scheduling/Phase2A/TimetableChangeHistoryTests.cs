@@ -1,5 +1,6 @@
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Common.Interfaces.Scheduling;
+using Abhyanvaya.Application.Faculty;
 using Abhyanvaya.Application.Scheduling;
 using Abhyanvaya.Domain.Entities.Scheduling;
 using Abhyanvaya.Domain.Enums.Scheduling;
@@ -25,7 +26,11 @@ public sealed class TimetableChangeHistoryTests
         currentUser.Setup(x => x.TenantId).Returns(1);
         currentUser.Setup(x => x.UserId).Returns(42);
 
-        var service = new TimetableChangeHistoryService(repository.Object, unitOfWork.Object, currentUser.Object);
+        var service = new TimetableChangeHistoryService(
+            repository.Object,
+            unitOfWork.Object,
+            currentUser.Object,
+            new NoOpFacultyScheduleNotifier());
         await service.RecordAsync(5, TimetableChangeOperation.Lock, null, new { Status = TimetableStatus.Draft }, new { Status = TimetableStatus.Locked }, "test");
 
         Assert.NotNull(captured);

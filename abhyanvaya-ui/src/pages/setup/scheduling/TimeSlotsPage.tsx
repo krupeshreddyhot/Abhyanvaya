@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -25,7 +25,7 @@ import {
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { PermissionKeys } from "../../../auth/permissionKeys";
 import { useAuth } from "../../../context/AuthContext";
 import {
@@ -46,13 +46,67 @@ import {
   type TimeSlotDto,
   type TimeSlotSetDto,
 } from "../../../services/schedulingService";
-import { errMsg, formatTimeSpan, parseOptionalSelectNumber, toTimeSpan } from "./schedulingFormUtils";
+import { errMsg, formatTimeSpan, minutesBetween, parseOptionalSelectNumber, toTimeSpan } from "./schedulingFormUtils";
 
 const SLOT_KIND_LABELS: Record<number, string> = {
   [SlotKind.Period]: "Period",
   [SlotKind.Break]: "Break",
   [SlotKind.Lunch]: "Lunch",
   [SlotKind.WorkingSession]: "Working session",
+};
+
+/** Standard college day schedule (24h). Afternoon slots use 13:xx / 14:xx. */
+type DefaultSlotPreset = {
+  periodNumber: number | null;
+  name: string;
+  slotKind: SlotKind;
+  startTime: string;
+  endTime: string;
+};
+
+const DEFAULT_DAY_SCHEDULE: readonly DefaultSlotPreset[] = [
+  { periodNumber: 1, name: "Period 1", slotKind: SlotKind.Period, startTime: "09:00:00", endTime: "09:50:00" },
+  { periodNumber: 2, name: "Period 2", slotKind: SlotKind.Period, startTime: "09:50:00", endTime: "10:40:00" },
+  { periodNumber: 3, name: "Period 3", slotKind: SlotKind.Period, startTime: "10:40:00", endTime: "11:30:00" },
+  { periodNumber: 4, name: "Period 4", slotKind: SlotKind.Period, startTime: "11:30:00", endTime: "12:20:00" },
+  { periodNumber: null, name: "Break", slotKind: SlotKind.Break, startTime: "12:20:00", endTime: "12:40:00" },
+  { periodNumber: 5, name: "Period 5", slotKind: SlotKind.Period, startTime: "12:40:00", endTime: "13:30:00" },
+  { periodNumber: 6, name: "Period 6", slotKind: SlotKind.Period, startTime: "13:30:00", endTime: "14:20:00" },
+];
+
+const durationOf = (startTime: string, endTime: string): number => minutesBetween(startTime, endTime) ?? 0;
+
+const presetToFormValues = (preset: DefaultSlotPreset, timeSlotSetId: number): CreateTimeSlotRequest => ({
+  timeSlotSetId,
+  periodNumber: preset.periodNumber,
+  name: preset.name,
+  startTime: preset.startTime,
+  endTime: preset.endTime,
+  durationMinutes: durationOf(preset.startTime, preset.endTime),
+  dayOfWeek: null,
+  slotKind: preset.slotKind,
+  sessionKind: SessionKind.None,
+});
+
+const findPresetForPeriod = (periodNumber: number | null, slotKind: SlotKind): DefaultSlotPreset | undefined => {
+  if (slotKind === SlotKind.Break) {
+    return DEFAULT_DAY_SCHEDULE.find((p) => p.slotKind === SlotKind.Break);
+  }
+  if (periodNumber == null) return undefined;
+  return DEFAULT_DAY_SCHEDULE.find((p) => p.slotKind === SlotKind.Period && p.periodNumber === periodNumber);
+};
+
+const nextUnusedPreset = (existing: TimeSlotDto[]): DefaultSlotPreset => {
+  const usedPeriods = new Set(existing.map((s) => s.periodNumber).filter((n): n is number => n != null));
+  const hasBreak = existing.some((s) => s.slotKind === SlotKind.Break);
+  for (const preset of DEFAULT_DAY_SCHEDULE) {
+    if (preset.slotKind === SlotKind.Break) {
+      if (!hasBreak) return preset;
+      continue;
+    }
+    if (preset.periodNumber != null && !usedPeriods.has(preset.periodNumber)) return preset;
+  }
+  return DEFAULT_DAY_SCHEDULE[0];
 };
 
 const TimeSlotsPage = () => {
@@ -78,18 +132,19 @@ const TimeSlotsPage = () => {
   });
 
   const slotForm = useForm<CreateTimeSlotRequest>({
-    defaultValues: {
-      timeSlotSetId: 0,
-      periodNumber: 1,
-      name: "",
-      startTime: "09:00:00",
-      endTime: "09:45:00",
-      durationMinutes: 45,
-      dayOfWeek: null,
-      slotKind: SlotKind.Period,
-      sessionKind: SessionKind.None,
-    },
+    defaultValues: presetToFormValues(DEFAULT_DAY_SCHEDULE[0], 0),
   });
+
+  const watchedStart = useWatch({ control: slotForm.control, name: "startTime" });
+  const watchedEnd = useWatch({ control: slotForm.control, name: "endTime" });
+  const autoDuration = useMemo(() => minutesBetween(watchedStart ?? "", watchedEnd ?? ""), [watchedStart, watchedEnd]);
+
+  useEffect(() => {
+    if (!slotDialogOpen) return;
+    if (autoDuration != null) {
+      slotForm.setValue("durationMinutes", autoDuration, { shouldValidate: true });
+    }
+  }, [autoDuration, slotDialogOpen, slotForm]);
 
   const cloneForm = useForm({ defaultValues: { sourceSetId: 0, name: "", code: "", academicYearId: null as number | null, isDefault: false } });
 
@@ -154,23 +209,29 @@ const TimeSlotsPage = () => {
     }
   });
 
+  const applyPresetTimes = (preset: DefaultSlotPreset) => {
+    slotForm.setValue("name", preset.name);
+    slotForm.setValue("periodNumber", preset.periodNumber);
+    slotForm.setValue("slotKind", preset.slotKind);
+    slotForm.setValue("startTime", preset.startTime);
+    slotForm.setValue("endTime", preset.endTime);
+    slotForm.setValue("durationMinutes", durationOf(preset.startTime, preset.endTime));
+  };
+
   const openSlotDialog = (slot?: TimeSlotDto) => {
     setEditingSlotId(slot?.id ?? 0);
-    slotForm.reset(
-      slot
-        ? { ...slot, startTime: slot.startTime, endTime: slot.endTime }
-        : {
-            timeSlotSetId: selectedSetId,
-            periodNumber: slots.length + 1,
-            name: "",
-            startTime: "09:00:00",
-            endTime: "09:45:00",
-            durationMinutes: 45,
-            dayOfWeek: null,
-            slotKind: SlotKind.Period,
-            sessionKind: SessionKind.None,
-          },
-    );
+    if (slot) {
+      const start = toTimeSpan(slot.startTime.slice(0, 5));
+      const end = toTimeSpan(slot.endTime.slice(0, 5));
+      slotForm.reset({
+        ...slot,
+        startTime: start,
+        endTime: end,
+        durationMinutes: durationOf(start, end) || slot.durationMinutes,
+      });
+    } else {
+      slotForm.reset(presetToFormValues(nextUnusedPreset(slots), selectedSetId));
+    }
     setSlotDialogOpen(true);
   };
 
@@ -178,11 +239,19 @@ const TimeSlotsPage = () => {
     setSaving(true);
     setError(null);
     try {
+      const startTime = toTimeSpan(values.startTime.slice(0, 5));
+      const endTime = toTimeSpan(values.endTime.slice(0, 5));
+      const durationMinutes = minutesBetween(startTime, endTime);
+      if (durationMinutes == null) {
+        setError("End time must be after start time.");
+        return;
+      }
       const payload = {
         ...values,
         timeSlotSetId: selectedSetId,
-        startTime: toTimeSpan(values.startTime.slice(0, 5)),
-        endTime: toTimeSpan(values.endTime.slice(0, 5)),
+        startTime,
+        endTime,
+        durationMinutes,
       };
       if (editingSlotId) await updateTimeSlot(editingSlotId, { ...payload, id: editingSlotId });
       else await createTimeSlot(payload);
@@ -387,7 +456,18 @@ const TimeSlotsPage = () => {
               render={({ field }) => (
                 <FormControl fullWidth>
                   <InputLabel id="kind">Slot kind</InputLabel>
-                  <Select labelId="kind" label="Slot kind" value={field.value} onChange={(e) => field.onChange(Number(e.target.value))}>
+                  <Select
+                    labelId="kind"
+                    label="Slot kind"
+                    value={field.value}
+                    onChange={(e) => {
+                      const kind = Number(e.target.value) as SlotKind;
+                      field.onChange(kind);
+                      const periodNumber = slotForm.getValues("periodNumber");
+                      const preset = findPresetForPeriod(periodNumber, kind);
+                      if (preset) applyPresetTimes(preset);
+                    }}
+                  >
                     {Object.entries(SLOT_KIND_LABELS).map(([k, v]) => (
                       <MenuItem key={k} value={Number(k)}>
                         {v}
@@ -407,24 +487,63 @@ const TimeSlotsPage = () => {
                   label="Period number"
                   type="number"
                   fullWidth
-                  onChange={(e) => field.onChange(e.target.value === "" ? null : Number(e.target.value))}
+                  helperText="Periods 1–6 use the standard day times when selected."
+                  onChange={(e) => {
+                    const next = e.target.value === "" ? null : Number(e.target.value);
+                    field.onChange(next);
+                    const kind = slotForm.getValues("slotKind");
+                    const preset = findPresetForPeriod(next, kind);
+                    if (preset) applyPresetTimes(preset);
+                  }}
                 />
               )}
             />
             <Controller
               name="startTime"
               control={slotForm.control}
-              render={({ field }) => <TextField {...field} label="Start" type="time" fullWidth slotProps={{ inputLabel: { shrink: true } }} value={field.value.slice(0, 5)} onChange={(e) => field.onChange(`${e.target.value}:00`)} />}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Start"
+                  type="time"
+                  fullWidth
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  value={field.value.slice(0, 5)}
+                  onChange={(e) => field.onChange(`${e.target.value}:00`)}
+                />
+              )}
             />
             <Controller
               name="endTime"
               control={slotForm.control}
-              render={({ field }) => <TextField {...field} label="End" type="time" fullWidth slotProps={{ inputLabel: { shrink: true } }} value={field.value.slice(0, 5)} onChange={(e) => field.onChange(`${e.target.value}:00`)} />}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="End"
+                  type="time"
+                  fullWidth
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  value={field.value.slice(0, 5)}
+                  onChange={(e) => field.onChange(`${e.target.value}:00`)}
+                  error={autoDuration == null && Boolean(watchedStart && watchedEnd)}
+                  helperText={autoDuration == null && watchedStart && watchedEnd ? "End time must be after start time." : undefined}
+                />
+              )}
             />
             <Controller
               name="durationMinutes"
               control={slotForm.control}
-              render={({ field }) => <TextField {...field} label="Duration (minutes)" type="number" fullWidth onChange={(e) => field.onChange(Number(e.target.value))} />}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Duration (minutes)"
+                  type="number"
+                  fullWidth
+                  value={autoDuration ?? field.value ?? ""}
+                  helperText="Auto-calculated from start and end times."
+                  slotProps={{ input: { readOnly: true } }}
+                />
+              )}
             />
           </Stack>
         </DialogContent>

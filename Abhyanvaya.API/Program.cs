@@ -56,6 +56,7 @@ builder.Services.AddSingleton<IHubFilter, TenantContextHubFilter>();
 builder.Services.AddHostedService<EnrollmentStartupValidationHostedService>();
 builder.Services.AddSingleton<IEnrollmentSignalRPublisher, EnrollmentSignalRPublisher>();
 builder.Services.AddScoped<Abhyanvaya.Application.Scheduling.Optimization.Progress.IOptimizationProgressPublisher, Abhyanvaya.API.SignalR.OptimizationSignalRPublisher>();
+builder.Services.AddScoped<Abhyanvaya.Application.Faculty.IFacultyScheduleNotifier, Abhyanvaya.API.SignalR.FacultySignalRPublisher>();
 builder.Services.AddScoped<IEnrollmentActorPermissions, EnrollmentActorPermissions>();
 builder.Services.Configure<EnrollmentProgressBroadcastOptions>(
     builder.Configuration.GetSection(EnrollmentProgressBroadcastOptions.SectionName));
@@ -578,6 +579,7 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHub<EnrollmentHub>("/hubs/enrollment").RequireCors("AllowReact");
 app.MapHub<Abhyanvaya.API.Hubs.OptimizationHub>("/hubs/optimization").RequireCors("AllowReact");
+app.MapHub<Abhyanvaya.API.Hubs.FacultyHub>("/hubs/faculty").RequireCors("AllowReact");
 
 MapPlatformHealthEndpoints(app);
 
