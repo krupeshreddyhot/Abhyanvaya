@@ -15,6 +15,7 @@ public sealed class WorkspacePreferenceConfiguration : IEntityTypeConfiguration<
         builder.Property(x => x.FavoriteQuickActionsCsv).HasMaxLength(500);
         builder.Property(x => x.ThemePreference).HasMaxLength(40);
         builder.Property(x => x.NotificationPreferencesJson).HasColumnType("text");
+        builder.Property(x => x.RecoveryPreferencesJson).HasColumnType("text");
         builder.HasIndex(x => new { x.TenantId, x.StaffId }).IsUnique();
         builder.HasIndex(x => new { x.TenantId, x.UserId });
     }

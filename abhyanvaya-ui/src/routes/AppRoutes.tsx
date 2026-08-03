@@ -7,6 +7,8 @@ import MainLayout from "../layouts/MainLayout";
 import OrganizationPage from "../pages/OrganizationPage";
 import AttendanceMarking from "../pages/AttendanceMarking";
 import FacultyWorkspacePage from "../pages/faculty/FacultyWorkspacePage";
+import FacultyRecoveryCenterPage from "../pages/faculty/FacultyRecoveryCenterPage";
+import AttendanceRecoveryDashboardPage from "../pages/setup/AttendanceRecoveryDashboardPage";
 import AttendanceRecognitionReviewPage from "../pages/AttendanceRecognitionReviewPage";
 import ContextAwareLayout from "../layouts/ContextAwareLayout";
 import StudentsPage from "../pages/StudentsPage";
@@ -295,6 +297,14 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute allowedRoles={["Admin"]} requireTenantScope>
                 <TenantRbacPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="setup/attendance-recovery"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]} requireTenantScope>
+                <AttendanceRecoveryDashboardPage />
               </ProtectedRoute>
             }
           />
@@ -698,6 +708,22 @@ const AppRoutes = () => {
               <ProtectedRoute anyPermission={[PermissionKeys.AttendanceManage]}>
                 <ContextAwareLayout breadcrumbItems={[{ label: "Faculty Workspace" }]}>
                   <FacultyWorkspacePage />
+                </ContextAwareLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="faculty/recovery"
+            element={
+              <ProtectedRoute anyPermission={[PermissionKeys.AttendanceManage]}>
+                <ContextAwareLayout
+                  breadcrumbItems={[
+                    { label: "Faculty Workspace", to: "/faculty" },
+                    { label: "Recovery Center" },
+                  ]}
+                >
+                  <FacultyRecoveryCenterPage />
                 </ContextAwareLayout>
               </ProtectedRoute>
             }

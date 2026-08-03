@@ -81,6 +81,9 @@ namespace Abhyanvaya.Application.Common.Interfaces
 
         IQueryable<AttendanceSessionImage> AttendanceSessionImages { get; }
 
+        IQueryable<AttendanceRetryHistory> AttendanceRetryHistories { get; }
+        IQueryable<AttendanceRecoveryPreference> AttendanceRecoveryPreferences { get; }
+
         IQueryable<AttendanceRecognition> AttendanceRecognitions { get; }
 
         IQueryable<AttendanceRecognitionReviewHistory> AttendanceRecognitionReviewHistories { get; }

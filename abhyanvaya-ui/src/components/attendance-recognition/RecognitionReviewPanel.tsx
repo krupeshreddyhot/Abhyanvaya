@@ -205,10 +205,11 @@ export function RecognitionReviewPanel({
     [sessionImages, activeImageSequence],
   );
 
+  // Prefer the uploaded classroom original over annotated (annotated is often unset).
   const classroomImageUrl =
     activeImage?.imageUrl ??
-    session?.annotatedImageUrl ??
     session?.originalImageUrl ??
+    session?.annotatedImageUrl ??
     null;
 
   const imageWidth = activeImage?.width ?? session?.imageWidth ?? null;

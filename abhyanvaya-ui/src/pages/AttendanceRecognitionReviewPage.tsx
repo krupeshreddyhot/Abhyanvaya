@@ -45,6 +45,10 @@ import {
 import { useReviewFullscreen } from "../context/ReviewFullscreenContext";
 import { useThemeManagerOptional } from "../theme";
 import { listClassroomImages, reorderClassroomImages } from "../services/attendanceSessionService";
+import {
+  getResumeCheckpoint,
+  saveResumeCheckpoint,
+} from "../services/attendanceRecoveryService";
 import type { AttendanceSessionImage } from "../types/sessionImage";
 import { mediaAssetUrl } from "../utils/mediaAssetUrl";
 import {
@@ -156,6 +160,7 @@ const AttendanceRecognitionReviewPage = () => {
   const reviewActionTimes = useRef<number[]>([]);
   const reviewTicks = useRef(0);
   const [, setReviewTicks] = useState(0);
+  const checkpointReadyRef = useRef(false);
   const undoRedo = useReviewUndoRedo();
   const pushUndo = undoRedo.pushAction;
 
@@ -321,8 +326,9 @@ const AttendanceRecognitionReviewPage = () => {
 
     setLoading(true);
     setError(null);
+    checkpointReadyRef.current = false;
     try {
-      const [sessionRes, recognitionsRes, summaryRes, historyRes, finalizationRes, auditRes, images] =
+      const [sessionRes, recognitionsRes, summaryRes, historyRes, finalizationRes, auditRes, images, checkpointRes] =
         await Promise.all([
           getAttendanceSession(sessionId),
           getSessionRecognitions(sessionId),
@@ -330,7 +336,11 @@ const AttendanceRecognitionReviewPage = () => {
           getSessionReviewHistory(sessionId),
           getFinalizationStatus(sessionId),
           getSessionAuditEntries(sessionId),
-          listClassroomImages(sessionId).catch(() => [] as AttendanceSessionImage[]),
+          listClassroomImages(sessionId).catch((imagesError) => {
+            console.warn("Classroom images failed to load; falling back to session image URLs.", imagesError);
+            return [] as AttendanceSessionImage[];
+          }),
+          getResumeCheckpoint(sessionId).catch(() => null),
         ]);
       setSession(sessionRes.data);
       setRecognitions(recognitionsRes.data);
@@ -345,17 +355,48 @@ const AttendanceRecognitionReviewPage = () => {
         ),
       );
       setSelectedIds(new Set());
+
+      const checkpoint = checkpointRes?.data ?? null;
+      // AI22.8 — restore filters from resume checkpoint (never auto-start recognition).
+      if (checkpoint?.filtersJson) {
+        try {
+          const parsed = JSON.parse(checkpoint.filtersJson) as unknown;
+          if (Array.isArray(parsed)) {
+            setActiveFilters(new Set(parsed.filter((x): x is RecognitionReviewFilter => typeof x === "string")));
+          }
+        } catch {
+          /* ignore malformed checkpoint filters */
+        }
+      }
+
       const remembered = getLastImageSequence(sessionId);
       const first = recognitionsRes.data[0];
+      const checkpointImage = checkpoint?.currentImageId
+        ? images.find((img) => img.id === checkpoint.currentImageId)
+        : undefined;
       const initialSequence =
+        checkpointImage?.imageSequence ??
         remembered ??
         first?.imageSequence ??
         images[0]?.imageSequence ??
         1;
       setActiveImageSequence(initialSequence);
-      const focusForImage =
-        recognitionsRes.data.find((row) => (row.imageSequence ?? 1) === initialSequence) ?? first;
-      setFocusedId(focusForImage?.recognitionId ?? null);
+
+      let focusId: string | null = null;
+      if (checkpoint?.reviewPosition != null && checkpoint.reviewPosition >= 0) {
+        focusId = recognitionsRes.data[checkpoint.reviewPosition]?.recognitionId ?? null;
+      }
+      if (!focusId && checkpoint?.currentStudentId != null) {
+        focusId =
+          recognitionsRes.data.find((row) => row.studentId === checkpoint.currentStudentId)?.recognitionId ??
+          null;
+      }
+      if (!focusId) {
+        const focusForImage =
+          recognitionsRes.data.find((row) => (row.imageSequence ?? 1) === initialSequence) ?? first;
+        focusId = focusForImage?.recognitionId ?? null;
+      }
+      setFocusedId(focusId);
 
       // Phase 4.1 — warm image cache for smooth navigator switches
       for (const image of images) {
@@ -365,6 +406,7 @@ const AttendanceRecognitionReviewPage = () => {
           preload.src = url;
         }
       }
+      checkpointReadyRef.current = true;
     } catch (loadError) {
       setError(errMsg(loadError, "Failed to load attendance recognition review."));
     } finally {
@@ -375,6 +417,40 @@ const AttendanceRecognitionReviewPage = () => {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  // AI22.8 — persist resume checkpoint (image, filters, focus). Never starts recognition.
+  useEffect(() => {
+    if (!sessionId || loading || !checkpointReadyRef.current || isApproved) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      const image = sessionImages.find((img) => img.imageSequence === activeImageSequence);
+      const focused = recognitions.find((row) => row.recognitionId === focusedId);
+      const reviewPosition = focusedId
+        ? recognitions.findIndex((row) => row.recognitionId === focusedId)
+        : -1;
+      void saveResumeCheckpoint(sessionId, {
+        currentImageId: image?.id && image.id !== "00000000-0000-0000-0000-000000000000" ? image.id : null,
+        filtersJson: JSON.stringify([...activeFilters]),
+        currentStudentId: focused?.studentId ?? null,
+        reviewPosition: reviewPosition >= 0 ? reviewPosition : null,
+      }).catch(() => {
+        /* checkpoint persistence is best-effort */
+      });
+    }, 900);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    sessionId,
+    loading,
+    isApproved,
+    activeImageSequence,
+    focusedId,
+    activeFilters,
+    sessionImages,
+    recognitions,
+  ]);
 
   const pendingIds = useMemo(
     () =>
@@ -871,9 +947,13 @@ const AttendanceRecognitionReviewPage = () => {
         <AttendanceFinalizationSuccess
           summary={finalizeResult}
           sessionId={sessionId}
-          onViewAttendance={() => navigate("/attendance", { state: { switchToManual: true } })}
+          onViewAttendance={() =>
+            navigate("/attendance?ai=0", { state: { switchToManual: true, attendanceMethod: "manual" } })
+          }
           onPrint={() => window.print()}
-          onReturn={() => navigate("/attendance", { state: { switchToManual: true } })}
+          onReturn={() =>
+            navigate("/attendance?ai=0", { state: { switchToManual: true, attendanceMethod: "manual" } })
+          }
         />
       )}
 

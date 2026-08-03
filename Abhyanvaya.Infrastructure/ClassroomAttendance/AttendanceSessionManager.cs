@@ -1,3 +1,4 @@
+using Abhyanvaya.Application.AttendanceRecovery;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.ClassroomAttendance;
 using Abhyanvaya.Domain.Entities;
@@ -11,15 +12,18 @@ public sealed class AttendanceSessionManager : IAttendanceSessionManager
 {
     private readonly IApplicationDbContext _context;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAttendanceWorkflowLifecycleService _workflow;
     private readonly ILogger<AttendanceSessionManager> _logger;
 
     public AttendanceSessionManager(
         IApplicationDbContext context,
         IUnitOfWork unitOfWork,
+        IAttendanceWorkflowLifecycleService workflow,
         ILogger<AttendanceSessionManager> logger)
     {
         _context = context;
         _unitOfWork = unitOfWork;
+        _workflow = workflow;
         _logger = logger;
     }
 
@@ -40,7 +44,9 @@ public sealed class AttendanceSessionManager : IAttendanceSessionManager
 
         session.MoveToProcessing();
         session.StartedUtc = DateTime.UtcNow;
+        _workflow.ApplyLocal(session, hasImages: true, force: AttendanceWorkflowStatus.RecognitionRunning);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _workflow.NotifyAsync(session, "RecognitionRunning", cancellationToken: cancellationToken);
 
         _logger.LogInformation(
             "Attendance session processing started. SessionId={SessionId} TenantId={TenantId}",
@@ -60,7 +66,10 @@ public sealed class AttendanceSessionManager : IAttendanceSessionManager
         session.UnknownCount = statistics.UnknownFaces;
         session.CompletedUtc = DateTime.UtcNow;
         session.MoveToAwaitingReview();
+        _workflow.ApplyLocal(session, hasImages: true, force: AttendanceWorkflowStatus.ReviewPending);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _workflow.NotifyAsync(session, "RecognitionCompleted", cancellationToken: cancellationToken);
+        await _workflow.NotifyAsync(session, "ReviewPending", cancellationToken: cancellationToken);
 
         _logger.LogInformation(
             "Attendance session processing completed. SessionId={SessionId} Present={Present} Unknown={Unknown}",
@@ -77,7 +86,9 @@ public sealed class AttendanceSessionManager : IAttendanceSessionManager
         session.ProcessingError = error;
         session.MoveToFailed();
         session.CompletedUtc = DateTime.UtcNow;
+        _workflow.ApplyLocal(session, hasImages: true, force: AttendanceWorkflowStatus.RecognitionFailed);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _workflow.NotifyAsync(session, "RecognitionFailed", new { error }, cancellationToken);
 
         _logger.LogWarning(
             "Attendance session processing failed. SessionId={SessionId} Error={Error}",

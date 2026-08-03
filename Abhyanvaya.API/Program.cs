@@ -57,6 +57,7 @@ builder.Services.AddHostedService<EnrollmentStartupValidationHostedService>();
 builder.Services.AddSingleton<IEnrollmentSignalRPublisher, EnrollmentSignalRPublisher>();
 builder.Services.AddScoped<Abhyanvaya.Application.Scheduling.Optimization.Progress.IOptimizationProgressPublisher, Abhyanvaya.API.SignalR.OptimizationSignalRPublisher>();
 builder.Services.AddScoped<Abhyanvaya.Application.Faculty.IFacultyScheduleNotifier, Abhyanvaya.API.SignalR.FacultySignalRPublisher>();
+builder.Services.AddScoped<Abhyanvaya.Application.AttendanceRecovery.IAttendanceRecoveryNotifier, Abhyanvaya.API.SignalR.AttendanceRecoverySignalRPublisher>();
 builder.Services.AddScoped<IEnrollmentActorPermissions, EnrollmentActorPermissions>();
 builder.Services.Configure<EnrollmentProgressBroadcastOptions>(
     builder.Configuration.GetSection(EnrollmentProgressBroadcastOptions.SectionName));
