@@ -7,6 +7,8 @@ namespace Abhyanvaya.Application.DTOs.Department
         public string Name { get; set; } = "";
         public string? Code { get; set; }
         public int SortOrder { get; set; }
+        public string? Description { get; set; }
+        public bool IsActive { get; set; } = true;
     }
 
     public class CreateDepartmentRequest
@@ -15,6 +17,8 @@ namespace Abhyanvaya.Application.DTOs.Department
         public string Name { get; set; } = "";
         public string? Code { get; set; }
         public int SortOrder { get; set; }
+        public string? Description { get; set; }
+        public bool IsActive { get; set; } = true;
     }
 
     public class UpdateDepartmentRequest
@@ -22,5 +26,7 @@ namespace Abhyanvaya.Application.DTOs.Department
         public string Name { get; set; } = "";
         public string? Code { get; set; }
         public int SortOrder { get; set; }
+        public string? Description { get; set; }
+        public bool IsActive { get; set; } = true;
     }
 }

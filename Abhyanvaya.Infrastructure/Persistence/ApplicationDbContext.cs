@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Domain.Entities;
+using Abhyanvaya.Domain.Entities.Scheduling;
 using Abhyanvaya.Domain.Common;
 using Abhyanvaya.Domain.Enums;
 using Microsoft.Extensions.Logging;
@@ -91,6 +92,64 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<ArtifactRegistryEntry> ArtifactRegistryEntries => Set<ArtifactRegistryEntry>();
         public IQueryable<ArtifactStorageManifest> ArtifactStorageManifests => Set<ArtifactStorageManifest>();
 
+        public IQueryable<AcademicYear> SchedulingAcademicYears => Set<AcademicYear>();
+        public IQueryable<AcademicTerm> SchedulingAcademicTerms => Set<AcademicTerm>();
+        public IQueryable<WorkingDay> SchedulingWorkingDays => Set<WorkingDay>();
+        public IQueryable<Holiday> SchedulingHolidays => Set<Holiday>();
+        public IQueryable<Campus> SchedulingCampuses => Set<Campus>();
+        public IQueryable<Building> SchedulingBuildings => Set<Building>();
+        public IQueryable<Floor> SchedulingFloors => Set<Floor>();
+        public IQueryable<Room> SchedulingRooms => Set<Room>();
+        public IQueryable<TimeSlotSet> SchedulingTimeSlotSets => Set<TimeSlotSet>();
+        public IQueryable<TimeSlot> SchedulingTimeSlots => Set<TimeSlot>();
+        public IQueryable<FacultyWorkload> SchedulingFacultyWorkloads => Set<FacultyWorkload>();
+        public IQueryable<FacultyDayPreference> SchedulingFacultyDayPreferences => Set<FacultyDayPreference>();
+        public IQueryable<FacultyTimeSlotPreference> SchedulingFacultyTimeSlotPreferences => Set<FacultyTimeSlotPreference>();
+        public IQueryable<SubjectAllocation> SchedulingSubjectAllocations => Set<SubjectAllocation>();
+        public IQueryable<RoomAllocationRule> SchedulingRoomAllocationRules => Set<RoomAllocationRule>();
+        public IQueryable<FacultyAvailability> SchedulingFacultyAvailabilities => Set<FacultyAvailability>();
+        public IQueryable<RoomAvailability> SchedulingRoomAvailabilities => Set<RoomAvailability>();
+        public IQueryable<SubjectCategory> SchedulingSubjectCategories => Set<SubjectCategory>();
+        public IQueryable<TimeSlotTemplate> SchedulingTimeSlotTemplates => Set<TimeSlotTemplate>();
+        public IQueryable<FacultyTeachingPreference> SchedulingFacultyTeachingPreferences => Set<FacultyTeachingPreference>();
+        public IQueryable<RoomFeature> SchedulingRoomFeatures => Set<RoomFeature>();
+        public IQueryable<RoomFeatureAssignment> SchedulingRoomFeatureAssignments => Set<RoomFeatureAssignment>();
+        public IQueryable<SubjectDeliveryType> SchedulingSubjectDeliveryTypes => Set<SubjectDeliveryType>();
+        public IQueryable<HolidayTypeCatalog> SchedulingHolidayTypeCatalogs => Set<HolidayTypeCatalog>();
+        public IQueryable<Timetable> SchedulingTimetables => Set<Timetable>();
+        public IQueryable<TimetableEntry> SchedulingTimetableEntries => Set<TimetableEntry>();
+        public IQueryable<ScheduleVersion> SchedulingScheduleVersions => Set<ScheduleVersion>();
+        public IQueryable<TimetableApprovalRequest> SchedulingTimetableApprovalRequests => Set<TimetableApprovalRequest>();
+        public IQueryable<TimetableApprovalStep> SchedulingTimetableApprovalSteps => Set<TimetableApprovalStep>();
+        public IQueryable<TimetableApprovalHistory> SchedulingTimetableApprovalHistories => Set<TimetableApprovalHistory>();
+        public IQueryable<TimetableCloneJob> SchedulingTimetableCloneJobs => Set<TimetableCloneJob>();
+        public IQueryable<TimetableChangeHistory> SchedulingTimetableChangeHistories => Set<TimetableChangeHistory>();
+        public IQueryable<TimetableWarningDismissal> SchedulingTimetableWarningDismissals => Set<TimetableWarningDismissal>();
+        public IQueryable<TimetableApprovalComment> SchedulingTimetableApprovalComments => Set<TimetableApprovalComment>();
+        public IQueryable<TimetableDecisionHistory> SchedulingTimetableDecisionHistories => Set<TimetableDecisionHistory>();
+        public IQueryable<ArchiveReasonLookup> SchedulingArchiveReasons => Set<ArchiveReasonLookup>();
+        public IQueryable<ConflictDetectionRun> SchedulingConflictDetectionRuns => Set<ConflictDetectionRun>();
+        public IQueryable<ConflictFinding> SchedulingConflictFindings => Set<ConflictFinding>();
+        public IQueryable<ConflictRuleThresholdSetting> SchedulingConflictRuleThresholdSettings => Set<ConflictRuleThresholdSetting>();
+        public IQueryable<ConflictRuleConfigChangeHistory> SchedulingConflictRuleConfigChangeHistories => Set<ConflictRuleConfigChangeHistory>();
+        public IQueryable<ConflictWorkspacePin> SchedulingConflictWorkspacePins => Set<ConflictWorkspacePin>();
+        public IQueryable<ConflictWorkspaceBookmark> SchedulingConflictWorkspaceBookmarks => Set<ConflictWorkspaceBookmark>();
+        public IQueryable<ConflictWorkspaceNote> SchedulingConflictWorkspaceNotes => Set<ConflictWorkspaceNote>();
+        public IQueryable<OptimizationSimulationRun> SchedulingOptimizationSimulationRuns => Set<OptimizationSimulationRun>();
+        public IQueryable<OptimizationMetricSnapshot> SchedulingOptimizationMetricSnapshots => Set<OptimizationMetricSnapshot>();
+        public IQueryable<OptimizationTelemetryAggregate> SchedulingOptimizationTelemetryAggregates => Set<OptimizationTelemetryAggregate>();
+        public IQueryable<OptimizationScenario> SchedulingOptimizationScenarios => Set<OptimizationScenario>();
+        public IQueryable<OptimizationSnapshot> SchedulingOptimizationSnapshots => Set<OptimizationSnapshot>();
+        public IQueryable<OptimizationScenarioFavorite> SchedulingOptimizationScenarioFavorites => Set<OptimizationScenarioFavorite>();
+        public IQueryable<OptimizationScenarioNote> SchedulingOptimizationScenarioNotes => Set<OptimizationScenarioNote>();
+        public IQueryable<OptimizationScenarioComment> SchedulingOptimizationScenarioComments => Set<OptimizationScenarioComment>();
+        public IQueryable<OptimizationScenarioBookmark> SchedulingOptimizationScenarioBookmarks => Set<OptimizationScenarioBookmark>();
+        public IQueryable<OptimizationScenarioApprovalRequest> SchedulingOptimizationScenarioApprovalRequests => Set<OptimizationScenarioApprovalRequest>();
+        public IQueryable<OptimizationScenarioShare> SchedulingOptimizationScenarioShares => Set<OptimizationScenarioShare>();
+        public IQueryable<OptimizationScenarioHistory> SchedulingOptimizationScenarioHistories => Set<OptimizationScenarioHistory>();
+        public IQueryable<OptimizationEngineRun> SchedulingOptimizationEngineRuns => Set<OptimizationEngineRun>();
+        public IQueryable<WorkspacePreference> SchedulingWorkspacePreferences => Set<WorkspacePreference>();
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -142,6 +201,32 @@ namespace Abhyanvaya.Infrastructure.Persistence
             builder.Entity<ClassSchedule>();
             builder.Entity<StudentEnrollmentBatch>();
             builder.Entity<StudentEnrollmentItem>();
+            builder.Entity<ArtifactRegistryEntry>();
+            builder.Entity<ArtifactStorageManifest>();
+
+            builder.Entity<AcademicYear>();
+            builder.Entity<AcademicTerm>();
+            builder.Entity<WorkingDay>();
+            builder.Entity<Holiday>();
+            builder.Entity<Campus>();
+            builder.Entity<Building>();
+            builder.Entity<Floor>();
+            builder.Entity<Room>();
+            builder.Entity<TimeSlotSet>();
+            builder.Entity<TimeSlot>();
+            builder.Entity<FacultyWorkload>();
+            builder.Entity<FacultyDayPreference>();
+            builder.Entity<FacultyTimeSlotPreference>();
+            builder.Entity<SubjectAllocation>();
+            builder.Entity<RoomAllocationRule>();
+            builder.Entity<FacultyTeachingPreference>();
+            builder.Entity<RoomFeature>();
+            builder.Entity<RoomFeatureAssignment>();
+            builder.Entity<SubjectDeliveryType>();
+            builder.Entity<HolidayTypeCatalog>();
+            builder.Entity<Timetable>();
+            builder.Entity<TimetableEntry>();
+
             builder.ApplyConfiguration(new Configurations.StudentEnrollmentProgressSnapshotConfiguration());
 
             builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);

@@ -291,6 +291,206 @@ namespace Abhyanvaya.Infrastructure.Migrations
                         },
                         new
                         {
+                            ApplicationRoleId = 100,
+                            PermissionId = 16
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 17
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 18
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 19
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 20
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 21
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 22
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 23
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 24
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 25
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 26
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 27
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 28
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 29
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 30
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 31
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 32
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 33
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 34
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 35
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 36
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 37
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 38
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 39
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 40
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 41
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 42
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 43
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 44
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 45
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 46
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 47
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 48
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 49
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 50
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 51
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 52
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 53
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 54
+                        },
+                        new
+                        {
+                            ApplicationRoleId = 100,
+                            PermissionId = 55
+                        },
+                        new
+                        {
                             ApplicationRoleId = 101,
                             PermissionId = 1
                         },
@@ -1376,6 +1576,15 @@ namespace Abhyanvaya.Infrastructure.Migrations
 
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
@@ -2531,6 +2740,286 @@ namespace Abhyanvaya.Infrastructure.Migrations
                             Action = "Manage",
                             Key = "Setup.Semesters.Manage",
                             Resource = "Setup.Semesters"
+                        },
+                        new
+                        {
+                            Id = 16,
+                            Action = "View",
+                            Key = "Enrollment.View",
+                            Resource = "Enrollment"
+                        },
+                        new
+                        {
+                            Id = 17,
+                            Action = "Manage",
+                            Key = "Enrollment.Manage",
+                            Resource = "Enrollment"
+                        },
+                        new
+                        {
+                            Id = 18,
+                            Action = "View",
+                            Key = "Scheduling.View",
+                            Resource = "Scheduling"
+                        },
+                        new
+                        {
+                            Id = 19,
+                            Action = "Manage",
+                            Key = "Scheduling.Manage",
+                            Resource = "Scheduling"
+                        },
+                        new
+                        {
+                            Id = 20,
+                            Action = "View",
+                            Key = "Scheduling.Department.View",
+                            Resource = "Scheduling.Department"
+                        },
+                        new
+                        {
+                            Id = 21,
+                            Action = "Manage",
+                            Key = "Scheduling.Department.Manage",
+                            Resource = "Scheduling.Department"
+                        },
+                        new
+                        {
+                            Id = 22,
+                            Action = "View",
+                            Key = "Scheduling.RoomAvailability.View",
+                            Resource = "Scheduling.RoomAvailability"
+                        },
+                        new
+                        {
+                            Id = 23,
+                            Action = "Manage",
+                            Key = "Scheduling.RoomAvailability.Manage",
+                            Resource = "Scheduling.RoomAvailability"
+                        },
+                        new
+                        {
+                            Id = 24,
+                            Action = "View",
+                            Key = "Scheduling.FacultyAvailability.View",
+                            Resource = "Scheduling.FacultyAvailability"
+                        },
+                        new
+                        {
+                            Id = 25,
+                            Action = "Manage",
+                            Key = "Scheduling.FacultyAvailability.Manage",
+                            Resource = "Scheduling.FacultyAvailability"
+                        },
+                        new
+                        {
+                            Id = 26,
+                            Action = "View",
+                            Key = "Scheduling.Template.View",
+                            Resource = "Scheduling.Template"
+                        },
+                        new
+                        {
+                            Id = 27,
+                            Action = "Manage",
+                            Key = "Scheduling.Template.Manage",
+                            Resource = "Scheduling.Template"
+                        },
+                        new
+                        {
+                            Id = 28,
+                            Action = "View",
+                            Key = "Scheduling.FacultyPreferences.View",
+                            Resource = "Scheduling.FacultyPreferences"
+                        },
+                        new
+                        {
+                            Id = 29,
+                            Action = "Manage",
+                            Key = "Scheduling.FacultyPreferences.Manage",
+                            Resource = "Scheduling.FacultyPreferences"
+                        },
+                        new
+                        {
+                            Id = 30,
+                            Action = "View",
+                            Key = "Scheduling.RoomFeatures.View",
+                            Resource = "Scheduling.RoomFeatures"
+                        },
+                        new
+                        {
+                            Id = 31,
+                            Action = "Manage",
+                            Key = "Scheduling.RoomFeatures.Manage",
+                            Resource = "Scheduling.RoomFeatures"
+                        },
+                        new
+                        {
+                            Id = 32,
+                            Action = "View",
+                            Key = "Scheduling.SubjectDelivery.View",
+                            Resource = "Scheduling.SubjectDelivery"
+                        },
+                        new
+                        {
+                            Id = 33,
+                            Action = "Manage",
+                            Key = "Scheduling.SubjectDelivery.Manage",
+                            Resource = "Scheduling.SubjectDelivery"
+                        },
+                        new
+                        {
+                            Id = 34,
+                            Action = "View",
+                            Key = "Scheduling.HolidayTypes.View",
+                            Resource = "Scheduling.HolidayTypes"
+                        },
+                        new
+                        {
+                            Id = 35,
+                            Action = "Manage",
+                            Key = "Scheduling.HolidayTypes.Manage",
+                            Resource = "Scheduling.HolidayTypes"
+                        },
+                        new
+                        {
+                            Id = 36,
+                            Action = "View",
+                            Key = "Scheduling.Timetable.View",
+                            Resource = "Scheduling.Timetable"
+                        },
+                        new
+                        {
+                            Id = 37,
+                            Action = "Manage",
+                            Key = "Scheduling.Timetable.Manage",
+                            Resource = "Scheduling.Timetable"
+                        },
+                        new
+                        {
+                            Id = 38,
+                            Action = "View",
+                            Key = "Scheduling.Version.View",
+                            Resource = "Scheduling.Version"
+                        },
+                        new
+                        {
+                            Id = 39,
+                            Action = "Manage",
+                            Key = "Scheduling.Version.Manage",
+                            Resource = "Scheduling.Version"
+                        },
+                        new
+                        {
+                            Id = 40,
+                            Action = "Review",
+                            Key = "Scheduling.Review",
+                            Resource = "Scheduling"
+                        },
+                        new
+                        {
+                            Id = 41,
+                            Action = "Approve",
+                            Key = "Scheduling.Approve",
+                            Resource = "Scheduling"
+                        },
+                        new
+                        {
+                            Id = 42,
+                            Action = "Publish",
+                            Key = "Scheduling.Publish",
+                            Resource = "Scheduling"
+                        },
+                        new
+                        {
+                            Id = 43,
+                            Action = "Archive",
+                            Key = "Scheduling.Archive",
+                            Resource = "Scheduling"
+                        },
+                        new
+                        {
+                            Id = 44,
+                            Action = "Clone",
+                            Key = "Scheduling.Clone",
+                            Resource = "Scheduling"
+                        },
+                        new
+                        {
+                            Id = 45,
+                            Action = "View",
+                            Key = "Scheduling.History.View",
+                            Resource = "Scheduling.History"
+                        },
+                        new
+                        {
+                            Id = 46,
+                            Action = "View",
+                            Key = "Scheduling.VersionCompare.View",
+                            Resource = "Scheduling.VersionCompare"
+                        },
+                        new
+                        {
+                            Id = 47,
+                            Action = "Export",
+                            Key = "Scheduling.VersionCompare.Export",
+                            Resource = "Scheduling.VersionCompare"
+                        },
+                        new
+                        {
+                            Id = 48,
+                            Action = "View",
+                            Key = "Scheduling.ApprovalComments.View",
+                            Resource = "Scheduling.ApprovalComments"
+                        },
+                        new
+                        {
+                            Id = 49,
+                            Action = "Manage",
+                            Key = "Scheduling.ApprovalComments.Manage",
+                            Resource = "Scheduling.ApprovalComments"
+                        },
+                        new
+                        {
+                            Id = 50,
+                            Action = "Freeze",
+                            Key = "Scheduling.Freeze",
+                            Resource = "Scheduling"
+                        },
+                        new
+                        {
+                            Id = 51,
+                            Action = "Unlock",
+                            Key = "Scheduling.Unlock",
+                            Resource = "Scheduling"
+                        },
+                        new
+                        {
+                            Id = 52,
+                            Action = "View",
+                            Key = "Scheduling.Archive.View",
+                            Resource = "Scheduling.Archive"
+                        },
+                        new
+                        {
+                            Id = 53,
+                            Action = "Manage",
+                            Key = "Scheduling.Archive.Manage",
+                            Resource = "Scheduling.Archive"
+                        },
+                        new
+                        {
+                            Id = 54,
+                            Action = "View",
+                            Key = "Scheduling.Conflict.View",
+                            Resource = "Scheduling.Conflict"
+                        },
+                        new
+                        {
+                            Id = 55,
+                            Action = "Manage",
+                            Key = "Scheduling.Conflict.Manage",
+                            Resource = "Scheduling.Conflict"
                         });
                 });
 
@@ -2703,6 +3192,3837 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("RetrainingCandidateEntries", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.AcademicTerm", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AcademicYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AcademicYearId");
+
+                    b.HasIndex("TenantId", "AcademicYearId", "Sequence")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingAcademicTerm", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.AcademicYear", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsCurrent")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingAcademicYear", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.ArchiveReasonLookup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<byte>("Code")
+                        .HasColumnType("smallint");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingArchiveReason", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 701,
+                            Code = (byte)1,
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Replaced by a newer schedule version",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Superseded",
+                            SortOrder = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 702,
+                            Code = (byte)2,
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Academic term or semester completed",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Semester Complete",
+                            SortOrder = 2,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 703,
+                            Code = (byte)3,
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Archived due to corrections",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Correction",
+                            SortOrder = 3,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 704,
+                            Code = (byte)4,
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Emergency operational change",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Emergency",
+                            SortOrder = 4,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 705,
+                            Code = (byte)5,
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Academic council directive",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Academic Council",
+                            SortOrder = 5,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 706,
+                            Code = (byte)6,
+                            CreatedDate = new DateTime(2026, 5, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Other archive reason",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Other",
+                            SortOrder = 6,
+                            TenantId = 1
+                        });
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.Building", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CampusId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampusId");
+
+                    b.HasIndex("TenantId", "CampusId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingBuilding", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.Campus", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingCampus", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.ConflictDetectionRun", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AcademicYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CalendarCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("CompletedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CriticalCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ErrorCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("FacultyCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("InformationCount")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("RoomCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("StartedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("StudentCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TimetableId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TotalConflicts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TriggerSource")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("WarningCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AcademicYearId");
+
+                    b.HasIndex("TimetableId");
+
+                    b.HasIndex("TenantId", "AcademicYearId", "StartedUtc");
+
+                    b.HasIndex("TenantId", "TimetableId", "StartedUtc");
+
+                    b.ToTable("SchedulingConflictDetectionRun", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.ConflictFinding", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<byte>("Category")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("ConflictDetectionRunId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CourseId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte?>("DayOfWeek")
+                        .HasColumnType("smallint");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int?>("GroupId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("NavigationPath")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("RelatedEntryId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("RoomId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RuleCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("RuleName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<int?>("SemesterId")
+                        .HasColumnType("integer");
+
+                    b.Property<byte>("Severity")
+                        .HasColumnType("smallint");
+
+                    b.Property<int?>("StaffId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SuggestedResolution")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TimeSlotId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TimetableEntryId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TimetableId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("WhyOccurred")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConflictDetectionRunId");
+
+                    b.HasIndex("TenantId", "RoomId");
+
+                    b.HasIndex("TenantId", "StaffId");
+
+                    b.HasIndex("TenantId", "TimetableEntryId");
+
+                    b.HasIndex("TenantId", "ConflictDetectionRunId", "Category", "Severity");
+
+                    b.ToTable("SchedulingConflictFinding", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.ConflictRuleConfigChangeHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ChangeReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("ChangedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("ChangedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("NewValue")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal>("OldValue")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ThresholdKey")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "ThresholdKey", "ChangedUtc");
+
+                    b.ToTable("SchedulingConflictRuleConfigChangeHistory", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.ConflictRuleThresholdSetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ThresholdKey")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Value")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "ThresholdKey")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingConflictRuleThresholdSetting", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.ConflictWorkspaceBookmark", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FilterJson")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "UserId", "Name");
+
+                    b.ToTable("SchedulingConflictWorkspaceBookmark", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.ConflictWorkspaceNote", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ConflictDetectionRunId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("NoteText")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("RuleCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TimetableEntryId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "UserId", "ConflictDetectionRunId");
+
+                    b.ToTable("SchedulingConflictWorkspaceNote", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.ConflictWorkspacePin", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ConflictDetectionRunId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("RuleCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TimetableEntryId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "UserId", "ConflictDetectionRunId", "RuleCode", "TimetableEntryId");
+
+                    b.ToTable("SchedulingConflictWorkspacePin", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.FacultyAvailability", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AcademicYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<byte>("AvailabilityType")
+                        .HasColumnType("smallint");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("EndSlotId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("StaffId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("StartSlotId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AcademicYearId");
+
+                    b.HasIndex("EndSlotId");
+
+                    b.HasIndex("StaffId");
+
+                    b.HasIndex("StartSlotId");
+
+                    b.HasIndex("TenantId", "StaffId", "AcademicYearId", "StartDate", "EndDate");
+
+                    b.ToTable("SchedulingFacultyAvailability", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.FacultyDayPreference", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte>("DayOfWeek")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("FacultyWorkloadId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<byte>("PreferenceType")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FacultyWorkloadId");
+
+                    b.HasIndex("TenantId", "FacultyWorkloadId", "DayOfWeek")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingFacultyDayPreference", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.FacultyTeachingPreference", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AcademicYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("MaximumContinuousClasses")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MinimumBreakBetweenClasses")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PreferredBuildingId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PreferredCampusId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PreferredCourseId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PreferredDepartmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PreferredFirstPeriod")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PreferredFloorId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PreferredGroupId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PreferredLastPeriod")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PreferredRoomId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PreferredSemesterId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PreferredSubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<byte>("PreferredTeachingMode")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte>("PreferredWorkingDaysFlags")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("StaffId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AcademicYearId");
+
+                    b.HasIndex("PreferredBuildingId");
+
+                    b.HasIndex("PreferredCampusId");
+
+                    b.HasIndex("PreferredCourseId");
+
+                    b.HasIndex("PreferredDepartmentId");
+
+                    b.HasIndex("PreferredFloorId");
+
+                    b.HasIndex("PreferredGroupId");
+
+                    b.HasIndex("PreferredRoomId");
+
+                    b.HasIndex("PreferredSemesterId");
+
+                    b.HasIndex("PreferredSubjectId");
+
+                    b.HasIndex("StaffId");
+
+                    b.HasIndex("TenantId", "StaffId", "AcademicYearId", "IsActive");
+
+                    b.ToTable("SchedulingFacultyTeachingPreference", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.FacultyTimeSlotPreference", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("FacultyWorkloadId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsPreferred")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TimeSlotId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FacultyWorkloadId");
+
+                    b.HasIndex("TimeSlotId");
+
+                    b.HasIndex("TenantId", "FacultyWorkloadId", "TimeSlotId")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingFacultyTimeSlotPreference", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.FacultyWorkload", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("AdministrativeLoadHours")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsAdjunctFaculty")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsGuestFaculty")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("LabLoadHours")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)");
+
+                    b.Property<int>("MaxPeriodsPerDay")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MaxPeriodsPerWeek")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("MentoringLoadHours")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("StaffId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("TeachingLoadHours")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StaffId");
+
+                    b.HasIndex("TenantId", "StaffId")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingFacultyWorkload", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.Floor", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BuildingId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("LevelNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuildingId");
+
+                    b.HasIndex("TenantId", "BuildingId", "LevelNumber")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingFloor", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.Holiday", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AcademicYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Colour")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<byte>("HolidayType")
+                        .HasColumnType("smallint");
+
+                    b.Property<int?>("HolidayTypeCatalogId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsWorkingDayOverride")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int?>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("RequiresRescheduling")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AcademicYearId");
+
+                    b.HasIndex("HolidayTypeCatalogId");
+
+                    b.HasIndex("TenantId", "AcademicYearId", "Date", "Name");
+
+                    b.ToTable("SchedulingHoliday", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.HolidayTypeCatalog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Colour")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingHolidayTypes", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.OptimizationEngineRun", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AcademicYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ApprovedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ApprovedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("BaselineConflictCount")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("BaselineScore")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("CandidatesJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ComparisonJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("CompletedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CurrentStrategy")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("ElapsedMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<long?>("EstimatedRemainingMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("ImprovementDelta")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("IntermediateResultsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("MetricsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("ProgressPercent")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ProjectedConflictCount")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("ProjectedScore")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<int?>("ResultDraftScheduleVersionId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("RunId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("SandboxScenarioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("SourceScheduleVersionId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("StartedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte>("StrategyKind")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("StrategyPipelineCsv")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TimetableId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "RunId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "StartedUtc");
+
+                    b.HasIndex("TenantId", "AcademicYearId", "Status");
+
+                    b.ToTable("SchedulingOptimizationEngineRun", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.OptimizationMetricSnapshot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AcademicYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CapturedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<byte>("MetricKind")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("MetricName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("SnapshotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TimetableId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Value")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SnapshotId");
+
+                    b.HasIndex("TenantId", "AcademicYearId", "CapturedUtc");
+
+                    b.ToTable("SchedulingOptimizationMetricSnapshot", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.OptimizationScenario", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AcademicYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("ComparisonCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ConflictCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("CurrentScore")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsFavorite")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsImmutable")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsPinned")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsTemplate")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastComparedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LastReplayedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("OwnerUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("ParentScenarioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("ProjectedScore")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<int>("ReplayCount")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ScenarioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("SemesterId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("SourceSimulationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("TagsCsv")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TimetableId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ViewCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "ScenarioId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "AcademicYearId", "Status");
+
+                    b.HasIndex("TenantId", "OwnerUserId", "IsFavorite");
+
+                    b.ToTable("SchedulingOptimizationScenario", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.OptimizationScenarioApprovalRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Message")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("OptimizationScenarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RequestedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("RequestedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ResolvedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ReviewerUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SchedulingOptimizationScenarioApprovalRequest", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.OptimizationScenarioBookmark", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<int>("OptimizationScenarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SchedulingOptimizationScenarioBookmark", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.OptimizationScenarioComment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CommentText")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("OptimizationScenarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SchedulingOptimizationScenarioComment", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.OptimizationScenarioFavorite", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("OptimizationScenarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "UserId", "OptimizationScenarioId");
+
+                    b.ToTable("SchedulingOptimizationScenarioFavorite", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.OptimizationScenarioHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<byte>("Action")
+                        .HasColumnType("smallint");
+
+                    b.Property<int?>("ActorUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Details")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("OccurredUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("OptimizationScenarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "OptimizationScenarioId", "OccurredUtc");
+
+                    b.ToTable("SchedulingOptimizationScenarioHistory", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.OptimizationScenarioNote", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("NoteText")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("OptimizationScenarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SchedulingOptimizationScenarioNote", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.OptimizationScenarioShare", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("OptimizationScenarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("ReadOnly")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("SharedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("SharedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SharedWithUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "OptimizationScenarioId", "SharedWithUserId");
+
+                    b.ToTable("SchedulingOptimizationScenarioShare", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.OptimizationSimulationRun", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AcademicYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("CompletedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CurrentConflictCount")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("CurrentScore")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("ExecutionTimeMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("MetricsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("ProjectedConflictCount")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("ProjectedScore")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("ProposedChangesJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ScenarioName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<decimal>("ScoreDelta")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<long>("ScoringTimeMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("SimulationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("StartedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte>("StrategyKind")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TimetableId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "SimulationId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "AcademicYearId", "StartedUtc");
+
+                    b.ToTable("SchedulingOptimizationSimulationRun", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.OptimizationSnapshot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CapturedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ConflictSummaryJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsImmutable")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("MetricsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("OptimizationScenarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RecommendationsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ScoresJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("SimulationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SimulationJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("SnapshotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TimetableSummaryJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OptimizationScenarioId", "Sequence");
+
+                    b.HasIndex("TenantId", "SnapshotId")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingOptimizationSnapshot", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.OptimizationTelemetryAggregate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("AverageValue")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<long>("CounterValue")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("LastUpdatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MetricKey")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "MetricKey")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingOptimizationTelemetryAggregate", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.Room", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<short>("FeatureFlags")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("FloorId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<byte>("RoomType")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("FloorId");
+
+                    b.HasIndex("TenantId", "FloorId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingRoom", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.RoomAllocationRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AcademicYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CourseId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("MaxCapacity")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MinCapacity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("PreferredRoomId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("RequireAiCamera")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("RequireCommerceLab")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("RequireComputerLab")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("RequireProjector")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("RequireScienceLab")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("RequireSmartBoard")
+                        .HasColumnType("boolean");
+
+                    b.Property<byte?>("RoomType")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AcademicYearId");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("PreferredRoomId");
+
+                    b.HasIndex("TenantId", "Name");
+
+                    b.ToTable("SchedulingRoomAllocationRule", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.RoomAvailability", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AcademicYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<byte>("AvailabilityType")
+                        .HasColumnType("smallint");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("EndSlotId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("RoomId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("StartSlotId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AcademicYearId");
+
+                    b.HasIndex("EndSlotId");
+
+                    b.HasIndex("RoomId");
+
+                    b.HasIndex("StartSlotId");
+
+                    b.HasIndex("TenantId", "RoomId", "AcademicYearId", "StartDate", "EndDate");
+
+                    b.ToTable("SchedulingRoomAvailability", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.RoomFeature", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingRoomFeature", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.RoomFeatureAssignment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("RoomFeatureId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RoomId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoomFeatureId");
+
+                    b.HasIndex("RoomId");
+
+                    b.HasIndex("TenantId", "RoomId", "RoomFeatureId")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingRoomFeatureAssignment", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.ScheduleVersion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AcademicTermId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("AcademicYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ArchiveComments")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("ArchiveReasonId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ArchivedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ArchivedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsCurrent")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("ParentVersionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PublishedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("PublishedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ReferenceVersionId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("VersionName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AcademicTermId");
+
+                    b.HasIndex("AcademicYearId");
+
+                    b.HasIndex("ArchiveReasonId");
+
+                    b.HasIndex("ParentVersionId");
+
+                    b.HasIndex("ReferenceVersionId");
+
+                    b.HasIndex("TenantId", "AcademicYearId", "AcademicTermId", "VersionNumber")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingScheduleVersion", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.SubjectAllocation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AcademicYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("AiAttendanceEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("AttendanceMandatory")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("CourseId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("EffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("EffectiveTo")
+                        .HasColumnType("date");
+
+                    b.Property<int>("GroupId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("LabRequired")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("PreferredRoomId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SemesterId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StaffId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("WeeklyHours")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AcademicYearId");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("PreferredRoomId");
+
+                    b.HasIndex("SemesterId");
+
+                    b.HasIndex("StaffId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("TenantId", "AcademicYearId", "SubjectId", "CourseId", "GroupId", "SemesterId", "DepartmentId")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingSubjectAllocation", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.SubjectCategory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingSubjectCategory", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.SubjectDeliveryType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingSubjectDeliveryType", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimeSlot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte?>("DayOfWeek")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("DurationMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<TimeSpan>("EndTime")
+                        .HasColumnType("interval");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int?>("PeriodNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<byte>("SessionKind")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte>("SlotKind")
+                        .HasColumnType("smallint");
+
+                    b.Property<TimeSpan>("StartTime")
+                        .HasColumnType("interval");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TimeSlotSetId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TimeSlotSetId");
+
+                    b.HasIndex("TenantId", "TimeSlotSetId", "DayOfWeek", "PeriodNumber");
+
+                    b.ToTable("SchedulingTimeSlot", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimeSlotSet", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AcademicYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TimeSlotTemplateId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AcademicYearId");
+
+                    b.HasIndex("TimeSlotTemplateId");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingTimeSlotSet", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimeSlotTemplate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<byte>("TemplateType")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Name");
+
+                    b.ToTable("SchedulingTimeSlotTemplate", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.Timetable", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AcademicYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ArchiveComments")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("ArchiveReasonId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ArchivedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ArchivedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FreezeReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("FrozenBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("FrozenDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsFrozen")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("ReferenceVersionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ScheduleVersionId")
+                        .HasColumnType("integer");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TimeSlotSetId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UnlockDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UnlockReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("UnlockedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AcademicYearId");
+
+                    b.HasIndex("ArchiveReasonId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("ReferenceVersionId");
+
+                    b.HasIndex("ScheduleVersionId");
+
+                    b.HasIndex("TimeSlotSetId");
+
+                    b.HasIndex("TenantId", "IsFrozen");
+
+                    b.HasIndex("TenantId", "AcademicYearId", "Code")
+                        .IsUnique()
+                        .HasFilter("\"Code\" IS NOT NULL");
+
+                    b.HasIndex("TenantId", "AcademicYearId", "DepartmentId", "Status");
+
+                    b.ToTable("SchedulingTimetable", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableApprovalComment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ActorUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Comment")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDecisionNote")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("OccurredUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("RequestId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequestId");
+
+                    b.HasIndex("TenantId", "RequestId", "OccurredUtc");
+
+                    b.ToTable("SchedulingTimetableApprovalComment", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableApprovalHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ActorUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Comments")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte?>("Decision")
+                        .HasColumnType("smallint");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<byte?>("NewStatus")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTime>("OccurredUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte?>("OldStatus")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("RequestId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StepOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequestId");
+
+                    b.ToTable("SchedulingTimetableApprovalHistory", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableApprovalRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CurrentStepOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("ScheduleVersionId")
+                        .HasColumnType("integer");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("SubmittedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("SubmittedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TimetableId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScheduleVersionId");
+
+                    b.HasIndex("TimetableId");
+
+                    b.ToTable("SchedulingTimetableApprovalRequest", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableApprovalStep", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AssignedTo")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Comments")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("DecidedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("DecidedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte?>("Decision")
+                        .HasColumnType("smallint");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("RequestId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RoleKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("StepOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequestId");
+
+                    b.HasIndex("TenantId", "RequestId", "StepOrder")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingTimetableApprovalStep", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableChangeHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("EntryId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("NewValueJson")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<DateTime>("OccurredUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("OldValueJson")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<byte>("Operation")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TimetableId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TimetableId");
+
+                    b.HasIndex("TenantId", "TimetableId", "OccurredUtc");
+
+                    b.ToTable("SchedulingTimetableChangeHistory", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableCloneJob", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CompletedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<byte>("JobType")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("PayloadJson")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<int>("ProgressPercent")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RequestedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SourceTimetableId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("StartedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("TargetTimetableId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SourceTimetableId");
+
+                    b.HasIndex("TargetTimetableId");
+
+                    b.ToTable("SchedulingTimetableCloneJob", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableDecisionHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("ActorUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte?>("Decision")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("DecisionNotes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<byte?>("NewStatus")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTime>("OccurredUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte?>("OldStatus")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("RequestId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ReviewerRemarks")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("StepOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequestId");
+
+                    b.HasIndex("TenantId", "RequestId", "OccurredUtc");
+
+                    b.ToTable("SchedulingTimetableDecisionHistory", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CourseId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte>("DayOfWeek")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("GroupId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("RoomId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SemesterId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StaffId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubjectAllocationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TimeSlotId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TimetableId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("RoomId");
+
+                    b.HasIndex("SemesterId");
+
+                    b.HasIndex("StaffId");
+
+                    b.HasIndex("SubjectAllocationId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("TimeSlotId");
+
+                    b.HasIndex("TimetableId");
+
+                    b.HasIndex("TenantId", "TimetableId", "RoomId");
+
+                    b.HasIndex("TenantId", "TimetableId", "StaffId");
+
+                    b.HasIndex("TenantId", "TimetableId", "DayOfWeek", "TimeSlotId");
+
+                    b.HasIndex("TenantId", "TimetableId", "CourseId", "GroupId", "SemesterId");
+
+                    b.ToTable("SchedulingTimetableEntry", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableWarningDismissal", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte?>("DayOfWeek")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("DismissedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("DismissedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("EntryId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("RoomId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("StaffId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TimeSlotId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TimetableId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("WarningCode")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TimetableId");
+
+                    b.ToTable("SchedulingTimetableWarningDismissal", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.WorkingDay", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AcademicYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte>("DayOfWeek")
+                        .HasColumnType("smallint");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsWorking")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AcademicYearId");
+
+                    b.HasIndex("TenantId", "AcademicYearId", "DayOfWeek")
+                        .IsUnique();
+
+                    b.ToTable("SchedulingWorkingDay", (string)null);
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.WorkspacePreference", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DashboardLayout")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("DefaultTimetableView")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("FavoriteQuickActionsCsv")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("HighContrast")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("LandingPage")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("NotificationPreferencesJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("OneHandedMode")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("StaffId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ThemePreference")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "StaffId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "UserId");
+
+                    b.ToTable("SchedulingWorkspacePreference", (string)null);
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Semester", b =>
@@ -3771,11 +8091,20 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.Property<decimal?>("Credits")
                         .HasColumnType("numeric");
 
+                    b.Property<int?>("DefaultDurationMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("DeliveryTypeId")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("ElectiveGroupId")
                         .HasColumnType("integer");
 
                     b.Property<decimal?>("ExamHours")
                         .HasColumnType("numeric");
+
+                    b.Property<int?>("ExpectedCapacity")
+                        .HasColumnType("integer");
 
                     b.Property<int>("GroupId")
                         .HasColumnType("integer");
@@ -3795,7 +8124,24 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.Property<decimal?>("Marks")
                         .HasColumnType("numeric");
 
+                    b.Property<int?>("PreferredRoomFeatureId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("RequiresAttendance")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("RequiresLabEquipment")
+                        .HasColumnType("boolean");
+
+                    b.Property<byte?>("RequiresRoomType")
+                        .HasColumnType("smallint");
+
                     b.Property<int>("SemesterId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SubjectCategoryId")
                         .HasColumnType("integer");
 
                     b.Property<int?>("TeachingLanguageId")
@@ -3817,11 +8163,17 @@ namespace Abhyanvaya.Infrastructure.Migrations
 
                     b.HasIndex("CourseId");
 
+                    b.HasIndex("DeliveryTypeId");
+
                     b.HasIndex("ElectiveGroupId");
 
                     b.HasIndex("GroupId");
 
+                    b.HasIndex("PreferredRoomFeatureId");
+
                     b.HasIndex("SemesterId");
+
+                    b.HasIndex("SubjectCategoryId");
 
                     b.HasIndex("TeachingLanguageId");
 
@@ -3972,7 +8324,7 @@ namespace Abhyanvaya.Infrastructure.Migrations
                         {
                             Id = 1,
                             CourseId = 1,
-                            CreatedDate = new DateTime(2026, 7, 23, 17, 18, 54, 849, DateTimeKind.Utc).AddTicks(3023),
+                            CreatedDate = new DateTime(2026, 8, 3, 4, 10, 45, 324, DateTimeKind.Utc).AddTicks(465),
                             GroupId = 1,
                             IsDeleted = false,
                             MustChangePassword = false,
@@ -4426,6 +8778,730 @@ namespace Abhyanvaya.Infrastructure.Migrations
                     b.Navigation("ModelVersion");
                 });
 
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.AcademicTerm", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.AcademicYear", "AcademicYear")
+                        .WithMany("Terms")
+                        .HasForeignKey("AcademicYearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AcademicYear");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.Building", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Campus", "Campus")
+                        .WithMany("Buildings")
+                        .HasForeignKey("CampusId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Campus");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.ConflictDetectionRun", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.AcademicYear", "AcademicYear")
+                        .WithMany()
+                        .HasForeignKey("AcademicYearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Timetable", "Timetable")
+                        .WithMany()
+                        .HasForeignKey("TimetableId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AcademicYear");
+
+                    b.Navigation("Timetable");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.ConflictFinding", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.ConflictDetectionRun", "ConflictDetectionRun")
+                        .WithMany("Findings")
+                        .HasForeignKey("ConflictDetectionRunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ConflictDetectionRun");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.FacultyAvailability", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.AcademicYear", "AcademicYear")
+                        .WithMany()
+                        .HasForeignKey("AcademicYearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.TimeSlot", "EndSlot")
+                        .WithMany()
+                        .HasForeignKey("EndSlotId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Staff", "Staff")
+                        .WithMany()
+                        .HasForeignKey("StaffId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.TimeSlot", "StartSlot")
+                        .WithMany()
+                        .HasForeignKey("StartSlotId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AcademicYear");
+
+                    b.Navigation("EndSlot");
+
+                    b.Navigation("Staff");
+
+                    b.Navigation("StartSlot");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.FacultyDayPreference", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.FacultyWorkload", "FacultyWorkload")
+                        .WithMany("DayPreferences")
+                        .HasForeignKey("FacultyWorkloadId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("FacultyWorkload");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.FacultyTeachingPreference", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.AcademicYear", "AcademicYear")
+                        .WithMany()
+                        .HasForeignKey("AcademicYearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Building", "PreferredBuilding")
+                        .WithMany()
+                        .HasForeignKey("PreferredBuildingId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Campus", "PreferredCampus")
+                        .WithMany()
+                        .HasForeignKey("PreferredCampusId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Course", "PreferredCourse")
+                        .WithMany()
+                        .HasForeignKey("PreferredCourseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Department", "PreferredDepartment")
+                        .WithMany()
+                        .HasForeignKey("PreferredDepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Floor", "PreferredFloor")
+                        .WithMany()
+                        .HasForeignKey("PreferredFloorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Group", "PreferredGroup")
+                        .WithMany()
+                        .HasForeignKey("PreferredGroupId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Room", "PreferredRoom")
+                        .WithMany()
+                        .HasForeignKey("PreferredRoomId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Semester", "PreferredSemester")
+                        .WithMany()
+                        .HasForeignKey("PreferredSemesterId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Subject", "PreferredSubject")
+                        .WithMany()
+                        .HasForeignKey("PreferredSubjectId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Staff", "Staff")
+                        .WithMany()
+                        .HasForeignKey("StaffId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AcademicYear");
+
+                    b.Navigation("PreferredBuilding");
+
+                    b.Navigation("PreferredCampus");
+
+                    b.Navigation("PreferredCourse");
+
+                    b.Navigation("PreferredDepartment");
+
+                    b.Navigation("PreferredFloor");
+
+                    b.Navigation("PreferredGroup");
+
+                    b.Navigation("PreferredRoom");
+
+                    b.Navigation("PreferredSemester");
+
+                    b.Navigation("PreferredSubject");
+
+                    b.Navigation("Staff");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.FacultyTimeSlotPreference", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.FacultyWorkload", "FacultyWorkload")
+                        .WithMany("TimeSlotPreferences")
+                        .HasForeignKey("FacultyWorkloadId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.TimeSlot", "TimeSlot")
+                        .WithMany()
+                        .HasForeignKey("TimeSlotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("FacultyWorkload");
+
+                    b.Navigation("TimeSlot");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.FacultyWorkload", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Staff", "Staff")
+                        .WithMany()
+                        .HasForeignKey("StaffId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Staff");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.Floor", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Building", "Building")
+                        .WithMany("Floors")
+                        .HasForeignKey("BuildingId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Building");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.Holiday", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.AcademicYear", "AcademicYear")
+                        .WithMany("Holidays")
+                        .HasForeignKey("AcademicYearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.HolidayTypeCatalog", "HolidayTypeCatalog")
+                        .WithMany()
+                        .HasForeignKey("HolidayTypeCatalogId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AcademicYear");
+
+                    b.Navigation("HolidayTypeCatalog");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.OptimizationSnapshot", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.OptimizationScenario", "Scenario")
+                        .WithMany("Snapshots")
+                        .HasForeignKey("OptimizationScenarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Scenario");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.Room", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Floor", "Floor")
+                        .WithMany("Rooms")
+                        .HasForeignKey("FloorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Department");
+
+                    b.Navigation("Floor");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.RoomAllocationRule", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.AcademicYear", "AcademicYear")
+                        .WithMany()
+                        .HasForeignKey("AcademicYearId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Course", "Course")
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Room", "PreferredRoom")
+                        .WithMany()
+                        .HasForeignKey("PreferredRoomId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AcademicYear");
+
+                    b.Navigation("Course");
+
+                    b.Navigation("Department");
+
+                    b.Navigation("PreferredRoom");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.RoomAvailability", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.AcademicYear", "AcademicYear")
+                        .WithMany()
+                        .HasForeignKey("AcademicYearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.TimeSlot", "EndSlot")
+                        .WithMany()
+                        .HasForeignKey("EndSlotId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Room", "Room")
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.TimeSlot", "StartSlot")
+                        .WithMany()
+                        .HasForeignKey("StartSlotId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AcademicYear");
+
+                    b.Navigation("EndSlot");
+
+                    b.Navigation("Room");
+
+                    b.Navigation("StartSlot");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.RoomFeatureAssignment", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.RoomFeature", "RoomFeature")
+                        .WithMany("Assignments")
+                        .HasForeignKey("RoomFeatureId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Room", "Room")
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Room");
+
+                    b.Navigation("RoomFeature");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.ScheduleVersion", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.AcademicTerm", "AcademicTerm")
+                        .WithMany()
+                        .HasForeignKey("AcademicTermId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.AcademicYear", "AcademicYear")
+                        .WithMany()
+                        .HasForeignKey("AcademicYearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.ArchiveReasonLookup", "ArchiveReason")
+                        .WithMany()
+                        .HasForeignKey("ArchiveReasonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.ScheduleVersion", "ParentVersion")
+                        .WithMany()
+                        .HasForeignKey("ParentVersionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.ScheduleVersion", "ReferenceVersion")
+                        .WithMany()
+                        .HasForeignKey("ReferenceVersionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AcademicTerm");
+
+                    b.Navigation("AcademicYear");
+
+                    b.Navigation("ArchiveReason");
+
+                    b.Navigation("ParentVersion");
+
+                    b.Navigation("ReferenceVersion");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.SubjectAllocation", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.AcademicYear", "AcademicYear")
+                        .WithMany()
+                        .HasForeignKey("AcademicYearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Course", "Course")
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Group", "Group")
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Room", "PreferredRoom")
+                        .WithMany()
+                        .HasForeignKey("PreferredRoomId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Semester", "Semester")
+                        .WithMany()
+                        .HasForeignKey("SemesterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Staff", "Staff")
+                        .WithMany()
+                        .HasForeignKey("StaffId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AcademicYear");
+
+                    b.Navigation("Course");
+
+                    b.Navigation("Department");
+
+                    b.Navigation("Group");
+
+                    b.Navigation("PreferredRoom");
+
+                    b.Navigation("Semester");
+
+                    b.Navigation("Staff");
+
+                    b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimeSlot", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.TimeSlotSet", "TimeSlotSet")
+                        .WithMany("TimeSlots")
+                        .HasForeignKey("TimeSlotSetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("TimeSlotSet");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimeSlotSet", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.AcademicYear", "AcademicYear")
+                        .WithMany()
+                        .HasForeignKey("AcademicYearId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.TimeSlotTemplate", "TimeSlotTemplate")
+                        .WithMany("TimeSlotSets")
+                        .HasForeignKey("TimeSlotTemplateId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AcademicYear");
+
+                    b.Navigation("TimeSlotTemplate");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.Timetable", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.AcademicYear", "AcademicYear")
+                        .WithMany()
+                        .HasForeignKey("AcademicYearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.ArchiveReasonLookup", "ArchiveReason")
+                        .WithMany()
+                        .HasForeignKey("ArchiveReasonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.ScheduleVersion", "ReferenceVersion")
+                        .WithMany()
+                        .HasForeignKey("ReferenceVersionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.ScheduleVersion", "ScheduleVersion")
+                        .WithMany("Timetables")
+                        .HasForeignKey("ScheduleVersionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.TimeSlotSet", "TimeSlotSet")
+                        .WithMany()
+                        .HasForeignKey("TimeSlotSetId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AcademicYear");
+
+                    b.Navigation("ArchiveReason");
+
+                    b.Navigation("Department");
+
+                    b.Navigation("ReferenceVersion");
+
+                    b.Navigation("ScheduleVersion");
+
+                    b.Navigation("TimeSlotSet");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableApprovalComment", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.TimetableApprovalRequest", "Request")
+                        .WithMany()
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableApprovalHistory", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.TimetableApprovalRequest", "Request")
+                        .WithMany("History")
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableApprovalRequest", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.ScheduleVersion", "ScheduleVersion")
+                        .WithMany()
+                        .HasForeignKey("ScheduleVersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Timetable", "Timetable")
+                        .WithMany()
+                        .HasForeignKey("TimetableId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ScheduleVersion");
+
+                    b.Navigation("Timetable");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableApprovalStep", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.TimetableApprovalRequest", "Request")
+                        .WithMany("Steps")
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableChangeHistory", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Timetable", "Timetable")
+                        .WithMany()
+                        .HasForeignKey("TimetableId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Timetable");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableCloneJob", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Timetable", "SourceTimetable")
+                        .WithMany()
+                        .HasForeignKey("SourceTimetableId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Timetable", "TargetTimetable")
+                        .WithMany()
+                        .HasForeignKey("TargetTimetableId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("SourceTimetable");
+
+                    b.Navigation("TargetTimetable");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableDecisionHistory", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.TimetableApprovalRequest", "Request")
+                        .WithMany()
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableEntry", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Course", "Course")
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Group", "Group")
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Room", "Room")
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Semester", "Semester")
+                        .WithMany()
+                        .HasForeignKey("SemesterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Staff", "Staff")
+                        .WithMany()
+                        .HasForeignKey("StaffId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.SubjectAllocation", "SubjectAllocation")
+                        .WithMany()
+                        .HasForeignKey("SubjectAllocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.TimeSlot", "TimeSlot")
+                        .WithMany()
+                        .HasForeignKey("TimeSlotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Timetable", "Timetable")
+                        .WithMany("Entries")
+                        .HasForeignKey("TimetableId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Course");
+
+                    b.Navigation("Department");
+
+                    b.Navigation("Group");
+
+                    b.Navigation("Room");
+
+                    b.Navigation("Semester");
+
+                    b.Navigation("Staff");
+
+                    b.Navigation("Subject");
+
+                    b.Navigation("SubjectAllocation");
+
+                    b.Navigation("TimeSlot");
+
+                    b.Navigation("Timetable");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableWarningDismissal", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.Timetable", "Timetable")
+                        .WithMany()
+                        .HasForeignKey("TimetableId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Timetable");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.WorkingDay", b =>
+                {
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.AcademicYear", "AcademicYear")
+                        .WithMany("WorkingDays")
+                        .HasForeignKey("AcademicYearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AcademicYear");
+                });
+
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Semester", b =>
                 {
                     b.HasOne("Abhyanvaya.Domain.Entities.Course", "Course")
@@ -4738,6 +9814,11 @@ namespace Abhyanvaya.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.SubjectDeliveryType", "DeliveryType")
+                        .WithMany()
+                        .HasForeignKey("DeliveryTypeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Abhyanvaya.Domain.Entities.ElectiveGroup", "ElectiveGroup")
                         .WithMany()
                         .HasForeignKey("ElectiveGroupId");
@@ -4748,11 +9829,21 @@ namespace Abhyanvaya.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.RoomFeature", "PreferredRoomFeature")
+                        .WithMany()
+                        .HasForeignKey("PreferredRoomFeatureId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Abhyanvaya.Domain.Entities.Semester", "Semester")
                         .WithMany()
                         .HasForeignKey("SemesterId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("Abhyanvaya.Domain.Entities.Scheduling.SubjectCategory", "SubjectCategory")
+                        .WithMany()
+                        .HasForeignKey("SubjectCategoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Abhyanvaya.Domain.Entities.Language", "TeachingLanguage")
                         .WithMany()
@@ -4766,11 +9857,17 @@ namespace Abhyanvaya.Infrastructure.Migrations
 
                     b.Navigation("Course");
 
+                    b.Navigation("DeliveryType");
+
                     b.Navigation("ElectiveGroup");
 
                     b.Navigation("Group");
 
+                    b.Navigation("PreferredRoomFeature");
+
                     b.Navigation("Semester");
+
+                    b.Navigation("SubjectCategory");
 
                     b.Navigation("TeachingLanguage");
 
@@ -4859,6 +9956,79 @@ namespace Abhyanvaya.Infrastructure.Migrations
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.FaceEnrollmentBatch", b =>
                 {
                     b.Navigation("Jobs");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.AcademicYear", b =>
+                {
+                    b.Navigation("Holidays");
+
+                    b.Navigation("Terms");
+
+                    b.Navigation("WorkingDays");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.Building", b =>
+                {
+                    b.Navigation("Floors");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.Campus", b =>
+                {
+                    b.Navigation("Buildings");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.ConflictDetectionRun", b =>
+                {
+                    b.Navigation("Findings");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.FacultyWorkload", b =>
+                {
+                    b.Navigation("DayPreferences");
+
+                    b.Navigation("TimeSlotPreferences");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.Floor", b =>
+                {
+                    b.Navigation("Rooms");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.OptimizationScenario", b =>
+                {
+                    b.Navigation("Snapshots");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.RoomFeature", b =>
+                {
+                    b.Navigation("Assignments");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.ScheduleVersion", b =>
+                {
+                    b.Navigation("Timetables");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimeSlotSet", b =>
+                {
+                    b.Navigation("TimeSlots");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimeSlotTemplate", b =>
+                {
+                    b.Navigation("TimeSlotSets");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.Timetable", b =>
+                {
+                    b.Navigation("Entries");
+                });
+
+            modelBuilder.Entity("Abhyanvaya.Domain.Entities.Scheduling.TimetableApprovalRequest", b =>
+                {
+                    b.Navigation("History");
+
+                    b.Navigation("Steps");
                 });
 
             modelBuilder.Entity("Abhyanvaya.Domain.Entities.Staff", b =>

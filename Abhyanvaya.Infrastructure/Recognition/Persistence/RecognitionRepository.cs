@@ -2,8 +2,10 @@ using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Recognition;
 using Abhyanvaya.Domain.Entities;
 using Abhyanvaya.Domain.Enums;
+using Abhyanvaya.Infrastructure.InsightFace;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Abhyanvaya.Infrastructure.Recognition.Persistence;
 
@@ -11,15 +13,18 @@ public sealed class RecognitionRepository : IRecognitionRepository
 {
     private readonly IApplicationDbContext _context;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly InsightFaceOptions _insightFaceOptions;
     private readonly ILogger<RecognitionRepository> _logger;
 
     public RecognitionRepository(
         IApplicationDbContext context,
         IUnitOfWork unitOfWork,
+        IOptions<InsightFaceOptions> insightFaceOptions,
         ILogger<RecognitionRepository> logger)
     {
         _context = context;
         _unitOfWork = unitOfWork;
+        _insightFaceOptions = insightFaceOptions.Value;
         _logger = logger;
     }
 
@@ -46,7 +51,11 @@ public sealed class RecognitionRepository : IRecognitionRepository
             studentQuery = studentQuery.Where(s => s.SemesterId == filter.SemesterId.Value);
         }
 
-        var studentIds = await studentQuery.Select(s => s.Id).ToListAsync(cancellationToken);
+        var students = await studentQuery
+            .Select(s => new { s.Id, PhotoTicks = s.PhotoUploadedUtc.HasValue ? s.PhotoUploadedUtc.Value.Ticks : 0L })
+            .ToListAsync(cancellationToken);
+        var studentIds = students.Select(s => s.Id).ToList();
+        var photoVersions = students.ToDictionary(s => s.Id, s => s.PhotoTicks);
 
         var embeddings = await _context.StudentFaceEmbeddings
             .AsNoTracking()
@@ -57,7 +66,21 @@ public sealed class RecognitionRepository : IRecognitionRepository
                         && e.EmbeddingVector.Length > 0)
             .ToListAsync(cancellationToken);
 
-        return embeddings.Select(MapCandidate).ToList();
+        var runtimeModel = _insightFaceOptions.RecognitionModelFile;
+        var usable = embeddings
+            .Where(e => EmbeddingModelCompatibility.MatchesRuntimeModel(e.EmbeddingModel, runtimeModel))
+            .Where(e => !photoVersions.TryGetValue(e.StudentId, out var ticks) || e.PhotoVersion == ticks)
+            .ToList();
+
+        if (usable.Count == 0 && embeddings.Count > 0)
+        {
+            _logger.LogWarning(
+                "Recognition gallery empty after model/stale filters. Candidates={Candidates}, RuntimeModel={RuntimeModel}",
+                embeddings.Count,
+                runtimeModel);
+        }
+
+        return usable.Select(MapCandidate).ToList();
     }
 
     public async Task<RecognitionPersistenceResult> PersistRecognitionAsync(

@@ -20,6 +20,48 @@ namespace Abhyanvaya.Domain.Authorization
         public const string SetupSemestersManage = "Setup.Semesters.Manage";
         public const string EnrollmentView = "Enrollment.View";
         public const string EnrollmentManage = "Enrollment.Manage";
+        public const string SchedulingView = "Scheduling.View";
+        public const string SchedulingManage = "Scheduling.Manage";
+        /// <summary>Retired by AI30 AC1 — Catalog owns Department. Kept for seed/DB compatibility only.</summary>
+        [Obsolete("AI30 AC1: use Setup.Departments.Manage / Catalog Department API")]
+        public const string SchedulingDepartmentView = "Scheduling.Department.View";
+        /// <summary>Retired by AI30 AC1 — Catalog owns Department. Kept for seed/DB compatibility only.</summary>
+        [Obsolete("AI30 AC1: use Setup.Departments.Manage / Catalog Department API")]
+        public const string SchedulingDepartmentManage = "Scheduling.Department.Manage";
+        public const string SchedulingRoomAvailabilityView = "Scheduling.RoomAvailability.View";
+        public const string SchedulingRoomAvailabilityManage = "Scheduling.RoomAvailability.Manage";
+        public const string SchedulingFacultyAvailabilityView = "Scheduling.FacultyAvailability.View";
+        public const string SchedulingFacultyAvailabilityManage = "Scheduling.FacultyAvailability.Manage";
+        public const string SchedulingTemplateView = "Scheduling.Template.View";
+        public const string SchedulingTemplateManage = "Scheduling.Template.Manage";
+        public const string SchedulingFacultyPreferencesView = "Scheduling.FacultyPreferences.View";
+        public const string SchedulingFacultyPreferencesManage = "Scheduling.FacultyPreferences.Manage";
+        public const string SchedulingRoomFeaturesView = "Scheduling.RoomFeatures.View";
+        public const string SchedulingRoomFeaturesManage = "Scheduling.RoomFeatures.Manage";
+        public const string SchedulingSubjectDeliveryView = "Scheduling.SubjectDelivery.View";
+        public const string SchedulingSubjectDeliveryManage = "Scheduling.SubjectDelivery.Manage";
+        public const string SchedulingHolidayTypesView = "Scheduling.HolidayTypes.View";
+        public const string SchedulingHolidayTypesManage = "Scheduling.HolidayTypes.Manage";
+        public const string SchedulingTimetableView = "Scheduling.Timetable.View";
+        public const string SchedulingTimetableManage = "Scheduling.Timetable.Manage";
+        public const string SchedulingVersionView = "Scheduling.Version.View";
+        public const string SchedulingVersionManage = "Scheduling.Version.Manage";
+        public const string SchedulingReview = "Scheduling.Review";
+        public const string SchedulingApprove = "Scheduling.Approve";
+        public const string SchedulingPublish = "Scheduling.Publish";
+        public const string SchedulingArchive = "Scheduling.Archive";
+        public const string SchedulingClone = "Scheduling.Clone";
+        public const string SchedulingHistoryView = "Scheduling.History.View";
+        public const string SchedulingVersionCompareView = "Scheduling.VersionCompare.View";
+        public const string SchedulingVersionCompareExport = "Scheduling.VersionCompare.Export";
+        public const string SchedulingApprovalCommentsView = "Scheduling.ApprovalComments.View";
+        public const string SchedulingApprovalCommentsManage = "Scheduling.ApprovalComments.Manage";
+        public const string SchedulingFreeze = "Scheduling.Freeze";
+        public const string SchedulingUnlock = "Scheduling.Unlock";
+        public const string SchedulingArchiveView = "Scheduling.Archive.View";
+        public const string SchedulingArchiveManage = "Scheduling.Archive.Manage";
+        public const string SchedulingConflictView = "Scheduling.Conflict.View";
+        public const string SchedulingConflictManage = "Scheduling.Conflict.Manage";
 
         public static IReadOnlyList<string> All { get; } =
         [
@@ -40,6 +82,42 @@ namespace Abhyanvaya.Domain.Authorization
             SetupSemestersManage,
             EnrollmentView,
             EnrollmentManage,
+            SchedulingView,
+            SchedulingManage,
+            SchedulingRoomAvailabilityView,
+            SchedulingRoomAvailabilityManage,
+            SchedulingFacultyAvailabilityView,
+            SchedulingFacultyAvailabilityManage,
+            SchedulingTemplateView,
+            SchedulingTemplateManage,
+            SchedulingFacultyPreferencesView,
+            SchedulingFacultyPreferencesManage,
+            SchedulingRoomFeaturesView,
+            SchedulingRoomFeaturesManage,
+            SchedulingSubjectDeliveryView,
+            SchedulingSubjectDeliveryManage,
+            SchedulingHolidayTypesView,
+            SchedulingHolidayTypesManage,
+            SchedulingTimetableView,
+            SchedulingTimetableManage,
+            SchedulingVersionView,
+            SchedulingVersionManage,
+            SchedulingReview,
+            SchedulingApprove,
+            SchedulingPublish,
+            SchedulingArchive,
+            SchedulingClone,
+            SchedulingHistoryView,
+            SchedulingVersionCompareView,
+            SchedulingVersionCompareExport,
+            SchedulingApprovalCommentsView,
+            SchedulingApprovalCommentsManage,
+            SchedulingFreeze,
+            SchedulingUnlock,
+            SchedulingArchiveView,
+            SchedulingArchiveManage,
+            SchedulingConflictView,
+            SchedulingConflictManage,
         ];
 
         /// <summary>Fallback when <see cref="Entities.UserApplicationRole"/> rows are absent (legacy enum roles).</summary>

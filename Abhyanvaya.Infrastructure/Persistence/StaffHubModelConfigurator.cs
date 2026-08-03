@@ -19,6 +19,14 @@ namespace Abhyanvaya.Infrastructure.Persistence
                 .HasIndex(d => new { d.CollegeId, d.Code })
                 .IsUnique();
 
+            builder.Entity<Department>()
+                .Property(d => d.Description)
+                .HasMaxLength(1000);
+
+            builder.Entity<Department>()
+                .Property(d => d.IsActive)
+                .HasDefaultValue(true);
+
             builder.Entity<Staff>()
                 .HasOne(s => s.College)
                 .WithMany()

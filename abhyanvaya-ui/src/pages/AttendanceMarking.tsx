@@ -47,6 +47,7 @@ import {
   type SemesterDto,
   type SubjectDto,
 } from "../services/attendanceService";
+import { resolveAttendanceSession } from "../services/schedulingService";
 
 /**
  * Remembers the faculty's last course/group/semester/subject/period/method/date selection and
@@ -161,10 +162,40 @@ const AttendanceMarking = () => {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"card" | "table">(isMobile ? "card" : "table");
+  const [timetableHint, setTimetableHint] = useState<string | null>(null);
 
   useEffect(() => {
     setViewMode(isMobile ? "card" : "table");
   }, [isMobile]);
+
+  // Optional Phase 2B resolver: pre-fill from today's timetable when available.
+  // Never removes legacy Course → Group → Semester → Subject → Period workflow.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await resolveAttendanceSession({ date });
+        if (cancelled) return;
+        if (res.data.mode === "Timetable" && res.data.hasTimetable) {
+          if (res.data.courseId) setCourseId(res.data.courseId);
+          if (res.data.groupId) setGroupId(res.data.groupId);
+          if (res.data.semesterId) setSemesterId(res.data.semesterId);
+          if (res.data.subjectId) setSubjectId(res.data.subjectId);
+          if (res.data.periodNumber) setPeriodNumber(res.data.periodNumber);
+          setTimetableHint(
+            `Timetable mode: ${res.data.subjectName ?? "class"}${res.data.roomName ? ` @ ${res.data.roomName}` : ""}. You can still change filters manually.`
+          );
+        } else {
+          setTimetableHint(null);
+        }
+      } catch {
+        if (!cancelled) setTimetableHint(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [date]);
 
   // Consume the one-time "switch to manual" navigation flag so it doesn't linger on this history
   // entry (e.g. re-applying if the user navigates back to this exact entry again later).
@@ -479,6 +510,7 @@ const AttendanceMarking = () => {
         </Box>
       )}
 
+      {timetableHint && <Alert severity="info">{timetableHint}</Alert>}
       {message && <Alert severity="success">{message}</Alert>}
       {error && <Alert severity="error">{error}</Alert>}
       {isLocked && isManualMode && <Alert severity="warning">Attendance is locked for this date and subject.</Alert>}
