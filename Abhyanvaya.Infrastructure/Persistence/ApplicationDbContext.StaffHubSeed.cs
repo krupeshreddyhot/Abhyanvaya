@@ -1,5 +1,7 @@
 using Abhyanvaya.Domain.Authorization;
 using Abhyanvaya.Domain.Entities;
+using Abhyanvaya.Domain.Entities.Scheduling;
+using Abhyanvaya.Domain.Enums.Scheduling;
 using Microsoft.EntityFrameworkCore;
 
 namespace Abhyanvaya.Infrastructure.Persistence
@@ -25,7 +27,57 @@ namespace Abhyanvaya.Infrastructure.Persistence
                 new Permission { Id = 12, Key = PermissionKeys.SetupLookupsManage, Resource = "Setup.Lookups", Action = "Manage" },
                 new Permission { Id = 13, Key = PermissionKeys.SetupCoursesManage, Resource = "Setup.Courses", Action = "Manage" },
                 new Permission { Id = 14, Key = PermissionKeys.SetupGroupsManage, Resource = "Setup.Groups", Action = "Manage" },
-                new Permission { Id = 15, Key = PermissionKeys.SetupSemestersManage, Resource = "Setup.Semesters", Action = "Manage" });
+                new Permission { Id = 15, Key = PermissionKeys.SetupSemestersManage, Resource = "Setup.Semesters", Action = "Manage" },
+                new Permission { Id = 16, Key = PermissionKeys.EnrollmentView, Resource = "Enrollment", Action = "View" },
+                new Permission { Id = 17, Key = PermissionKeys.EnrollmentManage, Resource = "Enrollment", Action = "Manage" },
+                new Permission { Id = 18, Key = PermissionKeys.SchedulingView, Resource = "Scheduling", Action = "View" },
+                new Permission { Id = 19, Key = PermissionKeys.SchedulingManage, Resource = "Scheduling", Action = "Manage" },
+#pragma warning disable CS0618 // AI30 AC1: retired Scheduling Department permissions retained for seed/DB compatibility
+                new Permission { Id = 20, Key = PermissionKeys.SchedulingDepartmentView, Resource = "Scheduling.Department", Action = "View" },
+                new Permission { Id = 21, Key = PermissionKeys.SchedulingDepartmentManage, Resource = "Scheduling.Department", Action = "Manage" },
+#pragma warning restore CS0618
+                new Permission { Id = 22, Key = PermissionKeys.SchedulingRoomAvailabilityView, Resource = "Scheduling.RoomAvailability", Action = "View" },
+                new Permission { Id = 23, Key = PermissionKeys.SchedulingRoomAvailabilityManage, Resource = "Scheduling.RoomAvailability", Action = "Manage" },
+                new Permission { Id = 24, Key = PermissionKeys.SchedulingFacultyAvailabilityView, Resource = "Scheduling.FacultyAvailability", Action = "View" },
+                new Permission { Id = 25, Key = PermissionKeys.SchedulingFacultyAvailabilityManage, Resource = "Scheduling.FacultyAvailability", Action = "Manage" },
+                new Permission { Id = 26, Key = PermissionKeys.SchedulingTemplateView, Resource = "Scheduling.Template", Action = "View" },
+                new Permission { Id = 27, Key = PermissionKeys.SchedulingTemplateManage, Resource = "Scheduling.Template", Action = "Manage" },
+                new Permission { Id = 28, Key = PermissionKeys.SchedulingFacultyPreferencesView, Resource = "Scheduling.FacultyPreferences", Action = "View" },
+                new Permission { Id = 29, Key = PermissionKeys.SchedulingFacultyPreferencesManage, Resource = "Scheduling.FacultyPreferences", Action = "Manage" },
+                new Permission { Id = 30, Key = PermissionKeys.SchedulingRoomFeaturesView, Resource = "Scheduling.RoomFeatures", Action = "View" },
+                new Permission { Id = 31, Key = PermissionKeys.SchedulingRoomFeaturesManage, Resource = "Scheduling.RoomFeatures", Action = "Manage" },
+                new Permission { Id = 32, Key = PermissionKeys.SchedulingSubjectDeliveryView, Resource = "Scheduling.SubjectDelivery", Action = "View" },
+                new Permission { Id = 33, Key = PermissionKeys.SchedulingSubjectDeliveryManage, Resource = "Scheduling.SubjectDelivery", Action = "Manage" },
+                new Permission { Id = 34, Key = PermissionKeys.SchedulingHolidayTypesView, Resource = "Scheduling.HolidayTypes", Action = "View" },
+                new Permission { Id = 35, Key = PermissionKeys.SchedulingHolidayTypesManage, Resource = "Scheduling.HolidayTypes", Action = "Manage" },
+                new Permission { Id = 36, Key = PermissionKeys.SchedulingTimetableView, Resource = "Scheduling.Timetable", Action = "View" },
+                new Permission { Id = 37, Key = PermissionKeys.SchedulingTimetableManage, Resource = "Scheduling.Timetable", Action = "Manage" },
+                new Permission { Id = 38, Key = PermissionKeys.SchedulingVersionView, Resource = "Scheduling.Version", Action = "View" },
+                new Permission { Id = 39, Key = PermissionKeys.SchedulingVersionManage, Resource = "Scheduling.Version", Action = "Manage" },
+                new Permission { Id = 40, Key = PermissionKeys.SchedulingReview, Resource = "Scheduling", Action = "Review" },
+                new Permission { Id = 41, Key = PermissionKeys.SchedulingApprove, Resource = "Scheduling", Action = "Approve" },
+                new Permission { Id = 42, Key = PermissionKeys.SchedulingPublish, Resource = "Scheduling", Action = "Publish" },
+                new Permission { Id = 43, Key = PermissionKeys.SchedulingArchive, Resource = "Scheduling", Action = "Archive" },
+                new Permission { Id = 44, Key = PermissionKeys.SchedulingClone, Resource = "Scheduling", Action = "Clone" },
+                new Permission { Id = 45, Key = PermissionKeys.SchedulingHistoryView, Resource = "Scheduling.History", Action = "View" },
+                new Permission { Id = 46, Key = PermissionKeys.SchedulingVersionCompareView, Resource = "Scheduling.VersionCompare", Action = "View" },
+                new Permission { Id = 47, Key = PermissionKeys.SchedulingVersionCompareExport, Resource = "Scheduling.VersionCompare", Action = "Export" },
+                new Permission { Id = 48, Key = PermissionKeys.SchedulingApprovalCommentsView, Resource = "Scheduling.ApprovalComments", Action = "View" },
+                new Permission { Id = 49, Key = PermissionKeys.SchedulingApprovalCommentsManage, Resource = "Scheduling.ApprovalComments", Action = "Manage" },
+                new Permission { Id = 50, Key = PermissionKeys.SchedulingFreeze, Resource = "Scheduling", Action = "Freeze" },
+                new Permission { Id = 51, Key = PermissionKeys.SchedulingUnlock, Resource = "Scheduling", Action = "Unlock" },
+                new Permission { Id = 52, Key = PermissionKeys.SchedulingArchiveView, Resource = "Scheduling.Archive", Action = "View" },
+                new Permission { Id = 53, Key = PermissionKeys.SchedulingArchiveManage, Resource = "Scheduling.Archive", Action = "Manage" },
+                new Permission { Id = 54, Key = PermissionKeys.SchedulingConflictView, Resource = "Scheduling.Conflict", Action = "View" },
+                new Permission { Id = 55, Key = PermissionKeys.SchedulingConflictManage, Resource = "Scheduling.Conflict", Action = "Manage" });
+
+            builder.Entity<ArchiveReasonLookup>().HasData(
+                new ArchiveReasonLookup { Id = 701, TenantId = 1, Code = ArchiveReasonCode.Superseded, Name = "Superseded", Description = "Replaced by a newer schedule version", SortOrder = 1, IsActive = true, CreatedDate = SeedUtc, IsDeleted = false },
+                new ArchiveReasonLookup { Id = 702, TenantId = 1, Code = ArchiveReasonCode.SemesterComplete, Name = "Semester Complete", Description = "Academic term or semester completed", SortOrder = 2, IsActive = true, CreatedDate = SeedUtc, IsDeleted = false },
+                new ArchiveReasonLookup { Id = 703, TenantId = 1, Code = ArchiveReasonCode.Correction, Name = "Correction", Description = "Archived due to corrections", SortOrder = 3, IsActive = true, CreatedDate = SeedUtc, IsDeleted = false },
+                new ArchiveReasonLookup { Id = 704, TenantId = 1, Code = ArchiveReasonCode.Emergency, Name = "Emergency", Description = "Emergency operational change", SortOrder = 4, IsActive = true, CreatedDate = SeedUtc, IsDeleted = false },
+                new ArchiveReasonLookup { Id = 705, TenantId = 1, Code = ArchiveReasonCode.AcademicCouncil, Name = "Academic Council", Description = "Academic council directive", SortOrder = 5, IsActive = true, CreatedDate = SeedUtc, IsDeleted = false },
+                new ArchiveReasonLookup { Id = 706, TenantId = 1, Code = ArchiveReasonCode.Other, Name = "Other", Description = "Other archive reason", SortOrder = 6, IsActive = true, CreatedDate = SeedUtc, IsDeleted = false });
 
             builder.Entity<ApplicationRole>().HasData(
                 new ApplicationRole
@@ -49,7 +101,8 @@ namespace Abhyanvaya.Infrastructure.Persistence
                     IsDeleted = false
                 });
 
-            var adminLinks = Enumerable.Range(1, 15)
+            // Include AI30 Phase 2B Conflict permissions (54–55)
+            var adminLinks = Enumerable.Range(1, 55)
                 .Select(pid => new ApplicationRolePermission { ApplicationRoleId = 100, PermissionId = pid })
                 .ToArray();
 

@@ -164,7 +164,9 @@ const DepartmentsPage = () => {
       </Box>
       {canManageLookups && (
         <Typography variant="body2" color="text.secondary">
-          Labels for roles when assigning staff to departments are edited under{" "}
+          This is the Catalog single source of truth for departments. Scheduling (subject allocation, faculty
+          preferences, timetable designer) references these departments by <code>DepartmentId</code> — there is no
+          separate Scheduling Departments module. Labels for roles when assigning staff to departments are edited under{" "}
           <RouterLink to="/setup/staff-lookups">Staff &amp; department lookups</RouterLink> (Department roles tab).
         </Typography>
       )}

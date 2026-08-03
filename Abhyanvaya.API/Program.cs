@@ -55,9 +55,13 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<IHubFilter, TenantContextHubFilter>();
 builder.Services.AddHostedService<EnrollmentStartupValidationHostedService>();
 builder.Services.AddSingleton<IEnrollmentSignalRPublisher, EnrollmentSignalRPublisher>();
+builder.Services.AddScoped<Abhyanvaya.Application.Scheduling.Optimization.Progress.IOptimizationProgressPublisher, Abhyanvaya.API.SignalR.OptimizationSignalRPublisher>();
+builder.Services.AddScoped<Abhyanvaya.Application.Faculty.IFacultyScheduleNotifier, Abhyanvaya.API.SignalR.FacultySignalRPublisher>();
 builder.Services.AddScoped<IEnrollmentActorPermissions, EnrollmentActorPermissions>();
 builder.Services.Configure<EnrollmentProgressBroadcastOptions>(
     builder.Configuration.GetSection(EnrollmentProgressBroadcastOptions.SectionName));
+builder.Services.Configure<Abhyanvaya.Application.Scheduling.Conflicts.Intelligence.ConflictRuleThresholds>(
+    builder.Configuration.GetSection(Abhyanvaya.Application.Scheduling.Conflicts.Intelligence.ConflictRuleThresholds.SectionName));
 if (builder.Configuration.GetValue<bool>($"{EnrollmentProgressBroadcastOptions.SectionName}:Enabled", true))
 {
     builder.Services.AddHostedService<EnrollmentProgressBroadcastService>();
@@ -340,6 +344,98 @@ builder.Services.AddAuthorization(options =>
                    || ctx.User.HasClaim("permission", PermissionKeys.StudentsManage);
         });
     });
+
+    options.AddPolicy(AuthorizationPolicies.CanViewScheduling, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                return true;
+            return ctx.User.HasClaim("permission", PermissionKeys.SchedulingView)
+                   || ctx.User.HasClaim("permission", PermissionKeys.SchedulingManage);
+        });
+    });
+
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageScheduling, PermissionKeys.SchedulingManage);
+
+    void AddSchedulingViewPolicy(string policyName, string viewKey, string manageKey)
+    {
+        options.AddPolicy(policyName, policy =>
+        {
+            policy.RequireAuthenticatedUser();
+            policy.RequireAssertion(ctx =>
+            {
+                var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+                if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                    return true;
+                return ctx.User.HasClaim("permission", viewKey)
+                       || ctx.User.HasClaim("permission", manageKey)
+                       || ctx.User.HasClaim("permission", PermissionKeys.SchedulingView)
+                       || ctx.User.HasClaim("permission", PermissionKeys.SchedulingManage);
+            });
+        });
+    }
+
+    options.AddPolicy(AuthorizationPolicies.CanViewDepartmentLookup, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (string.Equals(role, nameof(UserRole.Admin), StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(ctx.User.FindFirst("TenantId")?.Value, out var adminTid)
+                && adminTid > 0)
+                return true;
+            if (ctx.User.HasClaim("permission", PermissionKeys.SetupDepartmentsManage)
+                || ctx.User.HasClaim("permission", PermissionKeys.SchedulingView)
+                || ctx.User.HasClaim("permission", PermissionKeys.SchedulingManage))
+                return true;
+            return ctx.User.Claims.Any(c =>
+                c.Type == "permission"
+                && c.Value.StartsWith("Scheduling.", StringComparison.Ordinal));
+        });
+    });
+
+    AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingRoomAvailability, PermissionKeys.SchedulingRoomAvailabilityView, PermissionKeys.SchedulingRoomAvailabilityManage);
+    AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingFacultyAvailability, PermissionKeys.SchedulingFacultyAvailabilityView, PermissionKeys.SchedulingFacultyAvailabilityManage);
+    AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingTemplate, PermissionKeys.SchedulingTemplateView, PermissionKeys.SchedulingTemplateManage);
+    AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingFacultyPreferences, PermissionKeys.SchedulingFacultyPreferencesView, PermissionKeys.SchedulingFacultyPreferencesManage);
+    AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingRoomFeatures, PermissionKeys.SchedulingRoomFeaturesView, PermissionKeys.SchedulingRoomFeaturesManage);
+    AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingSubjectDelivery, PermissionKeys.SchedulingSubjectDeliveryView, PermissionKeys.SchedulingSubjectDeliveryManage);
+    AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingHolidayTypes, PermissionKeys.SchedulingHolidayTypesView, PermissionKeys.SchedulingHolidayTypesManage);
+    AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingTimetable, PermissionKeys.SchedulingTimetableView, PermissionKeys.SchedulingTimetableManage);
+    AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingVersion, PermissionKeys.SchedulingVersionView, PermissionKeys.SchedulingVersionManage);
+    AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingHistory, PermissionKeys.SchedulingHistoryView, PermissionKeys.SchedulingTimetableManage);
+    AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingGovernanceDashboard, PermissionKeys.SchedulingVersionView, PermissionKeys.SchedulingVersionManage);
+    AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingVersionCompare, PermissionKeys.SchedulingVersionCompareView, PermissionKeys.SchedulingVersionCompareExport);
+    AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingApprovalComments, PermissionKeys.SchedulingApprovalCommentsView, PermissionKeys.SchedulingApprovalCommentsManage);
+    AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingArchive, PermissionKeys.SchedulingArchiveView, PermissionKeys.SchedulingArchiveManage);
+    AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingConflict, PermissionKeys.SchedulingConflictView, PermissionKeys.SchedulingConflictManage);
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingConflict, PermissionKeys.SchedulingConflictManage);
+
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingRoomAvailability, PermissionKeys.SchedulingRoomAvailabilityManage);
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingFacultyAvailability, PermissionKeys.SchedulingFacultyAvailabilityManage);
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingTemplate, PermissionKeys.SchedulingTemplateManage);
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingFacultyPreferences, PermissionKeys.SchedulingFacultyPreferencesManage);
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingRoomFeatures, PermissionKeys.SchedulingRoomFeaturesManage);
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingSubjectDelivery, PermissionKeys.SchedulingSubjectDeliveryManage);
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingHolidayTypes, PermissionKeys.SchedulingHolidayTypesManage);
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingTimetable, PermissionKeys.SchedulingTimetableManage);
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingVersion, PermissionKeys.SchedulingVersionManage);
+    AddSetupManagePolicy(AuthorizationPolicies.CanReviewScheduling, PermissionKeys.SchedulingReview);
+    AddSetupManagePolicy(AuthorizationPolicies.CanApproveScheduling, PermissionKeys.SchedulingApprove);
+    AddSetupManagePolicy(AuthorizationPolicies.CanPublishScheduling, PermissionKeys.SchedulingPublish);
+    AddSetupManagePolicy(AuthorizationPolicies.CanArchiveScheduling, PermissionKeys.SchedulingArchive);
+    AddSetupManagePolicy(AuthorizationPolicies.CanCloneScheduling, PermissionKeys.SchedulingClone);
+    AddSetupManagePolicy(AuthorizationPolicies.CanExportSchedulingVersionCompare, PermissionKeys.SchedulingVersionCompareExport);
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingApprovalComments, PermissionKeys.SchedulingApprovalCommentsManage);
+    AddSetupManagePolicy(AuthorizationPolicies.CanFreezeScheduling, PermissionKeys.SchedulingFreeze);
+    AddSetupManagePolicy(AuthorizationPolicies.CanUnlockScheduling, PermissionKeys.SchedulingUnlock);
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingArchive, PermissionKeys.SchedulingArchiveManage);
 });
 builder.Services.AddSingleton<IAuthorizationHandler, HasTenantHandler>();
 
@@ -482,6 +578,8 @@ app.UseTenantContext();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<EnrollmentHub>("/hubs/enrollment").RequireCors("AllowReact");
+app.MapHub<Abhyanvaya.API.Hubs.OptimizationHub>("/hubs/optimization").RequireCors("AllowReact");
+app.MapHub<Abhyanvaya.API.Hubs.FacultyHub>("/hubs/faculty").RequireCors("AllowReact");
 
 MapPlatformHealthEndpoints(app);
 

@@ -16,7 +16,7 @@ const links: HubLink[] = [
   {
     to: "/setup/departments",
     title: "Departments",
-    description: "Academic departments within a college",
+    description: "Authoritative academic departments (Catalog SSOT — used by Scheduling)",
     anyPermission: [PermissionKeys.SetupDepartmentsManage],
   },
   {
@@ -81,6 +81,13 @@ const links: HubLink[] = [
   },
 ];
 
+const schedulingLink: HubLink = {
+  to: "/setup/scheduling",
+  title: "Scheduling",
+  description: "Academic calendar, facilities, time slots, faculty workloads, and allocation rules",
+  anyPermission: [PermissionKeys.SchedulingView, PermissionKeys.SchedulingManage],
+};
+
 const SetupHub = () => {
   const { hasAnyPermission, hasPermission, user } = useAuth();
   const canCollegeProfile = hasPermission(PermissionKeys.OrganizationManage);
@@ -90,6 +97,7 @@ const SetupHub = () => {
   const visibleLinks = links.filter((x) =>
     x.anyPermission?.length ? hasAnyPermission(x.anyPermission) : false,
   );
+  const showScheduling = hasAnyPermission(schedulingLink.anyPermission ?? []);
 
   return (
     <Stack spacing={3}>
@@ -164,6 +172,24 @@ const SetupHub = () => {
             </CardContent>
           </CardActionArea>
         </Card>
+      )}
+
+      {showScheduling && (
+        <>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            Scheduling
+          </Typography>
+          <Card variant="outlined">
+            <CardActionArea component={RouterLink} to={schedulingLink.to}>
+              <CardContent>
+                <Typography variant="h6">{schedulingLink.title}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {schedulingLink.description}
+                </Typography>
+              </CardContent>
+            </CardActionArea>
+          </Card>
+        </>
       )}
 
       <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>

@@ -1,5 +1,7 @@
 ﻿using Abhyanvaya.Domain.Common;
+using Abhyanvaya.Domain.Entities.Scheduling;
 using Abhyanvaya.Domain.Enums;
+using Abhyanvaya.Domain.Enums.Scheduling;
 
 namespace Abhyanvaya.Domain.Entities
 {
@@ -33,5 +35,18 @@ namespace Abhyanvaya.Domain.Entities
         public decimal? Credits { get; set; }
         public decimal? ExamHours { get; set; }
         public decimal? Marks { get; set; }
+
+        public int? SubjectCategoryId { get; set; }
+        public SubjectCategory? SubjectCategory { get; set; }
+        public RoomType? RequiresRoomType { get; set; }
+        public int? DefaultDurationMinutes { get; set; }
+        public bool RequiresLabEquipment { get; set; }
+
+        public int? DeliveryTypeId { get; set; }
+        public SubjectDeliveryType? DeliveryType { get; set; }
+        public int? PreferredRoomFeatureId { get; set; }
+        public RoomFeature? PreferredRoomFeature { get; set; }
+        public bool RequiresAttendance { get; set; } = true;
+        public int? ExpectedCapacity { get; set; }
     }
 }

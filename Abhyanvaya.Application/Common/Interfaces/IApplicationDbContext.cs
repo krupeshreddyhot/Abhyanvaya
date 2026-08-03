@@ -1,6 +1,7 @@
 ﻿using Abhyanvaya.Application.Common.Interfaces;
 
 using Abhyanvaya.Domain.Entities;
+using Abhyanvaya.Domain.Entities.Scheduling;
 
 
 
@@ -131,6 +132,66 @@ namespace Abhyanvaya.Application.Common.Interfaces
         IQueryable<ArtifactRegistryEntry> ArtifactRegistryEntries { get; }
 
         IQueryable<ArtifactStorageManifest> ArtifactStorageManifests { get; }
+
+        IQueryable<AcademicYear> SchedulingAcademicYears { get; }
+        IQueryable<AcademicTerm> SchedulingAcademicTerms { get; }
+        IQueryable<WorkingDay> SchedulingWorkingDays { get; }
+        IQueryable<Holiday> SchedulingHolidays { get; }
+        IQueryable<Campus> SchedulingCampuses { get; }
+        IQueryable<Building> SchedulingBuildings { get; }
+        IQueryable<Floor> SchedulingFloors { get; }
+        IQueryable<Room> SchedulingRooms { get; }
+        IQueryable<TimeSlotSet> SchedulingTimeSlotSets { get; }
+        IQueryable<TimeSlot> SchedulingTimeSlots { get; }
+        IQueryable<FacultyWorkload> SchedulingFacultyWorkloads { get; }
+        IQueryable<FacultyDayPreference> SchedulingFacultyDayPreferences { get; }
+        IQueryable<FacultyTimeSlotPreference> SchedulingFacultyTimeSlotPreferences { get; }
+        IQueryable<SubjectAllocation> SchedulingSubjectAllocations { get; }
+        IQueryable<RoomAllocationRule> SchedulingRoomAllocationRules { get; }
+        IQueryable<FacultyAvailability> SchedulingFacultyAvailabilities { get; }
+        IQueryable<RoomAvailability> SchedulingRoomAvailabilities { get; }
+        IQueryable<SubjectCategory> SchedulingSubjectCategories { get; }
+        IQueryable<TimeSlotTemplate> SchedulingTimeSlotTemplates { get; }
+        IQueryable<FacultyTeachingPreference> SchedulingFacultyTeachingPreferences { get; }
+        IQueryable<RoomFeature> SchedulingRoomFeatures { get; }
+        IQueryable<RoomFeatureAssignment> SchedulingRoomFeatureAssignments { get; }
+        IQueryable<SubjectDeliveryType> SchedulingSubjectDeliveryTypes { get; }
+        IQueryable<HolidayTypeCatalog> SchedulingHolidayTypeCatalogs { get; }
+        IQueryable<Timetable> SchedulingTimetables { get; }
+        IQueryable<TimetableEntry> SchedulingTimetableEntries { get; }
+        IQueryable<ScheduleVersion> SchedulingScheduleVersions { get; }
+        IQueryable<TimetableApprovalRequest> SchedulingTimetableApprovalRequests { get; }
+        IQueryable<TimetableApprovalStep> SchedulingTimetableApprovalSteps { get; }
+        IQueryable<TimetableApprovalHistory> SchedulingTimetableApprovalHistories { get; }
+        IQueryable<TimetableCloneJob> SchedulingTimetableCloneJobs { get; }
+        IQueryable<TimetableChangeHistory> SchedulingTimetableChangeHistories { get; }
+        IQueryable<TimetableWarningDismissal> SchedulingTimetableWarningDismissals { get; }
+        IQueryable<TimetableApprovalComment> SchedulingTimetableApprovalComments { get; }
+        IQueryable<TimetableDecisionHistory> SchedulingTimetableDecisionHistories { get; }
+        IQueryable<ArchiveReasonLookup> SchedulingArchiveReasons { get; }
+        IQueryable<ConflictDetectionRun> SchedulingConflictDetectionRuns { get; }
+        IQueryable<ConflictFinding> SchedulingConflictFindings { get; }
+        IQueryable<ConflictRuleThresholdSetting> SchedulingConflictRuleThresholdSettings { get; }
+        IQueryable<ConflictRuleConfigChangeHistory> SchedulingConflictRuleConfigChangeHistories { get; }
+        IQueryable<ConflictWorkspacePin> SchedulingConflictWorkspacePins { get; }
+        IQueryable<ConflictWorkspaceBookmark> SchedulingConflictWorkspaceBookmarks { get; }
+        IQueryable<ConflictWorkspaceNote> SchedulingConflictWorkspaceNotes { get; }
+        IQueryable<OptimizationSimulationRun> SchedulingOptimizationSimulationRuns { get; }
+        IQueryable<OptimizationMetricSnapshot> SchedulingOptimizationMetricSnapshots { get; }
+        IQueryable<OptimizationTelemetryAggregate> SchedulingOptimizationTelemetryAggregates { get; }
+        IQueryable<OptimizationScenario> SchedulingOptimizationScenarios { get; }
+        IQueryable<OptimizationSnapshot> SchedulingOptimizationSnapshots { get; }
+        IQueryable<OptimizationScenarioFavorite> SchedulingOptimizationScenarioFavorites { get; }
+        IQueryable<OptimizationScenarioNote> SchedulingOptimizationScenarioNotes { get; }
+        IQueryable<OptimizationScenarioComment> SchedulingOptimizationScenarioComments { get; }
+        IQueryable<OptimizationScenarioBookmark> SchedulingOptimizationScenarioBookmarks { get; }
+        IQueryable<OptimizationScenarioApprovalRequest> SchedulingOptimizationScenarioApprovalRequests { get; }
+        IQueryable<OptimizationScenarioShare> SchedulingOptimizationScenarioShares { get; }
+        IQueryable<OptimizationScenarioHistory> SchedulingOptimizationScenarioHistories { get; }
+
+        IQueryable<OptimizationEngineRun> SchedulingOptimizationEngineRuns { get; }
+
+        IQueryable<WorkspacePreference> SchedulingWorkspacePreferences { get; }
 
         Task AddAsync<T>(T entity) where T : class;
 

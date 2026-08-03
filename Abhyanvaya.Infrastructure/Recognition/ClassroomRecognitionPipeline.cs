@@ -472,13 +472,54 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
             navigationCollectionsLoaded: false,
             estimatedGraphBytes: studentIds.Count * 16L);
 
-        var embeddings = await _context.StudentFaceEmbeddings
+        var runtimeModel = _insightFaceOptions.RecognitionModelFile;
+        var candidateEmbeddings = await _context.StudentFaceEmbeddings
             .AsNoTracking()
             .Where(e => studentIds.Contains(e.StudentId)
                         && e.IsActive
                         && e.EmbeddingStatus == EmbeddingStatus.Completed
                         && e.EmbeddingVector.Length > 0)
             .ToListAsync(cancellationToken);
+
+        var photoVersions = await _context.Students
+            .AsNoTracking()
+            .Where(s => studentIds.Contains(s.Id))
+            .Select(s => new { s.Id, PhotoTicks = s.PhotoUploadedUtc.HasValue ? s.PhotoUploadedUtc.Value.Ticks : 0L })
+            .ToDictionaryAsync(s => s.Id, s => s.PhotoTicks, cancellationToken);
+
+        var skippedWrongModel = candidateEmbeddings
+            .Count(e => !EmbeddingModelCompatibility.MatchesRuntimeModel(e.EmbeddingModel, runtimeModel));
+        var skippedStale = candidateEmbeddings
+            .Count(e => EmbeddingModelCompatibility.MatchesRuntimeModel(e.EmbeddingModel, runtimeModel)
+                        && photoVersions.TryGetValue(e.StudentId, out var ticks)
+                        && e.PhotoVersion != ticks);
+
+        var embeddings = candidateEmbeddings
+            .Where(e => EmbeddingModelCompatibility.MatchesRuntimeModel(e.EmbeddingModel, runtimeModel))
+            .Where(e => !photoVersions.TryGetValue(e.StudentId, out var ticks) || e.PhotoVersion == ticks)
+            .ToList();
+
+        if (embeddings.Count == 0)
+        {
+            _logger.LogWarning(
+                "Classroom match gallery empty for session {SessionId}. CohortStudents={StudentCount}, Candidates={CandidateCount}, SkippedWrongModel={SkippedWrongModel}, SkippedStalePhoto={SkippedStale}, RuntimeModel={RuntimeModel}. Regenerate embeddings under the current model.",
+                session.Id,
+                studentIds.Count,
+                candidateEmbeddings.Count,
+                skippedWrongModel,
+                skippedStale,
+                runtimeModel);
+        }
+        else if (skippedWrongModel > 0 || skippedStale > 0)
+        {
+            _logger.LogWarning(
+                "Classroom match gallery filtered embeddings for session {SessionId}. Usable={Usable}, SkippedWrongModel={SkippedWrongModel}, SkippedStalePhoto={SkippedStale}, RuntimeModel={RuntimeModel}",
+                session.Id,
+                embeddings.Count,
+                skippedWrongModel,
+                skippedStale,
+                runtimeModel);
+        }
 
         // AI18.MEMORY.1 STEP 4/5: this query has no `.Include()` and selects the full
         // StudentFaceEmbedding entity (AsNoTracking) — it never touches Student.PhotoKey or any

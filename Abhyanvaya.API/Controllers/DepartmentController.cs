@@ -1,5 +1,6 @@
 using Abhyanvaya.API.Common;
 using Abhyanvaya.Application.Common.Interfaces;
+using Abhyanvaya.Application.Common.Interfaces.Scheduling;
 using Abhyanvaya.Application.DTOs.Department;
 using Abhyanvaya.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -8,6 +9,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Abhyanvaya.API.Controllers
 {
+    /// <summary>
+    /// Catalog Department master (SSOT). Scheduling must consume this API — no duplicate Scheduling Department CRUD.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     [Authorize(Policy = AuthorizationPolicies.TenantScopedUser)]
@@ -15,20 +19,27 @@ namespace Abhyanvaya.API.Controllers
     {
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUser;
+        private readonly IDepartmentRepository _departmentRepository;
 
-        public DepartmentController(IApplicationDbContext context, ICurrentUserService currentUser)
+        public DepartmentController(
+            IApplicationDbContext context,
+            ICurrentUserService currentUser,
+            IDepartmentRepository departmentRepository)
         {
             _context = context;
             _currentUser = currentUser;
+            _departmentRepository = departmentRepository;
         }
 
         [HttpGet]
-        [Authorize(Policy = AuthorizationPolicies.TenantScopedAdmin)]
-        public async Task<IActionResult> List([FromQuery] int? collegeId = null)
+        [Authorize(Policy = AuthorizationPolicies.CanViewDepartmentLookup)]
+        public async Task<IActionResult> List([FromQuery] int? collegeId = null, [FromQuery] bool? isActive = null)
         {
             var q = _context.Departments.AsNoTracking();
             if (collegeId is > 0)
                 q = q.Where(d => d.CollegeId == collegeId);
+            if (isActive.HasValue)
+                q = q.Where(d => d.IsActive == isActive.Value);
 
             var list = await q
                 .OrderBy(d => d.CollegeId)
@@ -40,7 +51,9 @@ namespace Abhyanvaya.API.Controllers
                     CollegeId = d.CollegeId,
                     Name = d.Name,
                     Code = d.Code,
-                    SortOrder = d.SortOrder
+                    SortOrder = d.SortOrder,
+                    Description = d.Description,
+                    IsActive = d.IsActive
                 })
                 .ToListAsync();
 
@@ -48,7 +61,7 @@ namespace Abhyanvaya.API.Controllers
         }
 
         [HttpGet("{id:int}")]
-        [Authorize(Policy = AuthorizationPolicies.TenantScopedAdmin)]
+        [Authorize(Policy = AuthorizationPolicies.CanViewDepartmentLookup)]
         public async Task<IActionResult> Get(int id)
         {
             var dto = await _context.Departments.AsNoTracking()
@@ -59,7 +72,9 @@ namespace Abhyanvaya.API.Controllers
                     CollegeId = d.CollegeId,
                     Name = d.Name,
                     Code = d.Code,
-                    SortOrder = d.SortOrder
+                    SortOrder = d.SortOrder,
+                    Description = d.Description,
+                    IsActive = d.IsActive
                 })
                 .FirstOrDefaultAsync();
 
@@ -80,20 +95,15 @@ namespace Abhyanvaya.API.Controllers
                 CollegeId = request.CollegeId,
                 Name = request.Name.Trim(),
                 Code = string.IsNullOrWhiteSpace(request.Code) ? null : request.Code.Trim(),
-                SortOrder = request.SortOrder
+                SortOrder = request.SortOrder,
+                Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
+                IsActive = request.IsActive
             };
 
             await _context.AddAsync(dept);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(Get), new { id = dept.Id }, new DepartmentDto
-            {
-                Id = dept.Id,
-                CollegeId = dept.CollegeId,
-                Name = dept.Name,
-                Code = dept.Code,
-                SortOrder = dept.SortOrder
-            });
+            return CreatedAtAction(nameof(Get), new { id = dept.Id }, Map(dept));
         }
 
         [HttpPut("{id:int}")]
@@ -107,6 +117,8 @@ namespace Abhyanvaya.API.Controllers
             dept.Name = request.Name.Trim();
             dept.Code = string.IsNullOrWhiteSpace(request.Code) ? null : request.Code.Trim();
             dept.SortOrder = request.SortOrder;
+            dept.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+            dept.IsActive = request.IsActive;
 
             await _context.SaveChangesAsync();
 
@@ -121,9 +133,23 @@ namespace Abhyanvaya.API.Controllers
             if (dept == null)
                 return NotFound();
 
+            if (await _departmentRepository.IsReferencedBySchedulingAsync(_currentUser.TenantId, id))
+                return BadRequest("Cannot delete department while it is referenced by scheduling data (allocations, rooms, or timetables).");
+
             dept.IsDeleted = true;
             await _context.SaveChangesAsync();
             return NoContent();
         }
+
+        private static DepartmentDto Map(Department d) => new()
+        {
+            Id = d.Id,
+            CollegeId = d.CollegeId,
+            Name = d.Name,
+            Code = d.Code,
+            SortOrder = d.SortOrder,
+            Description = d.Description,
+            IsActive = d.IsActive
+        };
     }
 }
