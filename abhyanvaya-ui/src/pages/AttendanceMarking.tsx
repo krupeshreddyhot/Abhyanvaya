@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -95,17 +95,43 @@ const subjectsCache = new Map<string, SubjectDto[]>();
 const subjectsCacheKey = (courseId: number, groupId: number, semesterId: number) =>
   `${courseId}:${groupId}:${semesterId}`;
 
+const resolveMethodFromNavigation = (
+  searchParams: URLSearchParams,
+  locationState: { switchToManual?: boolean; attendanceMethod?: AttendanceMethodMode } | null,
+  persistedMethod?: AttendanceMethodMode
+): AttendanceMethodMode => {
+  // Coming back from "View attendance" / "Return" after finalizing an AI photo session should land
+  // on the Manual Attendance grid (to review the just-generated records), not stay on AI Photo mode.
+  if (locationState?.switchToManual) return "manual";
+  if (locationState?.attendanceMethod === "manual" || locationState?.attendanceMethod === "aiPhoto") {
+    return locationState.attendanceMethod;
+  }
+
+  // Faculty Workspace (and other entry points) pass intent via ?ai=1 / ?ai=0.
+  // Button intent must win over a previously persisted Manual/AI selection.
+  const aiParam = searchParams.get("ai");
+  if (aiParam === "1" || aiParam === "true") return "aiPhoto";
+  if (aiParam === "0" || aiParam === "false" || aiParam === "manual") return "manual";
+
+  return persistedMethod ?? "manual";
+};
+
 const AttendanceMarking = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const initialSelection = readPersistedSelection();
-  // Coming back from "View attendance" / "Return" after finalizing an AI photo session should land
-  // on the Manual Attendance grid (to review the just-generated records), not stay on AI Photo mode.
-  const forceManualMode = Boolean(
-    (location.state as { switchToManual?: boolean } | null)?.switchToManual
+  const locationState = (location.state as {
+    switchToManual?: boolean;
+    attendanceMethod?: AttendanceMethodMode;
+  } | null) ?? null;
+  const initialMethod = resolveMethodFromNavigation(
+    searchParams,
+    locationState,
+    initialSelection.attendanceMethod
   );
 
   const [courses, setCourses] = useState<CourseDto[]>(coursesCache ?? []);
@@ -126,9 +152,7 @@ const AttendanceMarking = () => {
   const [semesterId, setSemesterId] = useState(() => initialSelection.semesterId ?? 0);
   const [subjectId, setSubjectId] = useState(() => initialSelection.subjectId ?? 0);
   const [periodNumber, setPeriodNumber] = useState(() => initialSelection.periodNumber ?? 1);
-  const [attendanceMethod, setAttendanceMethod] = useState<AttendanceMethodMode>(
-    () => (forceManualMode ? "manual" : (initialSelection.attendanceMethod ?? "manual"))
-  );
+  const [attendanceMethod, setAttendanceMethod] = useState<AttendanceMethodMode>(() => initialMethod);
   /** YYYY-MM-DD in the user's local calendar (date input); never use toISOString().slice(0,10) here — that is UTC date. */
   const [date, setDate] = useState(() => {
     if (initialSelection.date) return initialSelection.date;
@@ -197,14 +221,27 @@ const AttendanceMarking = () => {
     };
   }, [date]);
 
-  // Consume the one-time "switch to manual" navigation flag so it doesn't linger on this history
-  // entry (e.g. re-applying if the user navigates back to this exact entry again later).
+  // Apply method from Faculty Workspace / deep-link (?ai=1|0) or one-shot location.state.
+  // Button intent always wins over a previously persisted Manual/AI selection.
   useEffect(() => {
-    if (forceManualMode) {
-      navigate(location.pathname, { replace: true, state: null });
+    const next = resolveMethodFromNavigation(searchParams, locationState, initialSelection.attendanceMethod);
+    setAttendanceMethod((current) => (current === next ? current : next));
+
+    // Consume one-time switchToManual so it does not re-apply on browser back to this entry.
+    if (locationState?.switchToManual) {
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams, location.key]);
+
+  // Keep ?ai= in sync when the faculty toggles method on the page.
+  useEffect(() => {
+    const desired = attendanceMethod === "aiPhoto" ? "1" : "0";
+    if (searchParams.get("ai") === desired) return;
+    const next = new URLSearchParams(searchParams);
+    next.set("ai", desired);
+    setSearchParams(next, { replace: true });
+  }, [attendanceMethod, searchParams, setSearchParams]);
 
   // Remember the current selection so it survives navigating away and back (e.g. AI photo
   // attendance → recognition review → back to this page) instead of resetting every dropdown.

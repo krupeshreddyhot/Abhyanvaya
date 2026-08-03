@@ -1,3 +1,4 @@
+using Abhyanvaya.Application.AttendanceRecovery;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.DTOs.Attendance;
 using Abhyanvaya.Application.Internal;
@@ -22,6 +23,7 @@ public sealed class AttendanceSessionFinalizer : IAttendanceSessionFinalizer
     private readonly IAuditService _auditService;
     private readonly IDomainEventDispatcher _domainEventDispatcher;
     private readonly IAttendanceCalendar _attendanceCalendar;
+    private readonly IAttendanceWorkflowLifecycleService _workflow;
     private readonly ILogger<AttendanceSessionFinalizer> _logger;
 
     public AttendanceSessionFinalizer(
@@ -32,6 +34,7 @@ public sealed class AttendanceSessionFinalizer : IAttendanceSessionFinalizer
         IAuditService auditService,
         IDomainEventDispatcher domainEventDispatcher,
         IAttendanceCalendar attendanceCalendar,
+        IAttendanceWorkflowLifecycleService workflow,
         ILogger<AttendanceSessionFinalizer> logger)
     {
         _context = context;
@@ -41,6 +44,7 @@ public sealed class AttendanceSessionFinalizer : IAttendanceSessionFinalizer
         _auditService = auditService;
         _domainEventDispatcher = domainEventDispatcher;
         _attendanceCalendar = attendanceCalendar;
+        _workflow = workflow;
         _logger = logger;
     }
 
@@ -60,6 +64,7 @@ public sealed class AttendanceSessionFinalizer : IAttendanceSessionFinalizer
                 ?? throw new KeyNotFoundException($"Attendance session '{attendanceSessionId}' was not found.");
 
             TenantAccessGuard.EnsureTenantAccess(_currentUser, session.TenantId);
+            _workflow.EnsureNotExpiredForFinalization(session);
 
             var attendanceAlreadyGenerated = await HasGeneratedAttendanceAsync(attendanceSessionId, ct);
 
@@ -95,6 +100,7 @@ public sealed class AttendanceSessionFinalizer : IAttendanceSessionFinalizer
             session.Approve(
                 _currentUser.UserId > 0 ? _currentUser.UserId : null,
                 approvedUtc);
+            _workflow.ApplyLocal(session, force: AttendanceWorkflowStatus.AttendanceFinalized);
 
             await _auditService.RecordAsync(
                 nameof(AttendanceSession),
@@ -141,6 +147,11 @@ public sealed class AttendanceSessionFinalizer : IAttendanceSessionFinalizer
         }, cancellationToken);
 
         summary.DurationMilliseconds = (int)stopwatch.ElapsedMilliseconds;
+
+        if (!summary.AlreadyFinalized)
+        {
+            await _workflow.NotifyAsync(session, "AttendanceFinalized", cancellationToken: cancellationToken);
+        }
 
         _logger.LogInformation(
             "Attendance finalized. AttendanceSessionId={AttendanceSessionId} TenantId={TenantId} Present={Present} Absent={Absent} DurationMs={DurationMs} AlreadyFinalized={AlreadyFinalized}",

@@ -63,8 +63,11 @@ public sealed class MediaController : ControllerBase
     /// Serves any object previously written through <see cref="IMediaStorageService"/>, regardless of
     /// which storage provider is currently active. <paramref name="key"/> is the catch-all remainder of
     /// the URL path after <c>/media/</c> (e.g. <c>recognitions/1/{sessionId}/faces/00003.webp</c>).
+    /// Also exposed as <c>GET /api/media/{**key}</c> so Vite’s working <c>/api</c> proxy can serve media
+    /// in local development without a separate <c>/media</c> hop.
     /// </summary>
     [HttpGet("/media/{**key}")]
+    [HttpGet("/api/media/{**key}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

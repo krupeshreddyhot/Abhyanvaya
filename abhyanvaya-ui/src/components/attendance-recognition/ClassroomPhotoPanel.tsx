@@ -73,6 +73,11 @@ function ClassroomPhotoPanelInner({
   const swipeOrigin = useRef<{ x: number; y: number } | null>(null);
   const longPress = useMemo(() => createLongPressController(), []);
   const [contextMenu, setContextMenu] = useState<{ left: number; top: number } | null>(null);
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [resolvedUrl]);
 
   const aspectRatio =
     imageWidth && imageHeight && imageWidth > 0 && imageHeight > 0
@@ -293,16 +298,36 @@ function ClassroomPhotoPanelInner({
                 alt={`Classroom attendance photo image ${activeImageSequence}`}
                 data-enterprise-media="true"
                 draggable={false}
+                onError={() => setImageFailed(true)}
+                onLoad={() => setImageFailed(false)}
                 sx={{
                   width: "100%",
                   height: "100%",
                   objectFit: "contain",
-                  display: "block",
+                  display: imageFailed ? "none" : "block",
                   pointerEvents: "none",
                   // Images must remain visually unchanged across themes (AI22.7B 5.2).
                   filter: "none",
                 }}
               />
+              {imageFailed && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    p: 2,
+                    pointerEvents: "none",
+                  }}
+                >
+                  <Typography variant="body2" color="grey.300" align="center">
+                    Classroom photo failed to load. Confirm the API is running (https://localhost:7063),
+                    then hard-refresh this page. If it still fails, the classroom file may be missing on the server.
+                  </Typography>
+                </Box>
+              )}
               {visibleRecognitions.map((recognition) => {
                 const refWidth = imageWidth && imageWidth > 0 ? imageWidth : 1;
                 const refHeight = imageHeight && imageHeight > 0 ? imageHeight : 1;

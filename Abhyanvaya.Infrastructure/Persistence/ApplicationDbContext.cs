@@ -62,6 +62,8 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<UserApplicationRole> UserApplicationRoles => Set<UserApplicationRole>();
         public IQueryable<AttendanceSession> AttendanceSessions => Set<AttendanceSession>();
         public IQueryable<AttendanceSessionImage> AttendanceSessionImages => Set<AttendanceSessionImage>();
+        public IQueryable<AttendanceRetryHistory> AttendanceRetryHistories => Set<AttendanceRetryHistory>();
+        public IQueryable<AttendanceRecoveryPreference> AttendanceRecoveryPreferences => Set<AttendanceRecoveryPreference>();
         public IQueryable<AttendanceRecognition> AttendanceRecognitions => Set<AttendanceRecognition>();
         public IQueryable<AttendanceRecognitionReviewHistory> AttendanceRecognitionReviewHistories =>
             Set<AttendanceRecognitionReviewHistory>();

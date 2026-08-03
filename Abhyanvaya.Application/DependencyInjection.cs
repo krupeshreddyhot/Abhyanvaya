@@ -1,3 +1,4 @@
+using Abhyanvaya.Application.AttendanceRecovery;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Faculty;
 using Abhyanvaya.Application.Scheduling;
@@ -68,6 +69,23 @@ public static class DependencyInjection
         services.AddScoped<IFacultyProductivityService, FacultyProductivityService>();
         services.AddScoped<IFacultySearchService, FacultySearchService>();
         services.AddScoped<IFacultySmartNotificationService, FacultySmartNotificationService>();
+
+        // AI22.8 / AI22.8.5 — Enterprise Attendance Recovery (composes existing session/recognition pipeline)
+        services.AddScoped<IAttendanceWorkflowLifecycleService, AttendanceWorkflowLifecycleService>();
+        services.AddScoped<IPendingAttendanceService, PendingAttendanceService>();
+        services.AddScoped<IPendingSessionQueueService, PendingSessionQueueService>();
+        services.AddScoped<IAttendanceResumeService, AttendanceResumeService>();
+        services.AddScoped<IAttendanceRetryService, AttendanceRetryService>();
+        services.AddScoped<IAttendanceRecoverySearchService, AttendanceRecoverySearchService>();
+        services.AddScoped<IAttendanceRecoveryDashboardService, AttendanceRecoveryDashboardService>();
+        services.AddScoped<IAttendanceExpirationService, AttendanceExpirationService>();
+        services.AddScoped<IAttendanceRecoveryPreferenceService, AttendanceRecoveryPreferenceService>();
+        services.AddScoped<IFacultyRecoveryCenterService, FacultyRecoveryCenterService>();
+        services.AddScoped<IAttendanceOperationsDashboardService, AttendanceOperationsDashboardService>();
+        services.AddScoped<IAttendanceOperationalAnalyticsService, AttendanceOperationalAnalyticsService>();
+        services.AddScoped<IAttendanceHealthMonitorService, AttendanceHealthMonitorService>();
+        services.AddScoped<IFacultyWorkspaceRecoverySummaryService, FacultyWorkspaceRecoverySummaryService>();
+        services.AddScoped<IAttendanceRecoveryNotifier, NoOpAttendanceRecoveryNotifier>();
 
         return services;
     }

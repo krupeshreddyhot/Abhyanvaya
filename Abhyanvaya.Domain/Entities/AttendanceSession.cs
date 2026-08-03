@@ -232,6 +232,23 @@ public partial class AttendanceSession : ITenantScoped
     /// <summary>Number of times automated processing has been retried.</summary>
     public int RetryCount { get; set; }
 
+    /// <summary>
+    /// AI22.8 — additive enterprise workflow status. Does not replace <see cref="Status"/>.
+    /// </summary>
+    public AttendanceWorkflowStatus WorkflowStatus { get; set; } = AttendanceWorkflowStatus.Created;
+
+    /// <summary>AI22.8 — last faculty/system activity for recovery elapsed-time displays.</summary>
+    public DateTime? LastActivityUtc { get; set; }
+
+    /// <summary>
+    /// AI22.8 — JSON checkpoint for resume (image, zoom, filters, student, review position, batch).
+    /// Never creates a new session; restores the recognition review workspace.
+    /// </summary>
+    public string? ResumeCheckpointJson { get; set; }
+
+    /// <summary>AI22.8 — when set, session is expired and cannot accidentally finalize.</summary>
+    public DateTime? WorkflowExpiredUtc { get; set; }
+
     /// <summary>Optimistic concurrency token for concurrent updates.</summary>
     public byte[] RowVersion { get; set; } = null!;
 

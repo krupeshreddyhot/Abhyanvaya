@@ -136,6 +136,19 @@ const SetupHub = () => {
 
       {isTenantAdmin && (
         <Card variant="outlined">
+          <CardActionArea component={RouterLink} to="/setup/attendance-recovery">
+            <CardContent>
+              <Typography variant="h6">Attendance recovery</Typography>
+              <Typography variant="body2" color="text.secondary">
+                AI22.8 administrator dashboard — pending, failed, review, expiration, restore/archive (tenant-scoped)
+              </Typography>
+            </CardContent>
+          </CardActionArea>
+        </Card>
+      )}
+
+      {isTenantAdmin && (
+        <Card variant="outlined">
           <CardActionArea component={RouterLink} to="/setup/roles">
             <CardContent>
               <Typography variant="h6">Roles &amp; permissions</Typography>

@@ -5,6 +5,10 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   LinearProgress,
   Stack,
   Tab,
@@ -15,6 +19,17 @@ import {
 } from "@mui/material";
 import * as signalR from "@microsoft/signalr";
 import { useAuth } from "../../context/AuthContext";
+import {
+  decideAutoResume,
+  getAutoResumePrompt,
+  getWorkspaceRecoverySummary,
+  retryAttendanceSession,
+  AttendanceRetryKind,
+  type AutoResumePrompt,
+  type FacultyWorkspaceRecoverySummary,
+} from "../../services/attendanceRecoveryService";
+import PendingSessionCard from "../../components/attendance-recovery/PendingSessionCard";
+import FacultyPendingAttendancePanel from "./FacultyPendingAttendancePanel";
 import {
   getFacultyCurrentClass,
   getFacultyInsights,
@@ -70,6 +85,8 @@ const FacultyWorkspacePage = () => {
   const [liveNote, setLiveNote] = useState<string | null>(null);
   const [prefs, setPrefs] = useState<WorkspacePreferenceDto | null>(null);
   const [swipeIndex, setSwipeIndex] = useState(0);
+  const [autoResume, setAutoResume] = useState<AutoResumePrompt | null>(null);
+  const [recoverySummary, setRecoverySummary] = useState<FacultyWorkspaceRecoverySummary | null>(null);
   const roomIdParam = params.get("roomId") ? Number(params.get("roomId")) : undefined;
 
   const setTab = (value: string) => {
@@ -82,16 +99,18 @@ const FacultyWorkspacePage = () => {
     setLoading(true);
     setError(null);
     try {
-      const [t, c, i, n] = await Promise.all([
+      const [t, c, i, n, recovery] = await Promise.all([
         getFacultyToday(),
         getFacultyCurrentClass(),
         getFacultyInsights(),
         getFacultyNotifications(),
+        getWorkspaceRecoverySummary().catch(() => null),
       ]);
       setToday(t.data);
       setCurrent(c.data);
       setInsights(i.data);
       setNotifications(n.data);
+      setRecoverySummary(recovery?.data ?? null);
       setLastUpdated(new Date().toLocaleTimeString());
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load faculty workspace");
@@ -108,6 +127,17 @@ const FacultyWorkspacePage = () => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await getAutoResumePrompt();
+        if (res.data.shouldPrompt) setAutoResume(res.data);
+      } catch {
+        /* non-blocking */
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     void getWorkspacePreferences()
@@ -152,6 +182,22 @@ const FacultyWorkspacePage = () => {
       setLiveNote(`${n.kind}: ${n.message}`);
     });
 
+    // AI22.8 — recovery lifecycle events (recognition/review/finalize); no polling.
+    connection.on(
+      "AttendanceRecoveryNotification",
+      (msg: { eventName?: string; payload?: { sessionId?: string; workflowStatus?: string; resumePath?: string } }) => {
+        const eventName = msg?.eventName ?? "Recovery";
+        const status = msg?.payload?.workflowStatus ?? "";
+        const sessionShort = msg?.payload?.sessionId?.slice(0, 8) ?? "";
+        setLiveNote(
+          sessionShort
+            ? `Attendance ${eventName}${status ? ` · ${status}` : ""} · ${sessionShort}…`
+            : `Attendance ${eventName}`,
+        );
+        window.dispatchEvent(new CustomEvent("attendance-recovery-refresh"));
+      },
+    );
+
     void connection
       .start()
       .then(async () => {
@@ -168,7 +214,10 @@ const FacultyWorkspacePage = () => {
   }, [user?.tenantId, user?.staffId]);
 
   const openAttendance = (ai = false) => {
-    navigate(ai ? "/attendance?ai=1" : "/attendance");
+    // Explicit ai query so AttendanceMarking selects AI Photo vs Manual regardless of last session selection.
+    navigate(ai ? "/attendance?ai=1" : "/attendance?ai=0", {
+      state: { attendanceMethod: ai ? "aiPhoto" : "manual" },
+    });
   };
 
   const openReview = (path: string) => navigate(path);
@@ -250,12 +299,79 @@ const FacultyWorkspacePage = () => {
             Updated {lastUpdated}
           </Typography>
         )}
+        <Button variant="outlined" sx={touchSx} component={RouterLink} to="/faculty/recovery">
+          Recovery center
+        </Button>
         <Button variant="outlined" sx={touchSx} onClick={() => void load()} disabled={!online}>
           Refresh
         </Button>
       </Stack>
 
       {offlineBanner}
+      {recoverySummary && (
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+          {[
+            ["Today's classes", recoverySummary.todaysClasses],
+            ["Pending attendance", recoverySummary.pendingAttendance],
+            ["Needs review", recoverySummary.needsReview],
+            ["Recognition running", recoverySummary.recognitionRunning],
+            ["Completed", recoverySummary.completed],
+          ].map(([label, value]) => (
+            <Chip
+              key={String(label)}
+              label={`${label}: ${value}`}
+              color={label === "Needs review" || label === "Pending attendance" ? "warning" : "default"}
+              onClick={() => setTab(label === "Pending attendance" || label === "Needs review" ? "pending" : "home")}
+            />
+          ))}
+        </Stack>
+      )}
+      {recoverySummary && recoverySummary.topPending.length > 0 && tab === "home" && (
+        <Box>
+          <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>
+            Pending attendance (quick actions)
+          </Typography>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+            {recoverySummary.topPending.slice(0, 3).map((s) => (
+              <PendingSessionCard
+                key={s.sessionId}
+                session={s}
+                touchSx={touchSx}
+                compact
+                onRetry={(id, kind) => void retryAttendanceSession(id, kind)}
+              />
+            ))}
+          </Stack>
+          <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: "wrap" }}>
+            <Button size="small" sx={touchSx} onClick={() => setTab("pending")}>
+              Resume queue
+            </Button>
+            <Button
+              size="small"
+              sx={touchSx}
+              onClick={() => {
+                const failed = recoverySummary.topPending.find((s) => s.canRetry);
+                if (failed) void retryAttendanceSession(failed.sessionId, AttendanceRetryKind.RetryRecognition);
+              }}
+            >
+              Retry
+            </Button>
+            <Button
+              size="small"
+              sx={touchSx}
+              onClick={() => {
+                const ready = recoverySummary.topPending.find((s) => s.canFinalize);
+                if (ready) openReview(ready.resumePath);
+              }}
+            >
+              Finalize
+            </Button>
+            <Button size="small" sx={touchSx} component={RouterLink} to="/faculty/recovery">
+              View history
+            </Button>
+          </Stack>
+        </Box>
+      )}
       {liveNote && (
         <Alert severity="info" onClose={() => setLiveNote(null)}>
           {liveNote}
@@ -272,6 +388,7 @@ const FacultyWorkspacePage = () => {
         aria-label="Faculty workspace sections"
       >
         <Tab value="home" label="Today" />
+        <Tab value="pending" label="Pending attendance" />
         <Tab value="timeline" label="Timeline" />
         <Tab value="class" label="Current class" />
         <Tab value="timetable" label="Timetable" />
@@ -283,6 +400,8 @@ const FacultyWorkspacePage = () => {
         <Tab value="insights" label="Insights" />
         <Tab value="notifications" label="Notifications" />
       </Tabs>
+
+      {tab === "pending" && <FacultyPendingAttendancePanel touchSx={touchSx} />}
 
       {tab === "home" && today && (
         <Stack spacing={2}>
@@ -414,7 +533,7 @@ const FacultyWorkspacePage = () => {
           ) : (
             <Typography>
               No active class. Use{" "}
-              <Button component={RouterLink} to="/attendance">
+              <Button component={RouterLink} to="/attendance?ai=0">
                 manual attendance
               </Button>
               .
@@ -497,6 +616,52 @@ const FacultyWorkspacePage = () => {
       {!hasPermission("Attendance.Manage") && (
         <Alert severity="warning">Attendance.Manage permission is required for workspace actions.</Alert>
       )}
+
+      <Dialog open={Boolean(autoResume?.shouldPrompt)} onClose={() => setAutoResume(null)}>
+        <DialogTitle>Resume attendance?</DialogTitle>
+        <DialogContent>
+          <Typography>{autoResume?.message}</Typography>
+          {autoResume?.session && (
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              {autoResume.session.workflowStatusName} · Subject #{autoResume.session.subjectId}
+            </Typography>
+          )}
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+            Never resumes automatically — you choose. Decision can be remembered in workspace preferences.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ flexWrap: "wrap", gap: 1 }}>
+          <Button
+            variant="contained"
+            onClick={() => {
+              const path = autoResume?.session?.resumePath;
+              void decideAutoResume("resume", autoResume?.session?.sessionId, true);
+              setAutoResume(null);
+              if (path) navigate(path);
+            }}
+          >
+            Resume attendance
+          </Button>
+          <Button
+            onClick={() => {
+              const path = autoResume?.session?.resumePath;
+              void decideAutoResume("continueReview", autoResume?.session?.sessionId, true);
+              setAutoResume(null);
+              if (path) navigate(path);
+            }}
+          >
+            Continue review
+          </Button>
+          <Button
+            onClick={() => {
+              void decideAutoResume("dismiss", autoResume?.session?.sessionId, true);
+              setAutoResume(null);
+            }}
+          >
+            Dismiss
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 };

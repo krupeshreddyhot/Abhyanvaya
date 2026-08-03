@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Abhyanvaya.Application.AttendanceRecovery;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.DTOs.Recognition;
 using Abhyanvaya.Application.Internal;
@@ -31,6 +32,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
     private readonly IRecognitionExecutionContext _executionContext;
     private readonly IRecognitionForensicsAudit _forensics;
     private readonly IRecognitionMemoryAudit _memoryAudit;
+    private readonly IAttendanceWorkflowLifecycleService _workflow;
     private readonly ILogger<ClassroomRecognitionPipeline> _logger;
 
     public ClassroomRecognitionPipeline(
@@ -47,6 +49,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
         IRecognitionExecutionContext executionContext,
         IRecognitionForensicsAudit forensics,
         IRecognitionMemoryAudit memoryAudit,
+        IAttendanceWorkflowLifecycleService workflow,
         ILogger<ClassroomRecognitionPipeline> logger)
     {
         _context = context;
@@ -62,6 +65,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
         _executionContext = executionContext;
         _forensics = forensics;
         _memoryAudit = memoryAudit;
+        _workflow = workflow;
         _logger = logger;
     }
 
@@ -150,7 +154,9 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
                     message.Scope,
                     session.Id);
                 session.MoveToAwaitingReview();
+                _workflow.ApplyLocal(session, hasImages: true, force: AttendanceWorkflowStatus.ReviewPending);
                 await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
+                await _workflow.NotifyAsync(session, "ReviewPending", cancellationToken: cancellationToken);
                 _queue.MarkCompleted(session.Id);
                 _diagnostics.Complete();
                 return;
@@ -309,6 +315,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
 
             await _summaryService.SyncSessionSummaryAsync(session.Id, cancellationToken);
             session.MoveToAwaitingReview();
+            _workflow.ApplyLocal(session, hasImages: true, force: AttendanceWorkflowStatus.ReviewPending);
 
             var saveStage = _diagnostics.StageStart("Database Save");
             _forensics.Checkpoint("Before Database Save");
@@ -321,6 +328,8 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
                 attendanceSessionCount: 1,
                 estimatedGraphBytes: newRecognitions.Count * 256L);
             await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
+            await _workflow.NotifyAsync(session, "RecognitionCompleted", cancellationToken: cancellationToken);
+            await _workflow.NotifyAsync(session, "ReviewPending", cancellationToken: cancellationToken);
             _memoryAudit.RecordDatabaseSave(
                 phase: "After",
                 pendingEntityCount: 0,
@@ -359,6 +368,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
             session.CompletedUtc = DateTime.UtcNow;
             session.ProcessingMilliseconds = (int)stopwatch.ElapsedMilliseconds;
             session.MoveToFailed();
+            _workflow.ApplyLocal(session, hasImages: true, force: AttendanceWorkflowStatus.RecognitionFailed);
 
             var failedImages = await _context.AttendanceSessionImages
                 .Where(i => i.AttendanceSessionId == session.Id && i.TenantId == session.TenantId)
@@ -370,6 +380,7 @@ public sealed class ClassroomRecognitionPipeline : IClassroomRecognitionPipeline
             }
 
             await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
+            await _workflow.NotifyAsync(session, "RecognitionFailed", new { error = ex.Message }, cancellationToken);
             _queue.MarkCompleted(session.Id);
             throw;
         }
