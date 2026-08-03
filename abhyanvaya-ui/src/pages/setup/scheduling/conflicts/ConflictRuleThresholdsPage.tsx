@@ -64,7 +64,7 @@ const ConflictRuleThresholdsPage = () => {
 
   return (
     <Stack spacing={2}>
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
         <Button component={RouterLink} to="/setup/scheduling" startIcon={<ArrowBackIcon />}>
           Hub
         </Button>

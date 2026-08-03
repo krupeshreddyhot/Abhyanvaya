@@ -74,11 +74,11 @@ const OptimizationPreviewPage = () => {
 
   return (
     <Stack spacing={2}>
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
         <Button component={RouterLink} to="/setup/scheduling" startIcon={<ArrowBackIcon />}>
           Hub
         </Button>
-        <Typography variant="h5" sx={{ flexGrow: 1 }}>
+        <Typography variant="h5" sx={{flexGrow: 1}}>
           Optimization Preview
         </Typography>
         <Button variant="outlined" onClick={() => void resimulate()} disabled={loading}>
@@ -94,7 +94,7 @@ const OptimizationPreviewPage = () => {
 
       {sim && (
         <>
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
             <Chip label={`Current score ${sim.currentScore}`} color="primary" />
             <Chip label={`Projected score ${sim.projectedScore}`} color="secondary" />
             <Chip label={`Delta ${sim.scoreDelta}`} variant="outlined" />
@@ -142,7 +142,7 @@ const OptimizationPreviewPage = () => {
           {data?.conflictSnapshot && (
             <>
               <Typography variant="h6">Conflicts snapshot</Typography>
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                 <Chip label={`Total ${data.conflictSnapshot.latestSummary.totalConflicts}`} />
                 <Chip label={`Faculty ${data.conflictSnapshot.facultyConflicts}`} />
                 <Chip label={`Room ${data.conflictSnapshot.roomConflicts}`} />
@@ -158,7 +158,7 @@ const OptimizationPreviewPage = () => {
               {(data?.heatMaps ?? []).slice(0, 2).map((map) => (
                 <Box key={`${map.kind}-${map.entityId ?? 0}`}>
                   <Typography variant="subtitle2">{map.kind}</Typography>
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                     {Object.entries(map.loadDistribution ?? {}).map(([k, v]) => (
                       <Chip key={k} size="small" label={`${k}: ${v}`} />
                     ))}
@@ -175,7 +175,7 @@ const OptimizationPreviewPage = () => {
           </Alert>
 
           {data?.telemetry && (
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
               <Chip size="small" label={`Simulations ${data.telemetry.simulationCount}`} />
               <Chip size="small" label={`Exec ${data.telemetry.executionTimeMs}ms`} />
               <Chip size="small" label={`Score ${data.telemetry.scoringTimeMs}ms`} />

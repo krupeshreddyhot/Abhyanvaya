@@ -104,7 +104,7 @@ const CompareVersionsDialog = ({ open, versions, canExport, onClose }: Props) =>
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>Compare versions</DialogTitle>
       <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
+        <Stack spacing={2} sx={{mt: 1}}>
           {error && <Alert severity="error">{error}</Alert>}
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
             <FormControl fullWidth>
@@ -143,7 +143,7 @@ const CompareVersionsDialog = ({ open, versions, canExport, onClose }: Props) =>
               <Select
                 label="Filter kind"
                 value={kindFilter}
-                onChange={(e) => setKindFilter(e.target.value === "" ? "" : Number(e.target.value))}
+                onChange={(e) => setKindFilter(e.target.value as VersionDifferenceKind | "")}
               >
                 <MenuItem value="">All</MenuItem>
                 <MenuItem value={VersionDifferenceKind.Added}>Added</MenuItem>
@@ -158,7 +158,7 @@ const CompareVersionsDialog = ({ open, versions, canExport, onClose }: Props) =>
           {loading && <CircularProgress size={24} />}
           {result && (
             <Box>
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+              <Stack direction="row" spacing={1} useFlexGap sx={{ mb: 2, flexWrap: "wrap" }}>
                 <Chip color="success" label={`Added ${result.summary.added}`} />
                 <Chip color="warning" label={`Modified ${result.summary.modified}`} />
                 <Chip color="error" label={`Removed ${result.summary.removed}`} />
@@ -166,7 +166,7 @@ const CompareVersionsDialog = ({ open, versions, canExport, onClose }: Props) =>
                 <Chip label={`Rooms ${result.summary.roomChanges}`} />
                 <Chip label={`Subjects ${result.summary.subjectChanges}`} />
               </Stack>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              <Typography variant="subtitle2" sx={{mb: 1}}>
                 {result.leftVersionName} vs {result.rightVersionName}
               </Typography>
               {groups.map(([name, items]) => (
@@ -179,13 +179,13 @@ const CompareVersionsDialog = ({ open, versions, canExport, onClose }: Props) =>
                   <AccordionDetails>
                     <Stack spacing={1}>
                       {items.map((d, idx) => (
-                        <Box key={`${d.leftEntryId}-${d.rightEntryId}-${idx}`} sx={{ borderLeft: 4, borderColor: `${kindColor(d.kind)}.main`, pl: 1 }}>
+                        <Box key={`${d.leftEntryId}-${d.rightEntryId}-${idx}`} sx={{borderLeft: 4, borderColor: `${kindColor(d.kind)}.main`, pl: 1}}>
                           <Chip size="small" color={kindColor(d.kind)} label={Object.keys(VersionDifferenceKind).find((k) => VersionDifferenceKind[k as keyof typeof VersionDifferenceKind] === d.kind) ?? d.kind} sx={{ mr: 1 }} />
                           <Typography variant="body2" component="span">
                             {d.summary}
                           </Typography>
                           {(d.leftValue || d.rightValue) && (
-                            <Typography variant="caption" display="block" color="text.secondary">
+                            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
                               {d.leftValue ?? "—"} → {d.rightValue ?? "—"}
                             </Typography>
                           )}

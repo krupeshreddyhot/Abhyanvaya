@@ -1738,7 +1738,7 @@ export const getDepartmentHeatMap = (
 export const resolveAttendanceSession = (params?: { staffId?: number; date?: string }) =>
   api.get<AttendanceSessionResolutionDto>("/attendance-resolution/current", { params });
 
-// AI30 Phase 2B.5 â€” Conflict Intelligence (advisory only)
+// AI30 Phase 2B.5 - Conflict Intelligence (advisory only)
 export type ConflictResolutionDto = {
   recommendationId: string;
   title: string;
@@ -1934,7 +1934,7 @@ export const getConflictRuleThresholdHistory = (thresholdKey?: string) =>
     { params: { thresholdKey } },
   );
 
-// AI30 Phase 2B.6 — Optimization Readiness (preview only, no apply)
+// AI30 Phase 2B.6 - Optimization Readiness (preview only, no apply)
 export type OptimizationScoreDto = {
   totalScore: number;
   normalizedScore: number;
@@ -2008,7 +2008,7 @@ export const getOptimizationPlugins = () =>
     "/scheduling/optimization/plugins",
   );
 
-// AI30 Phase 2B.7 — Optimization Sandbox
+// AI30 Phase 2B.7 - Optimization Sandbox
 export type ScenarioSummaryDto = {
   scenarioId: string;
   id: number;
@@ -2124,7 +2124,7 @@ export const replaySandboxScenario = (scenarioId: string) =>
 export const compareSandboxScenarios = (payload: { leftScenarioId: string; rightScenarioId: string }) =>
   api.post<ScenarioComparisonResultDto>("/scheduling/optimization/sandbox/scenarios/compare", payload);
 
-// AI30 Phase 3 — Enterprise Optimization Engine
+// AI30 Phase 3 - Enterprise Optimization Engine
 export type OptimizationProgressDto = {
   runId: string;
   sessionId: string;

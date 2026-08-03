@@ -142,11 +142,11 @@ const OptimizationDashboardPage = () => {
 
   return (
     <Stack spacing={2}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+      <Box sx={{display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap"}}>
         <Button component={RouterLink} to="/setup/scheduling" startIcon={<ArrowBackIcon />} variant="text">
           Scheduling
         </Button>
-        <Typography variant="h5" sx={{ flexGrow: 1 }}>
+        <Typography variant="h5" sx={{flexGrow: 1}}>
           Optimization dashboard
         </Typography>
         <Button component={RouterLink} to="/setup/scheduling/optimization/workspace" variant="outlined">
@@ -199,7 +199,7 @@ const OptimizationDashboardPage = () => {
       )}
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-        <Box sx={{ flex: 1 }}>
+        <Box sx={{flex: 1}}>
           <Typography variant="h6">Summary</Typography>
           <Typography variant="body2">Total runs: {data?.totalRuns ?? 0}</Typography>
           <Typography variant="body2">Completed: {data?.completedRuns ?? 0}</Typography>
@@ -211,7 +211,7 @@ const OptimizationDashboardPage = () => {
           </Typography>
           <Typography variant="body2">Top strategies: {strategyChart || "—"}</Typography>
         </Box>
-        <Box sx={{ flex: 2 }}>
+        <Box sx={{flex: 2}}>
           <Typography variant="h6">Recent runs</Typography>
           <Table size="small">
             <TableHead>
@@ -281,7 +281,7 @@ const OptimizationDashboardPage = () => {
               ))}
             </TableBody>
           </Table>
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <TextField
               size="small"
               label="New draft version name"

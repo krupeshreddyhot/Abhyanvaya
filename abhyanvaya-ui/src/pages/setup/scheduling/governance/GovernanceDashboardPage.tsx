@@ -86,11 +86,11 @@ const GovernanceDashboardPage = () => {
 
   return (
     <Stack spacing={2}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+      <Box sx={{display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap"}}>
         <Button component={RouterLink} to="/setup/scheduling" startIcon={<ArrowBackIcon />} variant="text">
           Scheduling
         </Button>
-        <Typography variant="h5" sx={{ flexGrow: 1 }}>
+        <Typography variant="h5" sx={{flexGrow: 1}}>
           Governance dashboard
         </Typography>
         <FormControl size="small" sx={{ minWidth: 200 }}>
@@ -113,7 +113,7 @@ const GovernanceDashboardPage = () => {
       {error && <Alert severity="error">{error}</Alert>}
 
       {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+        <Box sx={{display: "flex", justifyContent: "center", p: 4}}>
           <CircularProgress />
         </Box>
       ) : data ? (
@@ -229,9 +229,9 @@ const GovernanceDashboardPage = () => {
                       </Typography>
                     )}
                     {(data.latestArchives ?? []).map((a) => (
-                      <Box key={a.timetableId} sx={{ borderBottom: 1, borderColor: "divider", pb: 1 }}>
+                      <Box key={a.timetableId} sx={{borderBottom: 1, borderColor: "divider", pb: 1}}>
                         <Typography variant="subtitle2">{a.timetableName}</Typography>
-                        <Typography variant="caption" color="text.secondary" display="block">
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
                           {a.archiveReasonName ?? "Unspecified"}
                           {a.archivedDate ? ` · ${new Date(a.archivedDate).toLocaleString()}` : ""}
                         </Typography>

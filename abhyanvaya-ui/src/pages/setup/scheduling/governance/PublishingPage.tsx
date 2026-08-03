@@ -178,11 +178,11 @@ const PublishingPage = () => {
 
   return (
     <Stack spacing={2}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+      <Box sx={{display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap"}}>
         <Button component={RouterLink} to="/setup/scheduling" startIcon={<ArrowBackIcon />} variant="text">
           Scheduling
         </Button>
-        <Typography variant="h5" sx={{ flexGrow: 1 }}>
+        <Typography variant="h5" sx={{flexGrow: 1}}>
           Publishing
         </Typography>
       </Box>
@@ -220,7 +220,7 @@ const PublishingPage = () => {
       </Stack>
 
       {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}><CircularProgress /></Box>
+        <Box sx={{display: "flex", justifyContent: "center", p: 4}}><CircularProgress /></Box>
       ) : (
         <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
           <Table size="small" sx={{ flex: 1 }}>
@@ -244,7 +244,7 @@ const PublishingPage = () => {
                   <TableCell>{r.name}</TableCell>
                   <TableCell>{r.departmentName ?? "—"}</TableCell>
                   <TableCell>
-                    <Stack direction="row" spacing={0.5} alignItems="center">
+                    <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
                       <Chip
                         size="small"
                         label={TIMETABLE_STATUS_LABELS[r.status]}
@@ -280,7 +280,7 @@ const PublishingPage = () => {
             </TableBody>
           </Table>
 
-          <Box sx={{ width: { xs: "100%", md: 320 }, flexShrink: 0 }}>
+          <Box sx={{width: { xs: "100%", md: 320 }, flexShrink: 0}}>
             <Typography variant="subtitle1" gutterBottom>
               Publishing timeline
             </Typography>
@@ -338,7 +338,7 @@ const PublishingPage = () => {
                 : "Unlock frozen timetable"}
         </DialogTitle>
         <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
+          <Stack spacing={2} sx={{mt: 1}}>
             {actionType === "archive" && (
               <FormControl fullWidth>
                 <InputLabel>Archive reason</InputLabel>

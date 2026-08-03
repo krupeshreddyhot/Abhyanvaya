@@ -109,11 +109,11 @@ const OptimizationWorkspacePage = () => {
 
   return (
     <Stack spacing={2}>
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
         <Button component={RouterLink} to="/setup/scheduling" startIcon={<ArrowBackIcon />}>
           Hub
         </Button>
-        <Typography variant="h5" sx={{ flexGrow: 1 }}>
+        <Typography variant="h5" sx={{flexGrow: 1}}>
           Optimization Workspace
         </Typography>
         <Button component={RouterLink} to="/setup/scheduling/optimization/preview" variant="outlined">
@@ -157,13 +157,13 @@ const OptimizationWorkspacePage = () => {
 
       {tab === "list" && (
         <>
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
             <Chip label={`Scenarios ${scenarios.length}`} />
             <Chip label={`Favorites ${data?.favorites.length ?? 0}`} variant="outlined" />
             <Chip label={`Templates ${data?.templates.length ?? 0}`} variant="outlined" />
             <Chip label="Apply disabled" color="warning" />
           </Stack>
-          <Box sx={{ overflowX: "auto" }}>
+          <Box sx={{overflowX: "auto"}}>
             <Table size="small">
               <TableHead>
                 <TableRow>
@@ -191,7 +191,7 @@ const OptimizationWorkspacePage = () => {
                     <TableCell>{s.conflictCount}</TableCell>
                     <TableCell>{(s.tags ?? []).join(", ")}</TableCell>
                     <TableCell>
-                      <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                      <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap" }}>
                         <Button size="small" onClick={() => void openDetail(s)}>
                           Details
                         </Button>
@@ -361,7 +361,7 @@ const OptimizationWorkspacePage = () => {
                 {compare.left.name} vs {compare.right.name}
               </Typography>
               <Typography variant="body2">{compare.differences.verdict}</Typography>
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                 <Chip label={`Projected Δ ${compare.differences.projectedScoreDelta}`} />
                 <Chip label={`Conflict Δ ${compare.differences.conflictDelta}`} />
               </Stack>

@@ -133,11 +133,11 @@ const ApprovalQueuePage = () => {
 
   return (
     <Stack spacing={2}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+      <Box sx={{display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap"}}>
         <Button component={RouterLink} to="/setup/scheduling" startIcon={<ArrowBackIcon />} variant="text">
           Scheduling
         </Button>
-        <Typography variant="h5" sx={{ flexGrow: 1 }}>
+        <Typography variant="h5" sx={{flexGrow: 1}}>
           Approval queue
         </Typography>
         <FormControl size="small" sx={{ minWidth: 160 }}>
@@ -163,7 +163,7 @@ const ApprovalQueuePage = () => {
       {message && <Alert severity="success" onClose={() => setMessage(null)}>{message}</Alert>}
 
       {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+        <Box sx={{display: "flex", justifyContent: "center", p: 4}}>
           <CircularProgress />
         </Box>
       ) : (
@@ -174,9 +174,7 @@ const ApprovalQueuePage = () => {
                 <Typography color="text.secondary">No approval requests in queue.</Typography>
               )}
               {queue.map((q) => (
-                <Box
-                  key={q.id}
-                  onClick={() => setSelectedId(q.id)}
+                <Box key={q.id} onClick={() => setSelectedId(q.id)}
                   sx={{
                     p: 1.5,
                     border: 1,
@@ -187,7 +185,7 @@ const ApprovalQueuePage = () => {
                   }}
                 >
                   <Typography variant="subtitle2">{q.timetableName ?? `Timetable #${q.timetableId}`}</Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                  <Typography variant="caption" color="text.secondary" sx={{display: "block"}}>
                     {q.versionName ?? `Version #${q.scheduleVersionId}`}
                   </Typography>
                   <Chip size="small" label={APPROVAL_REQUEST_STATUS_LABELS[q.status]} sx={{ mt: 0.5 }} />
@@ -213,7 +211,7 @@ const ApprovalQueuePage = () => {
                     Approval steps
                   </Typography>
                   {selected.steps.map((s) => (
-                    <Box key={s.id} sx={{ mb: 1, pl: 1, borderLeft: 2, borderColor: "divider" }}>
+                    <Box key={s.id} sx={{mb: 1, pl: 1, borderLeft: 2, borderColor: "divider"}}>
                       <Typography variant="body2">
                         Step {s.stepOrder}: {s.roleKey}
                       </Typography>
@@ -250,7 +248,7 @@ const ApprovalQueuePage = () => {
                               {ev.decision != null && ` — ${APPROVAL_DECISION_LABELS[ev.decision]}`}
                             </Typography>
                             {ev.oldStatus != null && ev.newStatus != null && (
-                              <Typography variant="caption" display="block" color="text.secondary">
+                              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
                                 Status {ev.oldStatus} → {ev.newStatus}
                               </Typography>
                             )}
@@ -265,12 +263,12 @@ const ApprovalQueuePage = () => {
                     </Timeline>
                   ) : null}
                   {timeline?.decisions && timeline.decisions.length > 0 && (
-                    <Box sx={{ mt: 2 }}>
+                    <Box sx={{mt: 2}}>
                       <Typography variant="subtitle2" gutterBottom>
                         Decision history
                       </Typography>
                       {timeline.decisions.map((d) => (
-                        <Typography key={d.id} variant="caption" display="block" color="text.secondary">
+                        <Typography key={d.id} variant="caption" color="text.secondary" sx={{ display: "block" }}>
                           {new Date(d.occurredUtc).toLocaleString()} · {d.action}
                           {d.comment ? ` — ${d.comment}` : ""}
                         </Typography>

@@ -53,11 +53,11 @@ const ConflictAnalyticsPage = () => {
 
   return (
     <Stack spacing={2}>
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
         <Button component={RouterLink} to="/setup/scheduling" startIcon={<ArrowBackIcon />}>
           Hub
         </Button>
-        <Typography variant="h5" sx={{ flexGrow: 1 }}>
+        <Typography variant="h5" sx={{flexGrow: 1}}>
           Conflict Analytics
         </Typography>
         <Button
@@ -81,7 +81,7 @@ const ConflictAnalyticsPage = () => {
       {error && <Alert severity="error">{error}</Alert>}
       {data && (
         <>
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
             <Chip label={`Runs ${data.totalRuns}`} />
             <Chip label={`Findings ${data.totalHistoricalFindings}`} />
             <Chip label={`Resolution rate ${data.conflictResolutionRatePercent}%`} color="primary" />
@@ -129,7 +129,7 @@ const ConflictAnalyticsPage = () => {
               ["Room", data.roomConflictTrends],
               ["Department", data.departmentConflictTrends],
             ].map(([title, rows]) => (
-              <Stack key={String(title)} spacing={0.5} sx={{ flex: 1 }}>
+              <Stack key={String(title)} spacing={0.5} sx={{flex: 1}}>
                 <Typography variant="subtitle2">{String(title)}</Typography>
                 {(rows as { name: string; count: number }[]).slice(0, 8).map((r) => (
                   <Chip key={r.name} size="small" label={`${r.name}: ${r.count}`} sx={{ justifyContent: "flex-start" }} />

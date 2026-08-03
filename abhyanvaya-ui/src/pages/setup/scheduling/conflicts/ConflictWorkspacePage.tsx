@@ -169,7 +169,7 @@ const ConflictWorkspacePage = () => {
         <TableCell>{c.ruleName}</TableCell>
         <TableCell>{c.description}</TableCell>
         <TableCell>
-          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+          <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap" }}>
             <Button size="small" onClick={() => void openGuidance(c)}>
               Explain
             </Button>
@@ -186,11 +186,11 @@ const ConflictWorkspacePage = () => {
 
   return (
     <Stack spacing={2}>
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
         <Button component={RouterLink} to="/setup/scheduling" startIcon={<ArrowBackIcon />}>
           Hub
         </Button>
-        <Typography variant="h5" sx={{ flexGrow: 1 }}>
+        <Typography variant="h5" sx={{flexGrow: 1}}>
           Conflict Workspace
         </Typography>
         <Button component={RouterLink} to="/setup/scheduling/conflicts/analytics" variant="outlined">
@@ -274,7 +274,7 @@ const ConflictWorkspacePage = () => {
       </Stack>
 
       {data && (
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
           <Chip label={`Total ${data.workspace.summary.totalConflicts}`} />
           <Chip label={`Pins ${data.pins.length}`} variant="outlined" />
           <Chip label={`Bookmarks ${data.bookmarks.length}`} variant="outlined" />
@@ -283,10 +283,10 @@ const ConflictWorkspacePage = () => {
         </Stack>
       )}
 
-      <Box sx={{ overflowX: "auto" }}>
+      <Box sx={{overflowX: "auto"}}>
         {groupedEntries ? (
           groupedEntries.map(([group, items]) => (
-            <Box key={group} mb={2}>
+            <Box key={group} sx={{ mb: 2 }}>
               <Typography variant="subtitle1" gutterBottom>
                 {group} ({items.length})
               </Typography>
@@ -357,7 +357,7 @@ const ConflictWorkspacePage = () => {
                 <>
                   <Divider />
                   <Typography variant="subtitle1">Impact Panel · Risk {impact.summary.riskLevel}</Typography>
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                     <Chip size="small" label={`Faculty ${impact.summary.facultyAffected}`} />
                     <Chip size="small" label={`Students ${impact.summary.studentsAffected}`} />
                     <Chip size="small" label={`Rooms ${impact.summary.roomsAffected}`} />
@@ -405,7 +405,7 @@ const ConflictWorkspacePage = () => {
             Clusters: {dependency?.clusterCount ?? 0} · Edges: {dependency?.edgeCount ?? 0} · Roots:{" "}
             {dependency?.rootConflictCount ?? 0}
           </Typography>
-          <Box component="pre" sx={{ whiteSpace: "pre-wrap", fontSize: 12, bgcolor: "grey.100", p: 1, borderRadius: 1 }}>
+          <Box component="pre" sx={{whiteSpace: "pre-wrap", fontSize: 12, bgcolor: "grey.100", p: 1, borderRadius: 1}}>
             {dependency?.mermaid || "No graph data"}
           </Box>
           <List dense>

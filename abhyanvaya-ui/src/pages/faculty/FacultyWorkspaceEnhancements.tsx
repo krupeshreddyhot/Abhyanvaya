@@ -82,11 +82,7 @@ export const FacultyTimelinePanel = ({
   if (!data) return <Alert severity="info">No timeline data.</Alert>;
 
   return (
-    <Stack
-      spacing={1.5}
-      role="list"
-      aria-label="Daily timeline"
-      onTouchStart={(e) => setTouchX(e.changedTouches[0]?.clientX ?? null)}
+    <Stack spacing={1.5} role="list" aria-label="Daily timeline" onTouchStart={(e) => setTouchX(e.changedTouches[0]?.clientX ?? null)}
       onTouchEnd={(e) => {
         if (touchX == null) return;
         const dx = (e.changedTouches[0]?.clientX ?? touchX) - touchX;
@@ -104,17 +100,8 @@ export const FacultyTimelinePanel = ({
         </Alert>
       )}
       {data.items.map((item, idx) => (
-        <Box
-          key={`${item.kind}-${item.startTime}-${idx}`}
-          role="listitem"
-          sx={{
-            p: 1.5,
-            borderLeft: 4,
-            borderColor: item.kind === "Break" ? "grey.400" : item.status === "Current" ? "success.main" : "primary.main",
-            bgcolor: item.status === "Current" ? "success.50" : "background.paper",
-          }}
-        >
-          <Typography fontWeight={700}>
+        <Box key={`${item.kind}-${item.startTime}-${idx}`} role="listitem" sx={{p: 1.5, borderLeft: 4, borderColor: item.kind === "Break" ? "grey.400" : item.status === "Current" ? "success.main" : "primary.main", bgcolor: item.status === "Current" ? "success.50" : "background.paper"}}>
+          <Typography sx={{ fontWeight: 700 }}>
             {formatTime(item.startTime)}–{formatTime(item.endTime)} · {item.label}
           </Typography>
           <Typography variant="body2">
@@ -158,7 +145,7 @@ export const FacultyCalendarPanel = ({ touchSx }: { touchSx: object }) => {
   return (
     <Stack spacing={1.5} className="faculty-print-area">
       <Alert severity="info">Calendar integration is export-only. No two-way synchronization.</Alert>
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
         <Button variant="contained" sx={touchSx} onClick={() => void exportIcs()}>
           Export ICS
         </Button>
@@ -167,7 +154,7 @@ export const FacultyCalendarPanel = ({ touchSx }: { touchSx: object }) => {
         </Button>
       </Stack>
       <Typography variant="body2">Outlook / Google subscription URL (export feed):</Typography>
-      <TextField size="small" fullWidth value={subscribeUrl} InputProps={{ readOnly: true }} aria-label="Calendar subscribe URL" />
+      <TextField size="small" fullWidth value={subscribeUrl} slotProps={{ input: { readOnly: true } }} aria-label="Calendar subscribe URL" />
       {msg && <Alert severity="success">{msg}</Alert>}
     </Stack>
   );
@@ -469,8 +456,8 @@ export const FacultySmartNotificationsPanel = () => {
         <Typography color="text.secondary">No smart notifications.</Typography>
       ) : (
         data.items.map((n) => (
-          <Box key={n.notificationId} sx={{ p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
-            <Typography fontWeight={700}>
+          <Box key={n.notificationId} sx={{p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 2}}>
+            <Typography sx={{ fontWeight: 700 }}>
               {n.kind}: {n.title}
             </Typography>
             <Typography variant="body2">{n.message}</Typography>

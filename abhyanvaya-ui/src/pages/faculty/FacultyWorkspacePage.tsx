@@ -197,24 +197,15 @@ const FacultyWorkspacePage = () => {
   );
 
   const classCard = (c: FacultyClassDto) => (
-    <Box
-      key={`${c.timetableEntryId}-${c.startTime}-${c.status}`}
-      sx={{
-        p: 2,
-        borderRadius: 2,
-        bgcolor: c.status === "Current" ? "success.50" : "background.paper",
-        border: "1px solid",
-        borderColor: c.status === "Current" ? "success.light" : "divider",
-      }}
-    >
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+    <Box key={`${c.timetableEntryId}-${c.startTime}-${c.status}`} sx={{p: 2, borderRadius: 2, bgcolor: c.status === "Current" ? "success.50" : "background.paper", border: "1px solid", borderColor: c.status === "Current" ? "success.light" : "divider"}}>
+      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", alignItems: "center" }}>
         <Chip size="small" color={statusColor(c.status) as "success" | "default" | "info"} label={c.status} />
-        <Typography fontWeight={700}>{c.subjectName ?? `Subject #${c.subjectId}`}</Typography>
+        <Typography sx={{ fontWeight: 700 }}>{c.subjectName ?? `Subject #${c.subjectId}`}</Typography>
         <Typography color="text.secondary">
           {formatTime(c.startTime)}–{formatTime(c.endTime)}
         </Typography>
       </Stack>
-      <Typography variant="body2" sx={{ mt: 0.5 }}>
+      <Typography variant="body2" sx={{mt: 0.5}}>
         Room {c.roomName ?? "—"}
         {c.buildingName ? ` · ${c.buildingName}` : ""} · Students {c.studentCount ?? "—"} · Attendance{" "}
         {c.attendanceStatus}
@@ -225,20 +216,8 @@ const FacultyWorkspacePage = () => {
   );
 
   const stickyActions = (
-    <Box
-      sx={{
-        position: isPhone ? "sticky" : "static",
-        bottom: 0,
-        zIndex: 2,
-        py: 1.5,
-        px: isPhone ? 0 : 0,
-        bgcolor: "background.default",
-        borderTop: isPhone ? "1px solid" : "none",
-        borderColor: "divider",
-        pb: isPhone ? "calc(12px + env(safe-area-inset-bottom))" : 1.5,
-      }}
-    >
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+    <Box sx={{position: isPhone ? "sticky" : "static", bottom: 0, zIndex: 2, py: 1.5, px: isPhone ? 0 : 0, bgcolor: "background.default", borderTop: isPhone ? "1px solid" : "none", borderColor: "divider", pb: isPhone ? "calc(12px + env(safe-area-inset-bottom))" : 1.5}}>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
         {quickActions
           .filter((a) => a.enabled)
           .map((a) => (
@@ -260,28 +239,9 @@ const FacultyWorkspacePage = () => {
   );
 
   return (
-    <Stack
-      spacing={2}
-      component="main"
-      aria-label="Faculty workspace"
-      sx={{
-        pb: isPhone ? 10 : 2,
-        pt: "env(safe-area-inset-top)",
-        px: { xs: 0.5, sm: 0 },
-        ...(highContrast
-          ? {
-              bgcolor: "#000",
-              color: "#fff",
-              "& .MuiTypography-root": { color: "#fff" },
-              "& .MuiAlert-root": { border: "1px solid #fff" },
-            }
-          : {}),
-        ...(prefs?.dashboardLayout === "compact" ? { gap: 1 } : {}),
-        ...(isTablet ? { maxWidth: 980, mx: "auto" } : {}),
-      }}
-    >
-      <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
-        <Typography variant={isPhone ? "h5" : "h4"} sx={{ flexGrow: 1 }}>
+    <Stack spacing={2} component="main" aria-label="Faculty workspace" sx={{pb: isPhone ? 10 : 2, pt: "env(safe-area-inset-top)", px: { xs: 0.5, sm: 0 }, ...(highContrast ? { bgcolor: "#000", color: "#fff", "& .MuiTypography-root": { color: "#fff" }, "& .MuiAlert-root": { border: "1px solid #fff" }, } : {}), ...(prefs?.dashboardLayout === "compact" ? { gap: 1 } : {}), ...(isTablet ? { maxWidth: 980, mx: "auto" } : {})}}>
+      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", alignItems: "center" }}>
+        <Typography variant={isPhone ? "h5" : "h4"} sx={{flexGrow: 1}}>
           Faculty Workspace
         </Typography>
         <Chip size="small" label={online ? "Online" : "Offline"} color={online ? "success" : "warning"} />
@@ -333,11 +293,11 @@ const FacultyWorkspacePage = () => {
           </Alert>
 
           <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-            <Box sx={{ flex: 1 }}>
+            <Box sx={{flex: 1}}>
               <Typography variant="h6">Current class</Typography>
               {today.currentClass ? classCard(today.currentClass) : <Typography color="text.secondary">No active class.</Typography>}
             </Box>
-            <Box sx={{ flex: 1 }}>
+            <Box sx={{flex: 1}}>
               <Typography variant="h6">Next class</Typography>
               {today.nextClass ? classCard(today.nextClass) : <Typography color="text.secondary">No upcoming class.</Typography>}
             </Box>
@@ -345,7 +305,7 @@ const FacultyWorkspacePage = () => {
 
           <Box>
             <Typography variant="h6">Today&apos;s schedule</Typography>
-            <Stack spacing={1} sx={{ mt: 1 }}>
+            <Stack spacing={1} sx={{mt: 1}}>
               {schedule.length === 0 ? (
                 <Typography color="text.secondary">No timetable classes today — use manual attendance.</Typography>
               ) : (
@@ -355,7 +315,7 @@ const FacultyWorkspacePage = () => {
           </Box>
 
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-            <Box sx={{ flex: 1 }}>
+            <Box sx={{flex: 1}}>
               <Typography variant="subtitle1">Attendance summary</Typography>
               <Typography variant="body2">
                 Taken {today.attendanceSummary.attendanceTaken} · Pending {today.attendanceSummary.pending} · Missed{" "}
@@ -365,7 +325,7 @@ const FacultyWorkspacePage = () => {
                 Present {today.attendanceSummary.presentMarks} · Absent {today.attendanceSummary.absentMarks}
               </Typography>
             </Box>
-            <Box sx={{ flex: 1 }}>
+            <Box sx={{flex: 1}}>
               <Typography variant="subtitle1">AI attendance</Typography>
               <Typography variant="body2">
                 Sessions {today.aiAttendanceSummary.sessionsToday} · Pending reviews{" "}
@@ -378,7 +338,7 @@ const FacultyWorkspacePage = () => {
           {today.pendingReviews.length > 0 && (
             <Box>
               <Typography variant="h6">Pending reviews</Typography>
-              <Stack spacing={1} sx={{ mt: 1 }}>
+              <Stack spacing={1} sx={{mt: 1}}>
                 {today.pendingReviews.map((r) => (
                   <Button key={r.attendanceSessionId} variant="outlined" sx={touchSx} onClick={() => openReview(r.reviewPath)}>
                     {r.label} · {r.pendingCount} pending
@@ -427,7 +387,7 @@ const FacultyWorkspacePage = () => {
           {current?.currentClass ? (
             <>
               {classCard(current.currentClass)}
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                 <Button variant="contained" sx={touchSx} onClick={() => openAttendance(false)}>
                   Take Attendance
                 </Button>
@@ -466,7 +426,7 @@ const FacultyWorkspacePage = () => {
 
       {tab === "timetable" && (
         <Stack spacing={2}>
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
             {["Today", "Week", "Month", "Agenda"].map((v) => (
               <Button
                 key={v}
@@ -519,10 +479,10 @@ const FacultyWorkspacePage = () => {
             <Typography color="text.secondary">No recent schedule notifications.</Typography>
           ) : (
             notifications.map((n) => (
-              <Box key={n.notificationId} sx={{ p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
-                <Stack direction="row" spacing={1} alignItems="center">
+              <Box key={n.notificationId} sx={{p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 2}}>
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                   <Chip size="small" label={n.kind} />
-                  <Typography fontWeight={600}>{n.title}</Typography>
+                  <Typography sx={{ fontWeight: 600 }}>{n.title}</Typography>
                 </Stack>
                 <Typography variant="body2">{n.message}</Typography>
                 <Typography variant="caption" color="text.secondary">

@@ -34,12 +34,12 @@ const HeatMapPanel = ({ map }: { map: HeatMapDto }) => (
     <Typography variant="subtitle1" gutterBottom>
       {map.kind} heat map
     </Typography>
-    <Stack direction="row" spacing={1} mb={1}>
+    <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
       {Object.entries(map.loadDistribution ?? {}).map(([k, v]) => (
         <Chip key={k} size="small" label={`${k}: ${v}`} sx={colourSx(k)} />
       ))}
     </Stack>
-    <Box sx={{ overflowX: "auto" }}>
+    <Box sx={{overflowX: "auto"}}>
       <Table size="small">
         <TableHead>
           <TableRow>
@@ -83,7 +83,7 @@ const ConflictDashboardPage = () => {
 
   return (
     <Stack spacing={2}>
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
         <Button component={RouterLink} to="/setup/scheduling" startIcon={<ArrowBackIcon />}>
           Hub
         </Button>
@@ -96,7 +96,7 @@ const ConflictDashboardPage = () => {
       {error && <Alert severity="error">{error}</Alert>}
       {data && (
         <>
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
             <Chip label={`Status: ${data.validationStatus}`} color="primary" />
             <Chip label={`Total ${data.latestSummary.totalConflicts}`} />
             <Chip label={`Faculty ${data.facultyConflicts}`} />
