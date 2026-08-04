@@ -61,6 +61,13 @@ const PendingSessionCard = ({ session: s, touchSx = {}, onRetry, onCancel, compa
           {typeof s.priorityScore === "number" && (
             <Chip size="small" variant="outlined" label={`P${s.priorityScore}`} />
           )}
+          {s.slaLevel && (
+            <Chip
+              size="small"
+              color={(s.slaBadgeColor as "success" | "warning" | "secondary" | "error" | "default") || "default"}
+              label={`SLA ${s.slaLevel}${s.slaStatus ? ` · ${s.slaStatus}` : ""}`}
+            />
+          )}
         </Stack>
         <Typography sx={{ fontWeight: 700, fontSize: { xs: "1.05rem", sm: "1.1rem" } }}>{title}</Typography>
         <Typography variant="body2" color="text.secondary">
@@ -68,8 +75,11 @@ const PendingSessionCard = ({ session: s, touchSx = {}, onRetry, onCancel, compa
             `Course #${s.courseId}`}
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-          Age {(s.ageMinutes ?? s.elapsedMinutes).toFixed(0)}m · Retries {s.retryCount}
+          Elapsed {s.elapsedDisplay || `${(s.ageMinutes ?? s.elapsedMinutes).toFixed(0)}m`} · Retries {s.retryCount}
           {s.expectedRemainingMinutes != null ? ` · ~${s.expectedRemainingMinutes.toFixed(0)}m left` : ""}
+          {s.expectedCompletionUtc
+            ? ` · ETA ${new Date(s.expectedCompletionUtc).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+            : ""}
         </Typography>
         {s.failureReason && (
           <Typography variant="caption" color="error" sx={{ display: "block" }}>

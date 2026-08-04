@@ -64,6 +64,7 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<AttendanceSessionImage> AttendanceSessionImages => Set<AttendanceSessionImage>();
         public IQueryable<AttendanceRetryHistory> AttendanceRetryHistories => Set<AttendanceRetryHistory>();
         public IQueryable<AttendanceRecoveryPreference> AttendanceRecoveryPreferences => Set<AttendanceRecoveryPreference>();
+        public IQueryable<AttendanceBulkOperationHistory> AttendanceBulkOperationHistories => Set<AttendanceBulkOperationHistory>();
         public IQueryable<AttendanceRecognition> AttendanceRecognitions => Set<AttendanceRecognition>();
         public IQueryable<AttendanceRecognitionReviewHistory> AttendanceRecognitionReviewHistories =>
             Set<AttendanceRecognitionReviewHistory>();

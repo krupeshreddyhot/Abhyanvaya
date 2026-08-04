@@ -18,6 +18,10 @@ public sealed class AttendanceRecoveryAdminController : ControllerBase
     private readonly IAttendanceOperationsDashboardService _operations;
     private readonly IAttendanceOperationalAnalyticsService _analytics;
     private readonly IAttendanceHealthMonitorService _health;
+    private readonly IDepartmentOperationsService _departments;
+    private readonly IEnterpriseOpsDashboardService _enterpriseOps;
+    private readonly IBulkOperationService _bulk;
+    private readonly ISessionTimelineService _timeline;
 
     public AttendanceRecoveryAdminController(
         IAttendanceRecoveryDashboardService dashboard,
@@ -25,7 +29,11 @@ public sealed class AttendanceRecoveryAdminController : ControllerBase
         IAttendanceExpirationService expiration,
         IAttendanceOperationsDashboardService operations,
         IAttendanceOperationalAnalyticsService analytics,
-        IAttendanceHealthMonitorService health)
+        IAttendanceHealthMonitorService health,
+        IDepartmentOperationsService departments,
+        IEnterpriseOpsDashboardService enterpriseOps,
+        IBulkOperationService bulk,
+        ISessionTimelineService timeline)
     {
         _dashboard = dashboard;
         _search = search;
@@ -33,6 +41,10 @@ public sealed class AttendanceRecoveryAdminController : ControllerBase
         _operations = operations;
         _analytics = analytics;
         _health = health;
+        _departments = departments;
+        _enterpriseOps = enterpriseOps;
+        _bulk = bulk;
+        _timeline = timeline;
     }
 
     [HttpGet("dashboard")]
@@ -92,6 +104,37 @@ public sealed class AttendanceRecoveryAdminController : ControllerBase
         var count = await _expiration.ExpireStaleSessionsAsync(cancellationToken);
         return Ok(new { expired = count, options = _expiration.GetOptions() });
     }
+
+    /// <summary>AI22.8.6.2 — Catalog Department operations summary.</summary>
+    [HttpGet("department-operations")]
+    public async Task<ActionResult<DepartmentOperationsDashboardDto>> DepartmentOperations(CancellationToken cancellationToken)
+        => Ok(await _departments.GetAsync(cancellationToken));
+
+    /// <summary>AI22.8.6.5 — enterprise ops polish widgets.</summary>
+    [HttpGet("enterprise-ops")]
+    public async Task<ActionResult<EnterpriseOpsDashboardDto>> EnterpriseOps(CancellationToken cancellationToken)
+        => Ok(await _enterpriseOps.GetAsync(cancellationToken));
+
+    [HttpGet("sessions/{sessionId:guid}/timeline")]
+    public async Task<ActionResult<SessionTimelineDto>> Timeline(
+        Guid sessionId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken cancellationToken = default)
+        => Ok(await _timeline.GetAsync(sessionId, page, pageSize, cancellationToken));
+
+    /// <summary>AI22.8.6.4 — administrator bulk assist (never auto-finalizes).</summary>
+    [HttpPost("bulk")]
+    public async Task<ActionResult<BulkOperationResultDto>> Bulk(
+        [FromBody] BulkOperationRequest request,
+        CancellationToken cancellationToken)
+        => Ok(await _bulk.ExecuteAsync(request, cancellationToken));
+
+    [HttpGet("bulk/history")]
+    public async Task<ActionResult<IReadOnlyList<BulkOperationHistoryDto>>> BulkHistory(
+        [FromQuery] int take = 50,
+        CancellationToken cancellationToken = default)
+        => Ok(await _bulk.GetHistoryAsync(take, cancellationToken));
 
     private static string Escape(string? value) => (value ?? string.Empty).Replace("\"", "'");
 }

@@ -85,6 +85,10 @@ public static class DependencyInjection
         services.AddScoped<IAttendanceOperationalAnalyticsService, AttendanceOperationalAnalyticsService>();
         services.AddScoped<IAttendanceHealthMonitorService, AttendanceHealthMonitorService>();
         services.AddScoped<IFacultyWorkspaceRecoverySummaryService, FacultyWorkspaceRecoverySummaryService>();
+        services.AddScoped<IDepartmentOperationsService, DepartmentOperationsService>();
+        services.AddScoped<ISessionTimelineService, SessionTimelineService>();
+        services.AddScoped<IBulkOperationService, BulkOperationService>();
+        services.AddScoped<IEnterpriseOpsDashboardService, EnterpriseOpsDashboardService>();
         services.AddScoped<IAttendanceRecoveryNotifier, NoOpAttendanceRecoveryNotifier>();
 
         return services;
