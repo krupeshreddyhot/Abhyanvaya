@@ -15,16 +15,18 @@ import {
 import { Link as RouterLink } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PendingSessionCard from "../../components/attendance-recovery/PendingSessionCard";
+import SessionTimeline from "../../components/attendance-recovery/SessionTimeline";
 import {
   cancelRecoverySession,
   getFacultyRecoveryCenter,
   getRecoveryPreferences,
-  getRetryHistory,
+  getSessionTimeline,
   retryAttendanceSession,
   upsertRecoveryPreferences,
   type AttendanceRecoveryPreference,
   type FacultyRecoveryCenter,
   type PendingAttendanceSession,
+  type SessionTimeline as SessionTimelineDto,
 } from "../../services/attendanceRecoveryService";
 
 const Section = ({
@@ -70,7 +72,7 @@ const FacultyRecoveryCenterPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [historyText, setHistoryText] = useState("");
+  const [timeline, setTimeline] = useState<SessionTimelineDto | null>(null);
 
   const load = async (q?: string) => {
     setLoading(true);
@@ -109,8 +111,8 @@ const FacultyRecoveryCenterPage = () => {
   };
 
   const onHistory = async (id: string) => {
-    const res = await getRetryHistory(id);
-    setHistoryText(JSON.stringify(res.data, null, 2));
+    const res = await getSessionTimeline(id);
+    setTimeline(res.data);
     setHistoryOpen(true);
   };
 
@@ -239,11 +241,9 @@ const FacultyRecoveryCenterPage = () => {
       )}
 
       <Dialog open={historyOpen} onClose={() => setHistoryOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Retry history</DialogTitle>
+        <DialogTitle>Session timeline / retry history</DialogTitle>
         <DialogContent>
-          <Box component="pre" sx={{ whiteSpace: "pre-wrap", fontSize: 12 }}>
-            {historyText}
-          </Box>
+          <SessionTimeline timeline={timeline} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setHistoryOpen(false)}>Close</Button>

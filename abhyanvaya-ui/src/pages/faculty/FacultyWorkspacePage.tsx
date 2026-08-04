@@ -315,13 +315,46 @@ const FacultyWorkspacePage = () => {
             ["Pending attendance", recoverySummary.pendingAttendance],
             ["Needs review", recoverySummary.needsReview],
             ["Recognition running", recoverySummary.recognitionRunning],
-            ["Completed", recoverySummary.completed],
+            ["Completed today", recoverySummary.completedToday ?? recoverySummary.completed],
+            [
+              "Avg review",
+              recoverySummary.averageReviewTimeMinutes != null
+                ? `${recoverySummary.averageReviewTimeMinutes.toFixed(0)}m`
+                : "—",
+            ],
           ].map(([label, value]) => (
             <Chip
               key={String(label)}
               label={`${label}: ${value}`}
               color={label === "Needs review" || label === "Pending attendance" ? "warning" : "default"}
               onClick={() => setTab(label === "Pending attendance" || label === "Needs review" ? "pending" : "home")}
+            />
+          ))}
+          {(recoverySummary.slaDistribution ?? []).map((s) => (
+            <Chip
+              key={`sla-${s.label}`}
+              size="small"
+              variant="outlined"
+              color={
+                s.label === "Red"
+                  ? "error"
+                  : s.label === "Orange"
+                    ? "warning"
+                    : s.label === "Yellow"
+                      ? "warning"
+                      : "success"
+              }
+              label={`SLA ${s.label}: ${s.value}`}
+              onClick={() => setTab("pending")}
+            />
+          ))}
+          {(recoverySummary.pendingByPriority ?? []).slice(0, 4).map((p) => (
+            <Chip
+              key={`pri-${p.label}`}
+              size="small"
+              variant="outlined"
+              label={`${p.label}: ${p.value}`}
+              onClick={() => setTab("pending")}
             />
           ))}
         </Stack>
