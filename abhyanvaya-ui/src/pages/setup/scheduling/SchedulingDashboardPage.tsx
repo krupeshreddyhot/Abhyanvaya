@@ -26,13 +26,22 @@ import {
   Cell,
   Legend,
 } from "recharts";
-import { getSchedulingDashboard, type SchedulingDashboardDto } from "../../../services/schedulingService";
+import {
+  getSchedulingConfigurationReadiness,
+  getSchedulingDashboard,
+  getSchedulingSetupValidation,
+  type SchedulingDashboardDto,
+  type SchedulingReadinessSummary,
+  type SchedulingSetupValidation,
+} from "../../../services/schedulingService";
 import { errMsg } from "./schedulingFormUtils";
 
 const CHART_COLORS = ["#1976d2", "#2e7d32", "#ed6c02", "#9c27b0", "#0288d1", "#d32f2f"];
 
 const SchedulingDashboardPage = () => {
   const [data, setData] = useState<SchedulingDashboardDto | null>(null);
+  const [readiness, setReadiness] = useState<SchedulingReadinessSummary | null>(null);
+  const [setup, setSetup] = useState<SchedulingSetupValidation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,8 +50,14 @@ const SchedulingDashboardPage = () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await getSchedulingDashboard();
+        const [res, ready, validation] = await Promise.all([
+          getSchedulingDashboard(),
+          getSchedulingConfigurationReadiness().catch(() => null),
+          getSchedulingSetupValidation().catch(() => null),
+        ]);
         setData(res.data);
+        setReadiness(ready?.data ?? null);
+        setSetup(validation?.data ?? null);
       } catch (e) {
         setError(errMsg(e));
       } finally {
@@ -146,6 +161,34 @@ const SchedulingDashboardPage = () => {
 
       {error && <Alert severity="error">{error}</Alert>}
 
+      {readiness && (
+        <Alert
+          severity={readiness.overallPercent >= 80 ? "success" : "info"}
+          action={
+            readiness.nextRecommendedStep ? (
+              <Button
+                color="inherit"
+                size="small"
+                component={RouterLink}
+                to={readiness.nextRecommendedStep.path}
+              >
+                Next: {readiness.nextRecommendedStep.title}
+              </Button>
+            ) : undefined
+          }
+        >
+          Configuration progress {readiness.overallPercent.toFixed(0)}% · Complete {readiness.completedModules} ·
+          Pending {readiness.pendingModules} · Blocked {readiness.blockedModules}
+        </Alert>
+      )}
+
+      {setup && (setup.errors.length > 0 || setup.warnings.length > 0) && (
+        <Alert severity={setup.errors.length ? "warning" : "info"}>
+          Setup validation (never blocks): {setup.errors.length} error(s), {setup.warnings.length} warning(s),{" "}
+          {setup.suggestions.length} suggestion(s).
+        </Alert>
+      )}
+
       {healthAlerts.length > 0 && (
         <Stack spacing={1}>
           {healthAlerts.map((a) => (
@@ -162,6 +205,78 @@ const SchedulingDashboardPage = () => {
         </Box>
       ) : data ? (
         <>
+          {readiness && readiness.progressChart.length > 0 && (
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 5 }}>
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Configuration progress ring
+                    </Typography>
+                    <ResponsiveContainer width="100%" height={240}>
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: "Complete", value: readiness.overallPercent },
+                            { name: "Remaining", value: Math.max(0, 100 - readiness.overallPercent) },
+                          ]}
+                          dataKey="value"
+                          nameKey="name"
+                          innerRadius={60}
+                          outerRadius={90}
+                        >
+                          <Cell fill="#2e7d32" />
+                          <Cell fill="#e0e0e0" />
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <Typography align="center" variant="h5">
+                      {readiness.overallPercent.toFixed(0)}%
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid size={{ xs: 12, md: 7 }}>
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Section readiness
+                    </Typography>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={readiness.progressChart}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                        <YAxis domain={[0, 100]} />
+                        <Tooltip />
+                        <Bar dataKey="value" fill="#1565c0" name="%" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </Grid>
+              {readiness.dependencyTree.length > 0 && (
+                <Grid size={{ xs: 12 }}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                        Dependency tree (sample edges)
+                      </Typography>
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                        {readiness.dependencyTree.slice(0, 24).map((e) => (
+                          <Typography key={`${e.from}-${e.to}`} variant="caption" sx={{ border: 1, borderColor: "divider", px: 1, py: 0.5, borderRadius: 1 }}>
+                            {e.from} → {e.to}
+                          </Typography>
+                        ))}
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              )}
+            </Grid>
+          )}
+
           <Grid container spacing={2}>
             {statCards.map((c) => (
               <Grid key={c.label} size={{ xs: 12, sm: 6, md: 3 }}>

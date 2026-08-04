@@ -524,8 +524,10 @@ if (enableSwagger)
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-if (app.Environment.IsDevelopment())
-    app.UseHttpsRedirection();
+// Do not UseHttpsRedirection in Development: the Vite UI proxies to http://localhost:5210.
+// HTTP→HTTPS 307 redirects drop the Authorization header on the follow-up request, so
+// post-login API calls (dashboard, faculty workspace, SignalR negotiate) return 401.
+// Swagger on https://localhost:7063 is unaffected.
 
 void AddPublicBrandingHeaders(StaticFileResponseContext ctx)
 {

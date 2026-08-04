@@ -192,16 +192,45 @@ const SetupHub = () => {
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
             Scheduling
           </Typography>
-          <Card variant="outlined">
-            <CardActionArea component={RouterLink} to={schedulingLink.to}>
-              <CardContent>
-                <Typography variant="h6">{schedulingLink.title}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {schedulingLink.description}
-                </Typography>
-              </CardContent>
-            </CardActionArea>
-          </Card>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
+              gap: 2,
+            }}
+          >
+            <Card variant="outlined">
+              <CardActionArea component={RouterLink} to={schedulingLink.to}>
+                <CardContent>
+                  <Typography variant="h6">{schedulingLink.title}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {schedulingLink.description}
+                  </Typography>
+                </CardContent>
+              </CardActionArea>
+            </Card>
+            <Card variant="outlined">
+              <CardActionArea component={RouterLink} to="/setup/scheduling/configuration-guide">
+                <CardContent>
+                  <Typography variant="h6">Scheduling Configuration Guide</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Purpose, dependencies, configuration order, required vs optional — markdown guide with PDF export
+                  </Typography>
+                  <Box sx={{ mt: 1 }}>
+                    <Link
+                      component={RouterLink}
+                      to="/setup/scheduling/quick-start"
+                      variant="body2"
+                      onClick={(e) => e.stopPropagation()}
+                      sx={{ fontWeight: 600 }}
+                    >
+                      Quick Start Wizard
+                    </Link>
+                  </Box>
+                </CardContent>
+              </CardActionArea>
+            </Card>
+          </Box>
         </>
       )}
 
