@@ -5,9 +5,9 @@ import react from '@vitejs/plugin-react'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   // Proxy target for local media/API. Prefer VITE_API_PROXY_TARGET when set.
-  // Default http://localhost:5000 matches the common local Kestrel bind used when the API
-  // is started without launchSettings (Visual Studio / direct exe). Profile "https" uses 5210/7063.
-  const apiProxyTarget = env.VITE_API_PROXY_TARGET || 'http://localhost:5000'
+  // Default matches launch profile "https" HTTP URL (Properties/launchSettings.json).
+  // If you start the API without a profile (often :5000), set VITE_API_PROXY_TARGET accordingly.
+  const apiProxyTarget = env.VITE_API_PROXY_TARGET || 'http://localhost:5210'
 
   return {
     plugins: [react()],

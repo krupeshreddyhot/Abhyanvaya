@@ -29,6 +29,8 @@ import DepartmentsPage from "../pages/setup/DepartmentsPage";
 import StaffPage from "../pages/setup/StaffPage";
 import SchedulingHub from "../pages/setup/scheduling/SchedulingHub";
 import SchedulingDashboardPage from "../pages/setup/scheduling/SchedulingDashboardPage";
+import SchedulingConfigurationGuidePage from "../pages/setup/scheduling/SchedulingConfigurationGuidePage";
+import SchedulingQuickStartWizardPage from "../pages/setup/scheduling/SchedulingQuickStartWizardPage";
 import AcademicYearsPage from "../pages/setup/scheduling/AcademicYearsPage";
 import WorkingDaysPage from "../pages/setup/scheduling/WorkingDaysPage";
 import HolidaysPage from "../pages/setup/scheduling/HolidaysPage";
@@ -321,6 +323,22 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute anyPermission={schedulingHubPermissions}>
                 <SchedulingHub />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="setup/scheduling/configuration-guide"
+            element={
+              <ProtectedRoute anyPermission={schedulingHubPermissions}>
+                <SchedulingConfigurationGuidePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="setup/scheduling/quick-start"
+            element={
+              <ProtectedRoute anyPermission={schedulingHubPermissions}>
+                <SchedulingQuickStartWizardPage />
               </ProtectedRoute>
             }
           />

@@ -866,6 +866,61 @@ export const deleteHolidayType = (id: number) => api.delete(`/scheduling/holiday
 export const getSchedulingValidationReport = () =>
   api.get<SchedulingValidationReportDto>("/scheduling/validation-report");
 
+// --- AI30 Phase 3.5 — configuration experience (additive) ---
+
+export type SchedulingModuleStatus = {
+  moduleKey: string;
+  path: string;
+  title: string;
+  status: string;
+  tooltip: string;
+  requires: string[];
+  usedBy: string[];
+  relatedModules: string[];
+  helpDocPath: string;
+};
+
+export type SchedulingReadinessSummary = {
+  overallPercent: number;
+  sections: {
+    key: string;
+    title: string;
+    status: string;
+    percentComplete: number;
+    messages: string[];
+    missingItems: string[];
+    blockedBy: string[];
+  }[];
+  modules: SchedulingModuleStatus[];
+  nextRecommendedStep?: {
+    moduleKey: string;
+    title: string;
+    path: string;
+    reason: string;
+  } | null;
+  completedModules: number;
+  pendingModules: number;
+  blockedModules: number;
+  progressChart: { label: string; value: number }[];
+  dependencyTree: { from: string; to: string }[];
+  doesNotModifyTimetableGeneration: boolean;
+  doesNotModifyAttendanceApis: boolean;
+};
+
+export type SchedulingSetupValidation = {
+  errors: { code: string; severity: string; message: string; suggestion?: string | null; path?: string | null }[];
+  warnings: { code: string; severity: string; message: string; suggestion?: string | null; path?: string | null }[];
+  suggestions: { code: string; severity: string; message: string; suggestion?: string | null; path?: string | null }[];
+  neverBlocks: boolean;
+  skipsConflictDetection: boolean;
+};
+
+export const getSchedulingConfigurationReadiness = () =>
+  api.get<SchedulingReadinessSummary>("/scheduling/configuration/readiness");
+
+export const getSchedulingSetupValidation = () =>
+  api.get<SchedulingSetupValidation>("/scheduling/configuration/setup-validation");
+
 // --- Timetables (Phase 2) ---
 
 export const TimetableStatus = {

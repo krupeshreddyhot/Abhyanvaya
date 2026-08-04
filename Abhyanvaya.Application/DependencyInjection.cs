@@ -2,6 +2,7 @@ using Abhyanvaya.Application.AttendanceRecovery;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Faculty;
 using Abhyanvaya.Application.Scheduling;
+using Abhyanvaya.Application.Scheduling.Configuration;
 using Abhyanvaya.Application.Scheduling.Conflicts;
 using Abhyanvaya.Application.Scheduling.Optimization;
 using FluentValidation;
@@ -44,6 +45,9 @@ public static class DependencyInjection
         services.AddScoped<ISubjectDeliveryTypeService, SubjectDeliveryTypeService>();
         services.AddScoped<IHolidayTypeCatalogService, HolidayTypeCatalogService>();
         services.AddScoped<ISchedulingValidationService, SchedulingValidationService>();
+        // AI30 Phase 3.5 — guided configuration experience (read-only readiness / validation)
+        services.AddScoped<ISchedulingConfigurationReadinessService, SchedulingConfigurationReadinessService>();
+        services.AddScoped<ISchedulingSetupValidator, SchedulingSetupValidator>();
         services.AddScoped<ITimetableService, TimetableService>();
         services.AddScoped<ITimetableExportService, TimetableExportService>();
         services.AddScoped<IScheduleVersionService, ScheduleVersionService>();
