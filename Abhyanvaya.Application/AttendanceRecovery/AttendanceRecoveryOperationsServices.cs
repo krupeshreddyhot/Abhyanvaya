@@ -460,6 +460,42 @@ public sealed class AttendanceHealthMonitorService : IAttendanceHealthMonitorSer
             {
                 alerts.Add(Alert("LongRunning", "warning", s,
                     $"Long-running recognition ({idle:F0} min)."));
+                await _notifier.NotifyAsync(
+                    s.TenantId,
+                    s.StaffId,
+                    AttendanceOpsNotificationCodes.LongRunningSession,
+                    new { sessionId = s.Id, idleMinutes = idle },
+                    cancellationToken);
+            }
+
+            // AI22.8.6.7 — SLA / recognition delay (SignalR, no polling)
+            var ageMinutes = Math.Max(0, (now - s.CreatedUtc).TotalMinutes);
+            var sla = AttendanceSlaCalculator.Calculate(ageMinutes, expectedRemainingMinutes: 15);
+            if (sla.Level == AttendanceSlaLevel.Red)
+            {
+                alerts.Add(Alert(AttendanceOpsNotificationCodes.SlaBreach, "critical", s,
+                    $"SLA breach — session age {ageMinutes:F0} minutes."));
+                await _notifier.NotifyAsync(
+                    s.TenantId,
+                    s.StaffId,
+                    AttendanceOpsNotificationCodes.SlaBreach,
+                    new { sessionId = s.Id, ageMinutes, slaStatus = sla.SlaStatus },
+                    cancellationToken);
+                await _notifier.NotifyAsync(
+                    s.TenantId,
+                    staffId: null,
+                    AttendanceOpsNotificationCodes.AdministratorReminder,
+                    new { sessionId = s.Id, ageMinutes, adminOnly = true },
+                    cancellationToken);
+            }
+            else if (w == AttendanceWorkflowStatus.RecognitionRunning && ageMinutes >= AttendanceSlaCalculator.YellowMaxMinutes)
+            {
+                await _notifier.NotifyAsync(
+                    s.TenantId,
+                    s.StaffId,
+                    AttendanceOpsNotificationCodes.RecognitionDelayed,
+                    new { sessionId = s.Id, ageMinutes },
+                    cancellationToken);
             }
         }
 
@@ -564,6 +600,20 @@ public sealed class FacultyWorkspaceRecoverySummaryService : IFacultyWorkspaceRe
         var completed = await completedQ.CountAsync(cancellationToken);
         var classes = await classesQ.CountAsync(cancellationToken);
 
+        var reviewSessions = await _db.AttendanceSessions.AsNoTracking()
+            .Where(s =>
+                s.TenantId == _currentUser.TenantId &&
+                s.AttendanceDate.Date == today &&
+                s.StartedUtc.HasValue &&
+                s.ApprovedUtc.HasValue &&
+                (_currentUser.StaffId <= 0 || isAdmin || s.StaffId == _currentUser.StaffId))
+            .Select(s => new { s.StartedUtc, s.ApprovedUtc })
+            .ToListAsync(cancellationToken);
+        var reviewMinutes = reviewSessions
+            .Select(s => (s.ApprovedUtc!.Value - s.StartedUtc!.Value).TotalMinutes)
+            .Where(m => m >= 0 && m < 720)
+            .ToList();
+
         return new FacultyWorkspaceRecoverySummaryDto
         {
             TodaysClasses = classes,
@@ -571,6 +621,17 @@ public sealed class FacultyWorkspaceRecoverySummaryService : IFacultyWorkspaceRe
             NeedsReview = queue.NeedsReviewCount,
             RecognitionRunning = queue.RecognitionRunningCount,
             Completed = completed,
+            CompletedToday = completed,
+            AverageReviewTimeMinutes = reviewMinutes.Count == 0 ? null : reviewMinutes.Average(),
+            PendingByPriority = queue.Items
+                .GroupBy(i => i.PriorityBand)
+                .Select(g => new RecoveryChartPointDto { Label = g.Key, Value = g.Count() })
+                .OrderByDescending(x => x.Value)
+                .ToList(),
+            SlaDistribution = queue.Items
+                .GroupBy(i => i.SlaLevel)
+                .Select(g => new RecoveryChartPointDto { Label = g.Key, Value = g.Count() })
+                .ToList(),
             TopPending = queue.Items.Take(5).ToList()
         };
     }

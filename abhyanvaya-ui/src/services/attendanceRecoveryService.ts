@@ -38,6 +38,11 @@ export type PendingAttendanceSession = {
   canRetry?: boolean;
   canFinalize?: boolean;
   canCancel?: boolean;
+  slaLevel?: string;
+  slaStatus?: string;
+  slaBadgeColor?: string;
+  elapsedDisplay?: string;
+  expectedCompletionUtc?: string | null;
 };
 
 export type PendingAttendanceBucket = {
@@ -176,7 +181,86 @@ export type FacultyWorkspaceRecoverySummary = {
   needsReview: number;
   recognitionRunning: number;
   completed: number;
+  completedToday?: number;
+  averageReviewTimeMinutes?: number | null;
+  pendingByPriority?: { label: string; value: number }[];
+  slaDistribution?: { label: string; value: number }[];
   topPending: PendingAttendanceSession[];
+};
+
+export type SessionTimelineEvent = {
+  operation: string;
+  occurredUtc: string;
+  relativeTime: string;
+  userId?: number | null;
+  userDisplay?: string | null;
+  reason?: string | null;
+  success: boolean;
+  source: string;
+};
+
+export type SessionTimeline = {
+  sessionId: string;
+  events: SessionTimelineEvent[];
+  total: number;
+  page: number;
+  pageSize: number;
+  reusesRetryHistory: boolean;
+};
+
+export type DepartmentOperationsSummary = {
+  departmentId: number;
+  departmentName: string;
+  departmentCode?: string | null;
+  pendingSessions: number;
+  completed: number;
+  failed: number;
+  recognitionRunning: number;
+  needsReview: number;
+  averageCompletionMinutes?: number | null;
+  averageRecognitionMinutes?: number | null;
+  facultyCount: number;
+};
+
+export type DepartmentOperationsDashboard = {
+  departments: DepartmentOperationsSummary[];
+  pendingTrend: { label: string; value: number }[];
+  completionTrend: { label: string; value: number }[];
+  reusesCatalogDepartment: boolean;
+};
+
+export type EnterpriseOpsDashboard = {
+  slaDistribution: { label: string; value: number }[];
+  departmentSummary: DepartmentOperationsSummary[];
+  topDelayedSessions: PendingAttendanceSession[];
+  facultySla: { label: string; value: number }[];
+  averageReviewTimeMinutes?: number | null;
+  timelineTrends: { label: string; value: number }[];
+  retrySuccessPercent: number;
+  failureTrend: { label: string; value: number }[];
+  dailyHeatmap: { label: string; value: number }[];
+  departmentHeatmap: { label: string; value: number }[];
+};
+
+export const AttendanceBulkOperationKind = {
+  NotifyFaculty: 1,
+  ArchiveExpired: 2,
+  ExportSessions: 3,
+  RetryFailedRecognition: 4,
+  MarkReviewed: 5,
+  CloseCompleted: 6,
+} as const;
+
+export type BulkOperationResult = {
+  operationId: string;
+  operation: string;
+  requestedCount: number;
+  succeededCount: number;
+  skippedCount: number;
+  failedCount: number;
+  items: { sessionId: string; success: boolean; skipped: boolean; message?: string | null }[];
+  neverAutoFinalizes: boolean;
+  neverRetriesSuccessful: boolean;
 };
 
 export const AttendanceRetryKind = {
@@ -248,3 +332,22 @@ export const exportAdminRecoveryCsv = () =>
 
 export const adminRecoveryAction = (sessionId: string, action: string, reason?: string) =>
   api.post(`/admin/attendance-recovery/sessions/${sessionId}/actions`, { action, reason: reason ?? null });
+
+export const getSessionTimeline = (sessionId: string, page = 1, pageSize = 50) =>
+  api.get<SessionTimeline>(`/attendance-recovery/sessions/${sessionId}/timeline`, { params: { page, pageSize } });
+
+export const getAdminDepartmentOperations = () =>
+  api.get<DepartmentOperationsDashboard>("/admin/attendance-recovery/department-operations");
+
+export const getAdminEnterpriseOps = () =>
+  api.get<EnterpriseOpsDashboard>("/admin/attendance-recovery/enterprise-ops");
+
+export const runAdminBulkOperation = (operation: number, sessionIds: string[], reason?: string) =>
+  api.post<BulkOperationResult>("/admin/attendance-recovery/bulk", {
+    operation,
+    sessionIds,
+    reason: reason ?? null,
+  });
+
+export const getAdminBulkHistory = (take = 50) =>
+  api.get("/admin/attendance-recovery/bulk/history", { params: { take } });

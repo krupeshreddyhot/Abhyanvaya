@@ -24,6 +24,7 @@ public sealed class AttendanceRecoveryController : ControllerBase
     private readonly IAttendanceRecoveryPreferenceService _preferences;
     private readonly IFacultyRecoveryCenterService _recoveryCenter;
     private readonly IFacultyWorkspaceRecoverySummaryService _workspaceSummary;
+    private readonly ISessionTimelineService _timeline;
 
     public AttendanceRecoveryController(
         IPendingAttendanceService pending,
@@ -34,7 +35,8 @@ public sealed class AttendanceRecoveryController : ControllerBase
         IAttendanceExpirationService expiration,
         IAttendanceRecoveryPreferenceService preferences,
         IFacultyRecoveryCenterService recoveryCenter,
-        IFacultyWorkspaceRecoverySummaryService workspaceSummary)
+        IFacultyWorkspaceRecoverySummaryService workspaceSummary,
+        ISessionTimelineService timeline)
     {
         _pending = pending;
         _queue = queue;
@@ -45,6 +47,7 @@ public sealed class AttendanceRecoveryController : ControllerBase
         _preferences = preferences;
         _recoveryCenter = recoveryCenter;
         _workspaceSummary = workspaceSummary;
+        _timeline = timeline;
     }
 
     [HttpGet("pending")]
@@ -108,6 +111,15 @@ public sealed class AttendanceRecoveryController : ControllerBase
         Guid sessionId,
         CancellationToken cancellationToken)
         => Ok(await _retry.GetHistoryAsync(sessionId, cancellationToken));
+
+    /// <summary>AI22.8.6.3 — enterprise session timeline (workflow + retry history).</summary>
+    [HttpGet("sessions/{sessionId:guid}/timeline")]
+    public async Task<ActionResult<SessionTimelineDto>> Timeline(
+        Guid sessionId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken cancellationToken = default)
+        => Ok(await _timeline.GetAsync(sessionId, page, pageSize, cancellationToken));
 
     [HttpGet("search")]
     public async Task<ActionResult<IReadOnlyList<PendingAttendanceSessionDto>>> Search(

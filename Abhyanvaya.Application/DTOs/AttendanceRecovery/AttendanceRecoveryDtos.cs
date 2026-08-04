@@ -55,6 +55,13 @@ public sealed class PendingAttendanceSessionDto
     public bool CanRetry { get; init; }
     public bool CanFinalize { get; init; }
     public bool CanCancel { get; init; }
+
+    // AI22.8.6.1 — SLA visibility (operational only)
+    public string SlaLevel { get; init; } = "Green";
+    public string SlaStatus { get; init; } = "On Track";
+    public string SlaBadgeColor { get; init; } = "success";
+    public string ElapsedDisplay { get; init; } = "0m";
+    public DateTime? ExpectedCompletionUtc { get; init; }
 }
 
 /// <summary>AI22.8.5 — shared friendly labels for workflow status (DTO-safe).</summary>
@@ -334,4 +341,123 @@ public sealed class FacultyWorkspaceRecoverySummaryDto
     public int RecognitionRunning { get; init; }
     public int Completed { get; init; }
     public IReadOnlyList<PendingAttendanceSessionDto> TopPending { get; init; } = [];
+
+    // AI22.8.6.6 — faculty workspace polish (reuse AI31 workspace; no new pages)
+    public int CompletedToday { get; init; }
+    public double? AverageReviewTimeMinutes { get; init; }
+    public IReadOnlyList<RecoveryChartPointDto> PendingByPriority { get; init; } = [];
+    public IReadOnlyList<RecoveryChartPointDto> SlaDistribution { get; init; } = [];
+}
+
+// --- AI22.8.6 polish DTOs ---
+
+public sealed class DepartmentOperationsSummaryDto
+{
+    public int DepartmentId { get; init; }
+    public string DepartmentName { get; init; } = "";
+    public string? DepartmentCode { get; init; }
+    public int PendingSessions { get; init; }
+    public int Completed { get; init; }
+    public int Failed { get; init; }
+    public int RecognitionRunning { get; init; }
+    public int NeedsReview { get; init; }
+    public double? AverageCompletionMinutes { get; init; }
+    public double? AverageRecognitionMinutes { get; init; }
+    public int FacultyCount { get; init; }
+}
+
+public sealed class DepartmentOperationsDashboardDto
+{
+    public IReadOnlyList<DepartmentOperationsSummaryDto> Departments { get; init; } = [];
+    public IReadOnlyList<RecoveryChartPointDto> PendingTrend { get; init; } = [];
+    public IReadOnlyList<RecoveryChartPointDto> CompletionTrend { get; init; } = [];
+    public bool ReusesCatalogDepartment => true;
+}
+
+public sealed class SessionTimelineEventDto
+{
+    public string Operation { get; init; } = "";
+    public DateTime OccurredUtc { get; init; }
+    public string RelativeTime { get; init; } = "";
+    public int? UserId { get; init; }
+    public string? UserDisplay { get; init; }
+    public string? Reason { get; init; }
+    public bool Success { get; init; } = true;
+    public string Source { get; init; } = "workflow";
+}
+
+public sealed class SessionTimelineDto
+{
+    public Guid SessionId { get; init; }
+    public IReadOnlyList<SessionTimelineEventDto> Events { get; init; } = [];
+    public int Total { get; init; }
+    public int Page { get; init; }
+    public int PageSize { get; init; }
+    public bool ReusesRetryHistory => true;
+}
+
+public enum AttendanceBulkOperationKind
+{
+    NotifyFaculty = 1,
+    ArchiveExpired = 2,
+    ExportSessions = 3,
+    RetryFailedRecognition = 4,
+    MarkReviewed = 5,
+    CloseCompleted = 6
+}
+
+public sealed class BulkOperationRequest
+{
+    public AttendanceBulkOperationKind Operation { get; init; }
+    public IReadOnlyList<Guid> SessionIds { get; init; } = [];
+    public string? Reason { get; init; }
+}
+
+public sealed class BulkOperationItemResultDto
+{
+    public Guid SessionId { get; init; }
+    public bool Success { get; init; }
+    public bool Skipped { get; init; }
+    public string? Message { get; init; }
+}
+
+public sealed class BulkOperationResultDto
+{
+    public Guid OperationId { get; init; }
+    public string Operation { get; init; } = "";
+    public int RequestedCount { get; init; }
+    public int SucceededCount { get; init; }
+    public int SkippedCount { get; init; }
+    public int FailedCount { get; init; }
+    public IReadOnlyList<BulkOperationItemResultDto> Items { get; init; } = [];
+    public bool NeverAutoFinalizes => true;
+    public bool NeverRetriesSuccessful => true;
+}
+
+public sealed class BulkOperationHistoryDto
+{
+    public Guid Id { get; init; }
+    public string Operation { get; init; } = "";
+    public int RequestedCount { get; init; }
+    public int SucceededCount { get; init; }
+    public int SkippedCount { get; init; }
+    public int FailedCount { get; init; }
+    public string? Reason { get; init; }
+    public int PerformedBy { get; init; }
+    public DateTime StartedUtc { get; init; }
+    public DateTime? CompletedUtc { get; init; }
+}
+
+public sealed class EnterpriseOpsDashboardDto
+{
+    public IReadOnlyList<RecoveryChartPointDto> SlaDistribution { get; init; } = [];
+    public IReadOnlyList<DepartmentOperationsSummaryDto> DepartmentSummary { get; init; } = [];
+    public IReadOnlyList<PendingAttendanceSessionDto> TopDelayedSessions { get; init; } = [];
+    public IReadOnlyList<RecoveryChartPointDto> FacultySla { get; init; } = [];
+    public double? AverageReviewTimeMinutes { get; init; }
+    public IReadOnlyList<RecoveryChartPointDto> TimelineTrends { get; init; } = [];
+    public double RetrySuccessPercent { get; init; }
+    public IReadOnlyList<RecoveryChartPointDto> FailureTrend { get; init; } = [];
+    public IReadOnlyList<RecoveryChartPointDto> DailyHeatmap { get; init; } = [];
+    public IReadOnlyList<RecoveryChartPointDto> DepartmentHeatmap { get; init; } = [];
 }

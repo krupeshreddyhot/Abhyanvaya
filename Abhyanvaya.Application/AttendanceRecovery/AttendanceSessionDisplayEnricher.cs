@@ -72,6 +72,7 @@ public static class AttendanceSessionDisplayEnricher
         var ageMinutes = Math.Max(0, (DateTime.UtcNow - s.CreatedUtc).TotalMinutes);
         var subjectName = names?.Subjects.GetValueOrDefault(s.SubjectId);
         var pri = priority ?? AttendanceSessionPriorityEngine.Calculate(s, workflow, expirationHours ?? 48);
+        var sla = AttendanceSlaCalculator.Calculate(ageMinutes, pri.ExpectedRemainingMinutes);
 
         return new PendingAttendanceSessionDto
         {
@@ -109,7 +110,12 @@ public static class AttendanceSessionDisplayEnricher
             CanResume = CanResume(workflow),
             CanRetry = CanRetry(workflow),
             CanFinalize = CanFinalize(workflow),
-            CanCancel = CanCancel(workflow, s.Status)
+            CanCancel = CanCancel(workflow, s.Status),
+            SlaLevel = sla.Level.ToString(),
+            SlaStatus = sla.SlaStatus,
+            SlaBadgeColor = sla.BadgeColor,
+            ElapsedDisplay = AttendanceSlaCalculator.FormatElapsed(sla.ElapsedMinutes),
+            ExpectedCompletionUtc = sla.ExpectedCompletionUtc
         };
     }
 
