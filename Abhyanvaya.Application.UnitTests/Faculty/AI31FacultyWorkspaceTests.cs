@@ -2,11 +2,39 @@ using Abhyanvaya.Application.Common.Interfaces.Scheduling;
 using Abhyanvaya.Application.DTOs.Faculty;
 using Abhyanvaya.Application.DTOs.Scheduling;
 using Abhyanvaya.Application.Faculty;
+using Abhyanvaya.Domain.Entities.Scheduling;
 
 namespace Abhyanvaya.Application.UnitTests.Faculty;
 
 public sealed class AI31FacultyWorkspaceTests
 {
+    [Fact]
+    public void DeduplicateOperationalEntries_CollapsesIdenticalSlotCopies()
+    {
+        var a = new TimetableEntry
+        {
+            Id = 10, TimetableId = 2, StaffId = 5, DayOfWeek = 2, TimeSlotId = 4,
+            SubjectId = 7, GroupId = 3, RoomId = 9, CourseId = 1, SemesterId = 1
+        };
+        var b = new TimetableEntry
+        {
+            Id = 11, TimetableId = 5, StaffId = 5, DayOfWeek = 2, TimeSlotId = 4,
+            SubjectId = 7, GroupId = 3, RoomId = 9, CourseId = 1, SemesterId = 1
+        };
+        var other = new TimetableEntry
+        {
+            Id = 12, TimetableId = 2, StaffId = 5, DayOfWeek = 2, TimeSlotId = 5,
+            SubjectId = 7, GroupId = 3, RoomId = 9, CourseId = 1, SemesterId = 1
+        };
+
+        var result = FacultyDashboardService.DeduplicateOperationalEntries([a, b, other]);
+
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, e => e.Id == 10);
+        Assert.Contains(result, e => e.Id == 12);
+        Assert.DoesNotContain(result, e => e.Id == 11);
+    }
+
     [Fact]
     public void FacultyTodayDto_DoesNotModifyAttendanceApis()
     {

@@ -1,5 +1,6 @@
 using Abhyanvaya.Application.AttendanceRecovery;
 using Abhyanvaya.Application.Common.Interfaces;
+using Abhyanvaya.Application.Dashboards;
 using Abhyanvaya.Application.Faculty;
 using Abhyanvaya.Application.Scheduling;
 using Abhyanvaya.Application.Scheduling.Configuration;
@@ -94,6 +95,20 @@ public static class DependencyInjection
         services.AddScoped<IBulkOperationService, BulkOperationService>();
         services.AddScoped<IEnterpriseOpsDashboardService, EnterpriseOpsDashboardService>();
         services.AddScoped<IAttendanceRecoveryNotifier, NoOpAttendanceRecoveryNotifier>();
+
+        // AI31.6 — Enterprise Dashboards & Operational Intelligence (composition only)
+        services.AddScoped<IDashboardPreferenceService, DashboardPreferenceService>();
+        services.AddScoped<IFacultyCommandCenterService, FacultyCommandCenterService>();
+        services.AddScoped<IAdminOperationsDashboardService, AdminOperationsDashboardService>();
+        services.AddScoped<IEnterpriseOperationalAnalyticsComposer, EnterpriseOperationalAnalyticsComposer>();
+        services.AddScoped<IEnterpriseHealthCenterService, EnterpriseHealthCenterService>();
+        services.AddScoped<IEnterpriseNotificationCenterService, EnterpriseNotificationCenterService>();
+
+        // AI31.7 — Enterprise Operations Command Center (composition only)
+        services.AddScoped<IOperationsCommandCenterService, OperationsCommandCenterService>();
+
+        // AI31.8 — Enterprise Operations Dashboard Excellence (UX / composition only)
+        services.AddScoped<IEnterpriseDashboardExcellenceService, EnterpriseDashboardExcellenceService>();
 
         return services;
     }
