@@ -226,11 +226,21 @@ public sealed class FacultyDashboardService : IFacultyDashboardService
             .FirstOrDefaultAsync(cancellationToken);
         if (!yearId.HasValue) return [];
 
-        var timetableIds = await _db.SchedulingTimetables.AsNoTracking()
+        // Operational faculty schedule uses Published timetables only.
+        // Locked is a pre-publish designer state and must not double-count the same class.
+        // Draft / Archived schedule versions and Draft timetables are never included.
+        var candidateTimetables = await _db.SchedulingTimetables.AsNoTracking()
             .Where(t => t.TenantId == _currentUser.TenantId && t.AcademicYearId == yearId.Value)
             .Where(t => t.Status == TimetableStatus.Published || t.Status == TimetableStatus.Locked)
-            .Select(t => t.Id)
+            .Select(t => new { t.Id, t.Status })
             .ToListAsync(cancellationToken);
+        var timetableIds = candidateTimetables
+            .Where(t => t.Status == TimetableStatus.Published)
+            .Select(t => t.Id)
+            .ToList();
+        // Fallback only when nothing is published yet (pre-go-live Locked designer).
+        if (timetableIds.Count == 0)
+            timetableIds = candidateTimetables.Select(t => t.Id).ToList();
         if (timetableIds.Count == 0) return [];
 
         var entries = await _db.SchedulingTimetableEntries.AsNoTracking()
@@ -239,6 +249,8 @@ public sealed class FacultyDashboardService : IFacultyDashboardService
                         && e.StaffId == staffId
                         && e.DayOfWeek == dayOfWeek)
             .ToListAsync(cancellationToken);
+        // Same slot/subject/group/room can appear on multiple published/locked copies after clone/move.
+        entries = DeduplicateOperationalEntries(entries);
         if (entries.Count == 0) return [];
 
         var slotIds = entries.Select(e => e.TimeSlotId).Distinct().ToList();
@@ -480,6 +492,17 @@ public sealed class FacultyDashboardService : IFacultyDashboardService
             AvgAccuracy = acc.Count == 0 ? null : Math.Round(acc.Average(), 2)
         };
     }
+
+    /// <summary>
+    /// Keeps one operational class per day slot identity so clone/move leftovers do not inflate Today's Classes.
+    /// Prefers the lowest TimetableId then Entry Id for stable selection.
+    /// </summary>
+    internal static List<Domain.Entities.Scheduling.TimetableEntry> DeduplicateOperationalEntries(
+        IReadOnlyList<Domain.Entities.Scheduling.TimetableEntry> entries) =>
+        entries
+            .GroupBy(e => (e.DayOfWeek, e.TimeSlotId, e.SubjectId, e.GroupId, e.RoomId, e.StaffId))
+            .Select(g => g.OrderBy(e => e.TimetableId).ThenBy(e => e.Id).First())
+            .ToList();
 
     private static FacultyClassDto MapFromResolution(DTOs.Scheduling.AttendanceSessionResolutionDto r, string status) =>
         new()

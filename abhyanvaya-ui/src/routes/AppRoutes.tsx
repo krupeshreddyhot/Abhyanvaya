@@ -1,13 +1,19 @@
 ﻿import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { PermissionKeys } from "../auth/permissionKeys";
 import Login from "../pages/Login";
-import Dashboard from "../pages/Dashboard";
 import ProtectedRoute from "./ProtectedRoute";
 import MainLayout from "../layouts/MainLayout";
 import OrganizationPage from "../pages/OrganizationPage";
 import AttendanceMarking from "../pages/AttendanceMarking";
 import FacultyWorkspacePage from "../pages/faculty/FacultyWorkspacePage";
 import FacultyRecoveryCenterPage from "../pages/faculty/FacultyRecoveryCenterPage";
+import RoleAwareDashboardPage from "../pages/dashboards/RoleAwareDashboardPage";
+import FacultyCommandCenterPage from "../pages/dashboards/FacultyCommandCenterPage";
+import AdminOperationsDashboardPage from "../pages/dashboards/AdminOperationsDashboardPage";
+import EnterpriseNotificationCenterPage from "../pages/dashboards/EnterpriseNotificationCenterPage";
+import EnterpriseHealthCenterPage from "../pages/dashboards/EnterpriseHealthCenterPage";
+import EnterpriseOperationalAnalyticsPage from "../pages/dashboards/EnterpriseOperationalAnalyticsPage";
+import DashboardPreferencesPage from "../pages/dashboards/DashboardPreferencesPage";
 import AttendanceRecoveryDashboardPage from "../pages/setup/AttendanceRecoveryDashboardPage";
 import AttendanceRecognitionReviewPage from "../pages/AttendanceRecognitionReviewPage";
 import ContextAwareLayout from "../layouts/ContextAwareLayout";
@@ -154,7 +160,55 @@ const AppRoutes = () => {
             path="dashboard"
             element={
               <ProtectedRoute anyPermission={[PermissionKeys.DashboardView]}>
-                <Dashboard />
+                <RoleAwareDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="dashboard/faculty"
+            element={
+              <ProtectedRoute anyPermission={[PermissionKeys.AttendanceManage]}>
+                <FacultyCommandCenterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="dashboard/admin"
+            element={
+              <ProtectedRoute allowedRoles={["Admin", "SuperAdmin"]}>
+                <AdminOperationsDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="dashboard/notifications"
+            element={
+              <ProtectedRoute anyPermission={[PermissionKeys.DashboardView]}>
+                <EnterpriseNotificationCenterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="dashboard/health"
+            element={
+              <ProtectedRoute anyPermission={[PermissionKeys.DashboardView]}>
+                <EnterpriseHealthCenterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="dashboard/analytics"
+            element={
+              <ProtectedRoute allowedRoles={["Admin", "SuperAdmin"]}>
+                <EnterpriseOperationalAnalyticsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="dashboard/preferences"
+            element={
+              <ProtectedRoute anyPermission={[PermissionKeys.DashboardView]}>
+                <DashboardPreferencesPage />
               </ProtectedRoute>
             }
           />

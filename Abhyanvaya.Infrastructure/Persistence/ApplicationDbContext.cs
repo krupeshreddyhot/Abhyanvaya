@@ -152,6 +152,10 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<OptimizationScenarioHistory> SchedulingOptimizationScenarioHistories => Set<OptimizationScenarioHistory>();
         public IQueryable<OptimizationEngineRun> SchedulingOptimizationEngineRuns => Set<OptimizationEngineRun>();
         public IQueryable<WorkspacePreference> SchedulingWorkspacePreferences => Set<WorkspacePreference>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Dashboards.DashboardPreference> DashboardPreferences =>
+            Set<Abhyanvaya.Domain.Entities.Dashboards.DashboardPreference>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Dashboards.EnterpriseNotificationState> EnterpriseNotificationStates =>
+            Set<Abhyanvaya.Domain.Entities.Dashboards.EnterpriseNotificationState>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -177,6 +181,19 @@ namespace Abhyanvaya.Infrastructure.Persistence
             builder.Entity<User>();
             builder.Entity<College>();
             builder.Entity<University>();
+
+            // AI31.6 — enterprise dashboard personalization + notification user state
+            builder.Entity<Abhyanvaya.Domain.Entities.Dashboards.DashboardPreference>(e =>
+            {
+                e.ToTable("DashboardPreferences");
+                e.HasIndex(x => new { x.TenantId, x.UserId, x.RoleScope });
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Dashboards.EnterpriseNotificationState>(e =>
+            {
+                e.ToTable("EnterpriseNotificationStates");
+                e.HasIndex(x => new { x.TenantId, x.UserId, x.NotificationId });
+                e.Property(x => x.NotificationId).HasMaxLength(256);
+            });
 
             builder.Entity<StaffTypeLookup>();
             builder.Entity<PersonTitleLookup>();
