@@ -1,6 +1,7 @@
 ﻿using Abhyanvaya.Application.Common.Interfaces;
 
 using Abhyanvaya.Domain.Entities;
+using Abhyanvaya.Domain.Entities.Dashboards;
 using Abhyanvaya.Domain.Entities.Scheduling;
 
 
@@ -196,6 +197,10 @@ namespace Abhyanvaya.Application.Common.Interfaces
         IQueryable<OptimizationEngineRun> SchedulingOptimizationEngineRuns { get; }
 
         IQueryable<WorkspacePreference> SchedulingWorkspacePreferences { get; }
+
+        IQueryable<DashboardPreference> DashboardPreferences { get; }
+
+        IQueryable<EnterpriseNotificationState> EnterpriseNotificationStates { get; }
 
         Task AddAsync<T>(T entity) where T : class;
 
