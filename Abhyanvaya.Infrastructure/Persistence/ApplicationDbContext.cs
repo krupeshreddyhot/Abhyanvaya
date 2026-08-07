@@ -157,6 +157,32 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<Abhyanvaya.Domain.Entities.Dashboards.EnterpriseNotificationState> EnterpriseNotificationStates =>
             Set<Abhyanvaya.Domain.Entities.Dashboards.EnterpriseNotificationState>();
 
+        // AI29 — Academic Structure & Section Management
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.Section> Sections =>
+            Set<Abhyanvaya.Domain.Entities.Academic.Section>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.StudentSection> StudentSections =>
+            Set<Abhyanvaya.Domain.Entities.Academic.StudentSection>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.FacultySectionAssignment> FacultySectionAssignments =>
+            Set<Abhyanvaya.Domain.Entities.Academic.FacultySectionAssignment>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.TimetableSection> TimetableSections =>
+            Set<Abhyanvaya.Domain.Entities.Academic.TimetableSection>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.AttendanceSessionSection> AttendanceSessionSections =>
+            Set<Abhyanvaya.Domain.Entities.Academic.AttendanceSessionSection>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.SectionAllocationPreference> SectionAllocationPreferences =>
+            Set<Abhyanvaya.Domain.Entities.Academic.SectionAllocationPreference>();
+
+        // AI29.1A
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.Program> Programs =>
+            Set<Abhyanvaya.Domain.Entities.Academic.Program>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.TenantAcademicConfiguration> TenantAcademicConfigurations =>
+            Set<Abhyanvaya.Domain.Entities.Academic.TenantAcademicConfiguration>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.ProgramPolicy> ProgramPolicies =>
+            Set<Abhyanvaya.Domain.Entities.Academic.ProgramPolicy>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.AcademicHierarchySnapshot> AcademicHierarchySnapshots =>
+            Set<Abhyanvaya.Domain.Entities.Academic.AcademicHierarchySnapshot>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.AcademicArchitectureTrend> AcademicArchitectureTrends =>
+            Set<Abhyanvaya.Domain.Entities.Academic.AcademicArchitectureTrend>();
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -193,6 +219,95 @@ namespace Abhyanvaya.Infrastructure.Persistence
                 e.ToTable("EnterpriseNotificationStates");
                 e.HasIndex(x => new { x.TenantId, x.UserId, x.NotificationId });
                 e.Property(x => x.NotificationId).HasMaxLength(256);
+            });
+
+            // AI29 — Section domain
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.Section>(e =>
+            {
+                e.ToTable("Sections");
+                e.Property(x => x.SectionCode).HasMaxLength(32);
+                e.Property(x => x.SectionName).HasMaxLength(128);
+                e.Property(x => x.Status).HasMaxLength(32);
+                e.HasIndex(x => new { x.TenantId, x.AcademicYearId, x.CourseId, x.GroupId, x.SemesterId, x.SectionCode });
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.StudentSection>(e =>
+            {
+                e.ToTable("StudentSections");
+                e.Property(x => x.TransferReason).HasMaxLength(512);
+                e.HasIndex(x => new { x.TenantId, x.StudentId, x.IsCurrent });
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.FacultySectionAssignment>(e =>
+            {
+                e.ToTable("FacultySectionAssignments");
+                e.Property(x => x.Role).HasMaxLength(32);
+                e.HasIndex(x => new { x.TenantId, x.FacultyId, x.IsCurrent });
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.TimetableSection>(e =>
+            {
+                e.ToTable("TimetableSections");
+                e.HasIndex(x => new { x.TenantId, x.TimetableId, x.TimetableEntryId, x.SectionId });
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.AttendanceSessionSection>(e =>
+            {
+                e.ToTable("AttendanceSessionSections");
+                e.HasIndex(x => new { x.TenantId, x.AttendanceSessionId });
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.SectionAllocationPreference>(e =>
+            {
+                e.ToTable("SectionAllocationPreferences");
+                e.Property(x => x.Strategy).HasMaxLength(64);
+            });
+
+            // AI29.1A — Programs
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.Program>(e =>
+            {
+                e.ToTable("Programs");
+                e.Property(x => x.ProgramCode).HasMaxLength(32);
+                e.Property(x => x.ProgramName).HasMaxLength(128);
+                e.Property(x => x.Description).HasMaxLength(512);
+                e.Property(x => x.Status).HasMaxLength(32);
+                e.Property(x => x.Icon).HasMaxLength(64);
+                e.Property(x => x.ThemeColor).HasMaxLength(32);
+                e.HasIndex(x => new { x.TenantId, x.ProgramCode });
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.TenantAcademicConfiguration>(e =>
+            {
+                e.ToTable("TenantAcademicConfigurations");
+                e.HasIndex(x => x.TenantId);
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.ProgramPolicy>(e =>
+            {
+                e.ToTable("ProgramPolicies");
+                e.Property(x => x.AcademicRules).HasMaxLength(4000);
+                e.HasIndex(x => new { x.TenantId, x.ProgramId });
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.AcademicHierarchySnapshot>(e =>
+            {
+                e.ToTable("AcademicHierarchySnapshots");
+                e.HasIndex(x => new { x.TenantId, x.SnapshotDate });
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.AcademicArchitectureTrend>(e =>
+            {
+                e.ToTable("AcademicArchitectureTrends");
+                e.Property(x => x.Summary).HasMaxLength(2000);
+                e.HasIndex(x => new { x.TenantId, x.RecordedUtc });
+            });
+            builder.Entity<Course>(e =>
+            {
+                e.Property(x => x.ProgramId);
+                e.Property(x => x.DisplayOrder).HasDefaultValue(0);
+            });
+            builder.Entity<Group>(e =>
+            {
+                e.Property(x => x.DisplayOrder).HasDefaultValue(0);
+            });
+            builder.Entity<Semester>(e =>
+            {
+                e.Property(x => x.DisplayOrder).HasDefaultValue(0);
+            });
+            builder.Entity<Subject>(e =>
+            {
+                e.Property(x => x.DisplayOrder).HasDefaultValue(0);
             });
 
             builder.Entity<StaffTypeLookup>();

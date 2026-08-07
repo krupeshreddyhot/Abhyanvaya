@@ -26,6 +26,17 @@ const links: HubLink[] = [
     anyPermission: [PermissionKeys.SetupStaffManage],
   },
   {
+    to: "/setup/programs",
+    title: "Programs",
+    description: "Optional academic grouping (Commerce, Arts, Science) — College → Program → Course",
+    anyPermission: [
+      PermissionKeys.ProgramView,
+      PermissionKeys.ProgramCreate,
+      PermissionKeys.ProgramEdit,
+      PermissionKeys.ProgramManage,
+    ],
+  },
+  {
     to: "/setup/courses",
     title: "Courses",
     description: "Programmes or streams",
@@ -42,6 +53,18 @@ const links: HubLink[] = [
     title: "Semesters",
     description: "Terms linked to course and group",
     anyPermission: [PermissionKeys.SetupSemestersManage],
+  },
+  {
+    to: "/setup/sections",
+    title: "Sections",
+    description: "Operational sections (A/B/C), student & faculty allocation, combined classes",
+    anyPermission: [
+      PermissionKeys.SectionView,
+      PermissionKeys.SectionCreate,
+      PermissionKeys.SectionEdit,
+      PermissionKeys.SectionAssignStudents,
+      PermissionKeys.SectionAssignFaculty,
+    ],
   },
   {
     to: "/setup/subjects",

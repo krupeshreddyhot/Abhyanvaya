@@ -276,7 +276,11 @@ namespace Abhyanvaya.API.Controllers
             DateTime date,
             string? search = null,
             int pageNumber = 1,
-            int pageSize = 50)
+            int pageSize = 50,
+            // AI29 optional — when omitted, all students load (legacy behavior).
+            int? sectionId = null,
+            // AI29 optional — combined section ids; when empty, ignored.
+            [FromQuery] int[]? sectionIds = null)
         {
             if (courseId <= 0 || groupId <= 0 || semesterId <= 0 || subjectId <= 0)
                 return BadRequest("Course, group, semester and subject are required.");
@@ -319,6 +323,25 @@ namespace Abhyanvaya.API.Controllers
                 query = query.Where(x =>
                     x.CourseId == _currentUser.CourseId &&
                     x.GroupId == _currentUser.GroupId);
+            }
+
+            // AI29 optional section filter — omitted = all students (exact legacy behavior).
+            var filterSectionIds = (sectionIds ?? Array.Empty<int>())
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList();
+            if (sectionId is > 0 && !filterSectionIds.Contains(sectionId.Value))
+                filterSectionIds.Add(sectionId.Value);
+
+            if (filterSectionIds.Count > 0)
+            {
+                var allocatedStudentIds = _context.StudentSections.AsNoTracking()
+                    .Where(ss =>
+                        ss.TenantId == _currentUser.TenantId
+                        && ss.IsCurrent
+                        && filterSectionIds.Contains(ss.SectionId))
+                    .Select(ss => ss.StudentId);
+                query = query.Where(x => allocatedStudentIds.Contains(x.Id));
             }
 
             query = ApplyLanguageSubjectFilter(query, subject);

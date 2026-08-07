@@ -107,11 +107,28 @@ public sealed class AttendanceSessionResolver : IAttendanceSessionResolver
             where s.Id == entry.SubjectId
             select ts.Name).FirstOrDefaultAsync(cancellationToken);
 
+        // AI29 additive — resolve mapped sections for combined/single section classes.
+        // Does not alter Manual/Legacy selection; only enriches Timetable mode payload.
+        var sectionRows = await (
+            from ts in _context.TimetableSections.AsNoTracking()
+            join sec in _context.Sections.AsNoTracking() on ts.SectionId equals sec.Id
+            where ts.TenantId == _currentUser.TenantId
+                  && ts.TimetableId == entry.TimetableId
+                  && (ts.TimetableEntryId == null || ts.TimetableEntryId == entry.Id)
+            orderby sec.DisplayOrder, sec.SectionCode
+            select new { sec.Id, sec.SectionCode }
+        ).ToListAsync(cancellationToken);
+
+        var sectionIds = sectionRows.Select(x => x.Id).Distinct().ToList();
+        var sectionCodes = sectionRows.Select(x => x.SectionCode).Distinct().ToList();
+
         return new AttendanceSessionResolutionDto
         {
             Mode = "Timetable",
             HasTimetable = true,
-            Message = "Timetable mode: today's class context resolved from published timetable.",
+            Message = sectionIds.Count > 1
+                ? "Timetable mode: combined section class resolved from published timetable."
+                : "Timetable mode: today's class context resolved from published timetable.",
             TimetableId = entry.TimetableId,
             TimetableEntryId = entry.Id,
             CourseId = entry.CourseId,
@@ -123,7 +140,9 @@ public sealed class AttendanceSessionResolver : IAttendanceSessionResolver
             RoomId = entry.RoomId,
             SubjectName = subjectName,
             RoomName = roomName,
-            AttendanceDate = attendanceDate
+            AttendanceDate = attendanceDate,
+            SectionIds = sectionIds,
+            SectionCodes = sectionCodes,
         };
     }
 

@@ -17,5 +17,8 @@ namespace Abhyanvaya.Domain.Entities
 
         public int? GroupId { get; set; }    
         public Group? Group { get; set; }
+
+        /// <summary>AI29.1A.5 — display sort key (DisplayOrder then Name).</summary>
+        public int DisplayOrder { get; set; }
     }
 }

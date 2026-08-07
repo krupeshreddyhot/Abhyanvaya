@@ -27,6 +27,21 @@ namespace Abhyanvaya.API.Common
         public const string CanManageGroups = "CanManageGroups";
         public const string CanManageSemesters = "CanManageSemesters";
 
+        // AI29 — Section management
+        public const string CanViewSections = "CanViewSections";
+        public const string CanCreateSections = "CanCreateSections";
+        public const string CanEditSections = "CanEditSections";
+        public const string CanDeleteSections = "CanDeleteSections";
+        public const string CanAssignSectionStudents = "CanAssignSectionStudents";
+        public const string CanAssignSectionFaculty = "CanAssignSectionFaculty";
+
+        // AI29.1A — Program management
+        public const string CanViewPrograms = "CanViewPrograms";
+        public const string CanCreatePrograms = "CanCreatePrograms";
+        public const string CanEditPrograms = "CanEditPrograms";
+        public const string CanDeletePrograms = "CanDeletePrograms";
+        public const string CanManagePrograms = "CanManagePrograms";
+
         /// <summary>Tenant college profile, branding, parent linkage (JWT <c>Organization.Manage</c>).</summary>
         public const string CanManageOrganization = "CanManageOrganization";
 

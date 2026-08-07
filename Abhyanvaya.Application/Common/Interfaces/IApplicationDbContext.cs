@@ -1,6 +1,7 @@
 ﻿using Abhyanvaya.Application.Common.Interfaces;
 
 using Abhyanvaya.Domain.Entities;
+using Abhyanvaya.Domain.Entities.Academic;
 using Abhyanvaya.Domain.Entities.Dashboards;
 using Abhyanvaya.Domain.Entities.Scheduling;
 
@@ -201,6 +202,27 @@ namespace Abhyanvaya.Application.Common.Interfaces
         IQueryable<DashboardPreference> DashboardPreferences { get; }
 
         IQueryable<EnterpriseNotificationState> EnterpriseNotificationStates { get; }
+
+        // AI29 — Academic Structure & Section Management
+        IQueryable<Section> Sections { get; }
+        IQueryable<StudentSection> StudentSections { get; }
+        IQueryable<FacultySectionAssignment> FacultySectionAssignments { get; }
+        IQueryable<TimetableSection> TimetableSections { get; }
+        IQueryable<AttendanceSessionSection> AttendanceSessionSections { get; }
+        IQueryable<SectionAllocationPreference> SectionAllocationPreferences { get; }
+
+        // AI29.1A — Program & academic hierarchy configuration
+        IQueryable<Program> Programs { get; }
+        IQueryable<TenantAcademicConfiguration> TenantAcademicConfigurations { get; }
+
+        // AI29.1A.5 — Program policies (configuration only)
+        IQueryable<ProgramPolicy> ProgramPolicies { get; }
+
+        // AI29.1A.6 — Hierarchy snapshots (feature-flagged)
+        IQueryable<AcademicHierarchySnapshot> AcademicHierarchySnapshots { get; }
+
+        // AI29.1A.7 — Architecture trend history (observability)
+        IQueryable<AcademicArchitectureTrend> AcademicArchitectureTrends { get; }
 
         Task AddAsync<T>(T entity) where T : class;
 

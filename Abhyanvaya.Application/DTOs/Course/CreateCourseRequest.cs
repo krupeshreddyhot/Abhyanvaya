@@ -10,5 +10,8 @@ namespace Abhyanvaya.Application.DTOs.Course
     {
         public string Code { get; set; } = null!;
         public string Name { get; set; } = null!;
+
+        /// <summary>AI29.1A optional — ignored when Programs disabled.</summary>
+        public int? ProgramId { get; set; }
     }
 }
