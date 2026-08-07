@@ -2,6 +2,7 @@
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.DTOs.Student;
 using Abhyanvaya.Domain.Entities;
+using Abhyanvaya.Domain.Entities.Academic;
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 
@@ -74,6 +75,7 @@ namespace Abhyanvaya.Application
 
             var rows = worksheet.RowsUsed().Skip(1);
             var toAdd = new List<Student>();
+            var pendingSectionByNumber = new Dictionary<string, string?>(StringComparer.Ordinal);
 
             foreach (var row in rows)
             {
@@ -196,6 +198,9 @@ namespace Abhyanvaya.Application
                     }
                 }
 
+                // AI29 — optional Section / SectionCode column (missing = unassigned; admin may assign later).
+                var sectionCode = NullIfEmpty(GetCellText(row, Col(headers, "Section", "SectionCode", "section", "section_code", "Section_Code")));
+
                 var student = new Student
                 {
                     StudentNumber = studentNumber,
@@ -222,6 +227,7 @@ namespace Abhyanvaya.Application
                 };
 
                 toAdd.Add(student);
+                pendingSectionByNumber[studentNumber] = sectionCode;
                 existingSet.Add(studentNumber);
             }
 
@@ -230,9 +236,69 @@ namespace Abhyanvaya.Application
                 await _context.AddRangeAsync(toAdd);
                 await _context.SaveChangesAsync(cancellationToken);
                 result.Imported = toAdd.Count;
+
+                await TryAssignImportedSectionsAsync(tenantId, toAdd, pendingSectionByNumber, result, cancellationToken);
             }
 
             return result;
+        }
+
+        /// <summary>AI29 — assign imported students to sections when Section column is present.</summary>
+        private async Task TryAssignImportedSectionsAsync(
+            int tenantId,
+            List<Student> imported,
+            Dictionary<string, string?> pendingSectionByNumber,
+            UploadStudentsResultDto result,
+            CancellationToken cancellationToken)
+        {
+            var yearId = await _context.SchedulingAcademicYears.AsNoTracking()
+                .Where(y => y.TenantId == tenantId && y.IsCurrent)
+                .Select(y => (int?)y.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (!yearId.HasValue) return;
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var allocations = new List<StudentSection>();
+
+            foreach (var student in imported)
+            {
+                if (!pendingSectionByNumber.TryGetValue(student.StudentNumber, out var code) || string.IsNullOrWhiteSpace(code))
+                    continue;
+
+                var sectionCode = code.Trim().ToUpperInvariant();
+                var sectionId = await _context.Sections.AsNoTracking()
+                    .Where(s => s.TenantId == tenantId
+                                && s.AcademicYearId == yearId.Value
+                                && s.CourseId == student.CourseId
+                                && s.GroupId == student.GroupId
+                                && s.SemesterId == student.SemesterId
+                                && s.SectionCode == sectionCode)
+                    .Select(s => (int?)s.Id)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (!sectionId.HasValue)
+                {
+                    result.Errors.Add($"Student {student.StudentNumber}: Section '{sectionCode}' not found; left unassigned.");
+                    continue;
+                }
+
+                allocations.Add(new StudentSection
+                {
+                    StudentId = student.Id,
+                    SectionId = sectionId.Value,
+                    EffectiveFrom = today,
+                    IsCurrent = true,
+                    TenantId = tenantId,
+                    CreatedDate = DateTime.UtcNow,
+                });
+            }
+
+            if (allocations.Count > 0)
+            {
+                await _context.AddRangeAsync(allocations);
+                await _context.SaveChangesAsync(cancellationToken);
+            }
         }
 
         public string BuildPhotoStoragePath(int tenantId, int studentId) =>

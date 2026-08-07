@@ -1,3 +1,5 @@
+using Abhyanvaya.Application.Academic;
+using Abhyanvaya.Application.Academic.Observability;
 using Abhyanvaya.Application.AttendanceRecovery;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Dashboards;
@@ -18,6 +20,32 @@ public static class DependencyInjection
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
 
         services.AddScoped<IStudentService, StudentService>();
+
+        // AI29 — Academic Structure & Section Management
+        services.AddScoped<ISectionManagementService, SectionManagementService>();
+
+        // AI29.1A / AI29.1A.5 / AI29.1A.6 / AI29.1A.7 — Academic Hierarchy + Observability
+        services.AddOptions<AcademicHierarchyOptions>()
+            .BindConfiguration(AcademicHierarchyOptions.SectionName);
+        services.AddOptions<AcademicPlatformOptions>()
+            .BindConfiguration(AcademicPlatformOptions.SectionName);
+        services.AddSingleton<AcademicMetricsStore>();
+        services.AddScoped<IAcademicTelemetryService, AcademicTelemetryService>();
+        services.AddScoped<IAcademicCacheMetricsService, AcademicCacheMetricsService>();
+        services.AddScoped<IAcademicPerformanceMonitor, AcademicPerformanceMonitor>();
+        services.AddScoped<IAcademicDomainEventMetrics, AcademicDomainEventMetrics>();
+        services.AddScoped<IAcademicHealthService, AcademicHealthService>();
+        services.AddScoped<IAcademicArchitectureTrendService, AcademicArchitectureTrendService>();
+        services.AddScoped<IAcademicPlatformMetricsService, AcademicPlatformMetricsService>();
+        services.AddScoped<IAcademicHierarchyCache, AcademicHierarchyCache>();
+        services.AddScoped<IAcademicStatisticsCache, AcademicStatisticsCache>();
+        services.AddScoped<IAcademicTreeService, AcademicTreeService>();
+        services.AddScoped<IAcademicBreadcrumbService, AcademicBreadcrumbService>();
+        services.AddScoped<IAcademicSearchService, AcademicSearchService>();
+        services.AddScoped<IAcademicHierarchySnapshotService, AcademicHierarchySnapshotService>();
+        services.AddScoped<IAcademicCatalogService, AcademicCatalogService>();
+        services.AddScoped<IAcademicHierarchyService, AcademicHierarchyService>();
+        services.AddScoped<IAcademicStructureService, AcademicStructureService>();
         services.AddScoped<IAttendanceSessionQueryService, AttendanceSessionQueryService>();
         services.AddScoped<IAttendanceRecognitionReviewService, AttendanceRecognitionReviewService>();
         services.AddScoped<IAttendanceSessionSummaryService, AttendanceSessionSummaryService>();

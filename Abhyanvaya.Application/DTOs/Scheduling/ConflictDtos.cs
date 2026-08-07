@@ -156,4 +156,10 @@ public sealed class AttendanceSessionResolutionDto
     public string? SubjectName { get; init; }
     public string? RoomName { get; init; }
     public DateOnly? AttendanceDate { get; init; }
+
+    /// <summary>AI29 additive — section ids resolved from TimetableSections (empty in Legacy).</summary>
+    public IReadOnlyList<int> SectionIds { get; init; } = [];
+
+    /// <summary>AI29 additive — section codes for display (combined classes).</summary>
+    public IReadOnlyList<string> SectionCodes { get; init; } = [];
 }

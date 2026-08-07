@@ -21,8 +21,10 @@ import StudentsPage from "../pages/StudentsPage";
 import ReportsPage from "../pages/ReportsPage";
 import SetupHub from "../pages/setup/SetupHub";
 import CoursesPage from "../pages/setup/CoursesPage";
+import ProgramsPage from "../pages/setup/ProgramsPage";
 import GroupsPage from "../pages/setup/GroupsPage";
 import SemestersPage from "../pages/setup/SemestersPage";
+import SectionsPage from "../pages/setup/SectionsPage";
 import SubjectsPage from "../pages/setup/SubjectsPage";
 import LanguagesPage from "../pages/setup/LanguagesPage";
 import GendersPage from "../pages/setup/GendersPage";
@@ -285,6 +287,21 @@ const AppRoutes = () => {
             }
           />
           <Route
+            path="setup/programs"
+            element={
+              <ProtectedRoute
+                anyPermission={[
+                  PermissionKeys.ProgramView,
+                  PermissionKeys.ProgramCreate,
+                  PermissionKeys.ProgramEdit,
+                  PermissionKeys.ProgramManage,
+                ]}
+              >
+                <ProgramsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="setup/groups"
             element={
               <ProtectedRoute anyPermission={[PermissionKeys.SetupGroupsManage]}>
@@ -297,6 +314,22 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute anyPermission={[PermissionKeys.SetupSemestersManage]}>
                 <SemestersPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="setup/sections"
+            element={
+              <ProtectedRoute
+                anyPermission={[
+                  PermissionKeys.SectionView,
+                  PermissionKeys.SectionCreate,
+                  PermissionKeys.SectionEdit,
+                  PermissionKeys.SectionAssignStudents,
+                  PermissionKeys.SectionAssignFaculty,
+                ]}
+              >
+                <SectionsPage />
               </ProtectedRoute>
             }
           />

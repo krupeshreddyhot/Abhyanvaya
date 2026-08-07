@@ -63,6 +63,21 @@ namespace Abhyanvaya.Domain.Authorization
         public const string SchedulingConflictView = "Scheduling.Conflict.View";
         public const string SchedulingConflictManage = "Scheduling.Conflict.Manage";
 
+        // AI29 — Section management
+        public const string SectionView = "Section.View";
+        public const string SectionCreate = "Section.Create";
+        public const string SectionEdit = "Section.Edit";
+        public const string SectionDelete = "Section.Delete";
+        public const string SectionAssignStudents = "Section.AssignStudents";
+        public const string SectionAssignFaculty = "Section.AssignFaculty";
+
+        // AI29.1A — Program management
+        public const string ProgramView = "Program.View";
+        public const string ProgramCreate = "Program.Create";
+        public const string ProgramEdit = "Program.Edit";
+        public const string ProgramDelete = "Program.Delete";
+        public const string ProgramManage = "Program.Manage";
+
         public static IReadOnlyList<string> All { get; } =
         [
             StudentsView,
@@ -118,6 +133,17 @@ namespace Abhyanvaya.Domain.Authorization
             SchedulingArchiveManage,
             SchedulingConflictView,
             SchedulingConflictManage,
+            SectionView,
+            SectionCreate,
+            SectionEdit,
+            SectionDelete,
+            SectionAssignStudents,
+            SectionAssignFaculty,
+            ProgramView,
+            ProgramCreate,
+            ProgramEdit,
+            ProgramDelete,
+            ProgramManage,
         ];
 
         /// <summary>Fallback when <see cref="Entities.UserApplicationRole"/> rows are absent (legacy enum roles).</summary>

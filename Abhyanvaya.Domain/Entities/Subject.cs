@@ -48,5 +48,8 @@ namespace Abhyanvaya.Domain.Entities
         public RoomFeature? PreferredRoomFeature { get; set; }
         public bool RequiresAttendance { get; set; } = true;
         public int? ExpectedCapacity { get; set; }
+
+        /// <summary>AI29.1A.5 — additive display sort key only; Subject Master APIs unchanged.</summary>
+        public int DisplayOrder { get; set; }
     }
 }
