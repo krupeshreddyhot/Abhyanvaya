@@ -78,6 +78,12 @@ namespace Abhyanvaya.Infrastructure
             services.AddScoped<IDomainEventHandler<AttendanceFinalizedEvent>, AttendanceFinalizedEventHandler>();
             services.AddScoped<IDomainEventHandler<AttendanceLockedEvent>, AttendanceLockedEventHandler>();
             services.AddScoped<IDomainEventHandler<AttendanceUnlockedEvent>, AttendanceUnlockedEventHandler>();
+            // AI29.1A.5 — Academic hierarchy domain events
+            services.AddScoped<IDomainEventHandler<ProgramCreated>, ProgramCreatedEventHandler>();
+            services.AddScoped<IDomainEventHandler<ProgramUpdated>, ProgramUpdatedEventHandler>();
+            services.AddScoped<IDomainEventHandler<ProgramArchived>, ProgramArchivedEventHandler>();
+            services.AddScoped<IDomainEventHandler<CourseAssigned>, CourseAssignedEventHandler>();
+            services.AddScoped<IDomainEventHandler<CourseRemoved>, CourseRemovedEventHandler>();
             services.AddScoped<IAuditService, AuditService>();
             services.AddSingleton<IAttendanceCalendar, AttendanceCalendar>();
 
@@ -254,6 +260,7 @@ namespace Abhyanvaya.Infrastructure
             services.AddScoped<IConflictDetectionRepository, ConflictDetectionRepository>();
             services.AddScoped<IOptimizationScenarioRepository, OptimizationScenarioRepository>();
             services.AddHostedService<TimetableCloneBackgroundService>();
+            services.AddHostedService<AcademicArchitectureTrendBackgroundService>();
             services.AddHostedService<ConflictValidationBackgroundService>();
 
             // AI20.PHASE2.1.1: enrollment batch/item persistence repositories (thin; no orchestration).

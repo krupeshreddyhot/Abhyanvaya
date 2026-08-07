@@ -31,7 +31,7 @@ namespace Abhyanvaya.API.Controllers
             var data = await _context.Courses
                 .AsNoTracking()
                 .OrderBy(x => x.Name)
-                .Select(x => new { x.Id, x.Code, x.Name })
+                .Select(x => new { x.Id, x.Code, x.Name, x.ProgramId })
                 .ToListAsync();
 
             return Ok(data);
@@ -54,20 +54,27 @@ namespace Abhyanvaya.API.Controllers
             if (exists)
                 return BadRequest("Course code or name already exists.");
 
-            var course = new Course
+            try
             {
-                Code = code,
-                Name = name,
-                CreatedDate = DateTime.UtcNow
-            };
+                var programId = await ResolveProgramIdAsync(request.ProgramId);
+                var course = new Course
+                {
+                    Code = code,
+                    Name = name,
+                    ProgramId = programId,
+                    CreatedDate = DateTime.UtcNow
+                };
 
-            await _context.AddAsync(course);
-            await _context.SaveChangesAsync();
+                await _context.AddAsync(course);
+                await _context.SaveChangesAsync();
 
-            // invalidate cache
-            await _cache.RemoveAsync(CoursesCacheKey(course.TenantId));
-
-            return Ok(course);
+                await _cache.RemoveAsync(CoursesCacheKey(course.TenantId));
+                return Ok(course);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         // UPDATE
@@ -94,6 +101,12 @@ namespace Abhyanvaya.API.Controllers
 
             course.Code = code;
             course.Name = name;
+            // Additive: only update ProgramId when explicitly provided (existing Course CRUD unchanged).
+            if (request.ProgramId.HasValue)
+            {
+                try { course.ProgramId = await ResolveProgramIdAsync(request.ProgramId); }
+                catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+            }
             course.UpdatedDate = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
@@ -101,6 +114,31 @@ namespace Abhyanvaya.API.Controllers
             await _cache.RemoveAsync(CoursesCacheKey(course.TenantId));
 
             return Ok(course);
+        }
+
+        /// <summary>AI29.1A — when Programs disabled, always null; when enabled, validate Active program.</summary>
+        private async Task<int?> ResolveProgramIdAsync(int? programId)
+        {
+            if (!await ProgramsEnabledAsync())
+                return null;
+            if (programId is null or <= 0)
+                return null;
+
+            var program = await _context.Programs.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == programId && p.TenantId == _currentUser.TenantId);
+            if (program is null)
+                throw new InvalidOperationException("Invalid Program.");
+            if (!program.IsActive || program.Status == "Archived")
+                throw new InvalidOperationException("Archived Programs cannot receive new Courses.");
+            return program.Id;
+        }
+
+        private async Task<bool> ProgramsEnabledAsync()
+        {
+            return await _context.TenantAcademicConfigurations.AsNoTracking()
+                .Where(c => c.TenantId == _currentUser.TenantId)
+                .Select(c => c.EnablePrograms)
+                .FirstOrDefaultAsync();
         }
     }
 }

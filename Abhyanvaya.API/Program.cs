@@ -307,6 +307,21 @@ builder.Services.AddAuthorization(options =>
     AddSetupManagePolicy(AuthorizationPolicies.CanManageSemesters, PermissionKeys.SetupSemestersManage);
     AddSetupManagePolicy(AuthorizationPolicies.CanManageOrganization, PermissionKeys.OrganizationManage);
 
+    // AI29 — Section permissions
+    AddSetupManagePolicy(AuthorizationPolicies.CanViewSections, PermissionKeys.SectionView);
+    AddSetupManagePolicy(AuthorizationPolicies.CanCreateSections, PermissionKeys.SectionCreate);
+    AddSetupManagePolicy(AuthorizationPolicies.CanEditSections, PermissionKeys.SectionEdit);
+    AddSetupManagePolicy(AuthorizationPolicies.CanDeleteSections, PermissionKeys.SectionDelete);
+    AddSetupManagePolicy(AuthorizationPolicies.CanAssignSectionStudents, PermissionKeys.SectionAssignStudents);
+    AddSetupManagePolicy(AuthorizationPolicies.CanAssignSectionFaculty, PermissionKeys.SectionAssignFaculty);
+
+    // AI29.1A — Program permissions
+    AddSetupManagePolicy(AuthorizationPolicies.CanViewPrograms, PermissionKeys.ProgramView);
+    AddSetupManagePolicy(AuthorizationPolicies.CanCreatePrograms, PermissionKeys.ProgramCreate);
+    AddSetupManagePolicy(AuthorizationPolicies.CanEditPrograms, PermissionKeys.ProgramEdit);
+    AddSetupManagePolicy(AuthorizationPolicies.CanDeletePrograms, PermissionKeys.ProgramDelete);
+    AddSetupManagePolicy(AuthorizationPolicies.CanManagePrograms, PermissionKeys.ProgramManage);
+
     options.AddPolicy(AuthorizationPolicies.TenantCollegeAdminOnly, policy =>
     {
         policy.RequireAuthenticatedUser();

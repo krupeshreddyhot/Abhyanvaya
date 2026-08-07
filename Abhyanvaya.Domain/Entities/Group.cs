@@ -13,6 +13,9 @@ namespace Abhyanvaya.Domain.Entities
         public string Name { get; set; }   // Finance, Computer Applications
         public int CourseId { get; set; }
 
+        /// <summary>AI29.1A.5 — display sort key (DisplayOrder then Name).</summary>
+        public int DisplayOrder { get; set; }
+
         public Course Course { get; set; }
     }
 }

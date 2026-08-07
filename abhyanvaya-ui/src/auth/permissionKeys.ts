@@ -53,6 +53,19 @@ export const PermissionKeys = {
   SchedulingArchiveManage: "Scheduling.Archive.Manage",
   SchedulingConflictView: "Scheduling.Conflict.View",
   SchedulingConflictManage: "Scheduling.Conflict.Manage",
+  // AI29 — Section management
+  SectionView: "Section.View",
+  SectionCreate: "Section.Create",
+  SectionEdit: "Section.Edit",
+  SectionDelete: "Section.Delete",
+  SectionAssignStudents: "Section.AssignStudents",
+  SectionAssignFaculty: "Section.AssignFaculty",
+  // AI29.1A — Program management
+  ProgramView: "Program.View",
+  ProgramCreate: "Program.Create",
+  ProgramEdit: "Program.Edit",
+  ProgramDelete: "Program.Delete",
+  ProgramManage: "Program.Manage",
 } as const;
 
 export type PermissionKey = (typeof PermissionKeys)[keyof typeof PermissionKeys];
