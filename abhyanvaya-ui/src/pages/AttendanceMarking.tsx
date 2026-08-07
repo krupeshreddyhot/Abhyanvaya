@@ -334,6 +334,24 @@ const AttendanceMarking = () => {
     void loadSubjects();
   }, [courseId, groupId, semesterId]);
 
+  // Timetable pre-fill can select a subject the faculty user is not assigned to.
+  // Master /subjects already filters by StaffSubjectAssignment for Faculty — if the
+  // resolved subject is missing from that list, clear it so we never call
+  // students-for-marking for an unauthorized subject.
+  useEffect(() => {
+    if (subjectId <= 0 || !courseId || !groupId || !semesterId) return;
+    const key = subjectsCacheKey(courseId, groupId, semesterId);
+    const list = subjectsCache.get(key);
+    if (!list) return; // still loading this scope
+    if (list.some((s) => s.id === subjectId)) return;
+    setSubjectId(0);
+    setTimetableHint((prev) =>
+      prev
+        ? `${prev} That class is not in your assigned subjects — pick a subject you teach.`
+        : "Selected subject is not in your assigned list. Pick a subject you teach."
+    );
+  }, [subjects, subjectId, courseId, groupId, semesterId]);
+
   const canLoadStudents = courseId > 0 && groupId > 0 && semesterId > 0 && subjectId > 0 && !!date;
 
   const loadStudents = async (targetPage = 1, append = false) => {
@@ -369,8 +387,17 @@ const AttendanceMarking = () => {
         }
         return next;
       });
-    } catch {
-      setError("Failed to load students for attendance.");
+    } catch (e) {
+      // Faculty denied via FacultySubjectAccess returns HTTP 403 (after DefaultForbidScheme fix).
+      // Surface that clearly — a generic message hid "not assigned to this subject" in production.
+      const status = (e as { response?: { status?: number } }).response?.status;
+      if (status === 403) {
+        setError(
+          "You are not assigned to this subject. Choose a subject from your teaching assignments."
+        );
+      } else {
+        setError("Failed to load students for attendance.");
+      }
     } finally {
       setLoadingStudents(false);
     }
