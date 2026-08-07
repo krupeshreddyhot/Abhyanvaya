@@ -122,6 +122,9 @@ builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    // Required so controller `return Forbid()` (e.g. FacultySubjectAccess denial) emits HTTP 403
+    // instead of throwing InvalidOperationException → GlobalExceptionHandler → misleading 400.
+    options.DefaultForbidScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(options =>
 {
