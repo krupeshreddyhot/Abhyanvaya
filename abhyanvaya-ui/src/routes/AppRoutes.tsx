@@ -26,6 +26,7 @@ import GroupsPage from "../pages/setup/GroupsPage";
 import SemestersPage from "../pages/setup/SemestersPage";
 import SectionsPage from "../pages/setup/SectionsPage";
 import AllocationContextPage from "../pages/setup/AllocationContextPage";
+import AllocationOperationsPage from "../pages/setup/AllocationOperationsPage";
 import SubjectsPage from "../pages/setup/SubjectsPage";
 import LanguagesPage from "../pages/setup/LanguagesPage";
 import GendersPage from "../pages/setup/GendersPage";
@@ -339,6 +340,16 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute anyPermission={[PermissionKeys.SectionView]}>
                 <AllocationContextPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="setup/academic/allocation/operations"
+            element={
+              <ProtectedRoute
+                anyPermission={[PermissionKeys.AllocationOperationsView, PermissionKeys.SectionView]}
+              >
+                <AllocationOperationsPage />
               </ProtectedRoute>
             }
           />

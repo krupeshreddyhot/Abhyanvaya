@@ -3,6 +3,7 @@ using Abhyanvaya.Application.Academic;
 using Abhyanvaya.Application.Academic.Allocation;
 using Abhyanvaya.Application.Academic.Architecture;
 using Abhyanvaya.Application.Academic.Observability;
+using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Domain.Entities.Academic;
 using Xunit;
 
@@ -92,7 +93,8 @@ public sealed class AI29_1B_7_AllocationPlatformTests
         Assert.Contains(AllocationConstraintRegistry.All, c => c.Code == "Capacity");
         Assert.Contains(AllocationConstraintRegistry.All, c => c.Code == "GenderBalance");
         Assert.Contains(AllocationConstraintRegistry.All, c => c.Code == "ElectiveCombination");
-        Assert.Equal(9, AllocationConstraintRegistry.All.Count);
+        Assert.Contains(AllocationConstraintRegistry.All, c => c.Code == "ReservedSeats");
+        Assert.Equal(10, AllocationConstraintRegistry.All.Count);
     }
 
     [Fact]
@@ -101,25 +103,25 @@ public sealed class AI29_1B_7_AllocationPlatformTests
         var ctx = new SectionAllocationContext { ContextId = Guid.NewGuid(), Checksum = "n" };
         var strategy = new NoOpAllocationStrategy();
         var constraint = new NoOpAllocationConstraint();
-        var scoring = new NoOpAllocationScoringProvider();
-        var rec = new NoOpAllocationRecommendationProvider();
+        var scoring = new AllocationScoreCalculator();
+        var rec = new ContextAllocationRecommendationProvider();
 
         Assert.True((await strategy.EvaluateAsync(ctx)).IsNoOp);
         Assert.True((await constraint.EvaluateAsync(ctx)).Satisfied);
-        Assert.Equal(0, (await scoring.ScoreAsync(ctx)).Score);
-        Assert.NotEmpty(await rec.RecommendAsync(ctx));
+        Assert.InRange((await scoring.ScoreAsync(ctx)).Score, 0, 100);
+        Assert.NotNull(await rec.RecommendAsync(ctx));
     }
 
     [Fact]
-    public void Null_allocation_engine_has_no_operational_dependencies()
+    public void Allocation_engine_has_no_operational_dependencies()
     {
-        var ctorParams = typeof(NullAllocationEngine).GetConstructors()
+        var ctorParams = typeof(AllocationEngine).GetConstructors()
             .SelectMany(c => c.GetParameters())
             .Select(p => p.ParameterType)
             .ToList();
         Assert.DoesNotContain(typeof(ISectionCapacityEngine), ctorParams);
         Assert.DoesNotContain(typeof(ISectionAllocationContextBuilder), ctorParams);
-        Assert.Equal("Null", new NullAllocationEngine().EngineCode);
+        Assert.DoesNotContain(typeof(IApplicationDbContext), ctorParams);
     }
 
     [Fact]

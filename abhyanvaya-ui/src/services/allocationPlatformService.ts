@@ -90,3 +90,105 @@ export const listAllocationSnapshots = (scope: AllocationScope) =>
 
 export const getAllocationArchitectureReport = () =>
   api.get<{ passed: boolean; checks: string[]; violations: string[] }>("/allocation/architecture-report");
+
+export type AllocationRunRequest = AllocationScope & {
+  groupingMode?: string;
+  enabledStrategies?: Record<string, boolean>;
+};
+
+export type AllocationStudentRecommendation = {
+  studentId: number;
+  studentNumber?: string | null;
+  studentName?: string | null;
+  fromSectionId?: number | null;
+  fromSectionCode?: string | null;
+  toSectionId: number;
+  toSectionCode: string;
+  explanations: string[];
+};
+
+export type AllocationTraceStep = {
+  order: number;
+  strategyCode: string;
+  enabled: boolean;
+  executed: boolean;
+  durationMs: number;
+  scoreAfter: number;
+  summary: string;
+  constraintNotes: string[];
+};
+
+export type AllocationScoreBreakdown = {
+  totalScore: number;
+  capacityUtilization: number;
+  policyCompliance: number;
+  genderBalance: number;
+  summary: string;
+};
+
+export type AllocationExecutionResult = {
+  sessionId: string;
+  scenarioId: string;
+  succeeded: boolean;
+  status: string;
+  score: AllocationScoreBreakdown;
+  warnings: string[];
+  errors: string[];
+  durationMs: number;
+  scenario: {
+    scenarioId: string;
+    recommendations: AllocationStudentRecommendation[];
+    sectionSummaries: { sectionId: number; sectionCode: string; assignedCount: number; maximumCapacity: number; occupancyPercent: number }[];
+    constraints: { constraintCode: string; priority: string; satisfied: boolean; summary: string }[];
+    score: AllocationScoreBreakdown;
+  };
+  trace: { traceId: string; steps: AllocationTraceStep[] };
+};
+
+export type AllocationComparisonReport = {
+  scenarioId: string;
+  originalAverageOccupancy: number;
+  allocatedAverageOccupancy: number;
+  capacityImprovement: number;
+  genderBalanceScore: number;
+  policyComplianceScore: number;
+  summary: string;
+  constraintViolations: { constraintCode: string; summary: string }[];
+};
+
+export type AllocationDraft = {
+  draftId: string;
+  scenarioId: string;
+  status: string;
+  note: string;
+};
+
+export type AllocationDashboardDto = {
+  totalRuns: number;
+  bestScore: number;
+  averageCapacityUtilization: number;
+  averageConstraintCompliance: number;
+  recentRuns: { sessionId: string; scenarioId?: string; createdAt: string; status: string; score: number; groupingMode: string }[];
+};
+
+export const runAllocation = (payload: AllocationRunRequest) =>
+  api.post<AllocationExecutionResult>("/allocation/run", payload);
+
+export const simulateAllocation = (payload: AllocationRunRequest) =>
+  api.post<AllocationExecutionResult>("/allocation/simulate", payload);
+
+export const compareAllocation = (scenarioId: string) =>
+  api.get<AllocationComparisonReport>("/allocation/compare", { params: { scenarioId } });
+
+export const approveAllocation = (scenarioId: string) =>
+  api.post<AllocationDraft>("/allocation/approve", null, { params: { scenarioId } });
+
+export const getAllocationHistory = () => api.get<{ sessionId: string; scenarioId?: string; createdAt: string; status: string; score: number; groupingMode: string }[]>("/allocation/history");
+
+export const getAllocationDashboard = () => api.get<AllocationDashboardDto>("/allocation/dashboard");
+
+export const exportAllocationReport = (kind: string, format: string, scenarioId?: string) =>
+  api.get<Blob>("/allocation/reports/export", {
+    params: { kind, format, scenarioId },
+    responseType: "blob",
+  });

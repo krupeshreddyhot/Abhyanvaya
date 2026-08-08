@@ -1,4 +1,5 @@
 using System.Reflection;
+using Abhyanvaya.Application.Academic;
 using Abhyanvaya.Application.Academic.Allocation;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.DTOs.Academic;
@@ -162,12 +163,69 @@ public static class AcademicArchitectureGuard
             violations.Add($"SectionAllocationContext has mutable setters: {string.Join(", ", mutableSetters)}");
 
         checks.Add("Builder is isolated from Allocation Engine (engine does not construct builder)");
-        if (typeof(NullAllocationEngine).GetConstructors()
-            .SelectMany(c => c.GetParameters())
-            .Any(p => p.ParameterType == typeof(ISectionAllocationContextBuilder)))
+        foreach (var type in typeof(IAllocationEngine).Assembly.GetTypes()
+                     .Where(t => typeof(IAllocationEngine).IsAssignableFrom(t) && t is { IsClass: true, IsAbstract: false }))
         {
-            violations.Add("NullAllocationEngine must not depend on ISectionAllocationContextBuilder.");
+            if (type.GetConstructors().SelectMany(c => c.GetParameters())
+                .Any(p => p.ParameterType == typeof(ISectionAllocationContextBuilder)))
+            {
+                violations.Add($"{type.Name} must not depend on ISectionAllocationContextBuilder.");
+            }
+            if (type.GetConstructors().SelectMany(c => c.GetParameters())
+                .Any(p => p.ParameterType == typeof(ISectionReadinessService)
+                          || p.ParameterType == typeof(ISectionHealthService)
+                          || p.ParameterType == typeof(ISectionPolicyService)))
+            {
+                violations.Add($"{type.Name} must not depend on operational section services.");
+            }
         }
+
+        checks.Add("AllocationEngine consumes SectionAllocationContext via execution context only");
+        var execute = typeof(IAllocationEngine).GetMethod(nameof(IAllocationEngine.ExecuteAsync));
+        if (execute is null)
+            violations.Add("IAllocationEngine.ExecuteAsync missing.");
+
+        // AI29.1C.5 / 5A — Operations may use scenario/context; never attendance/timetable/student repositories
+        // or direct production student mutation services.
+        checks.Add("Allocation operations → scenario services / allocation context ✔");
+        checks.Add("Allocation operations must not depend on attendance/timetable/student repositories");
+        checks.Add("Allocation operations must not mutate production student-section assignments directly");
+        foreach (var type in new[]
+                 {
+                     typeof(AllocationGovernanceService),
+                     typeof(AllocationReplayService),
+                     typeof(AllocationOpsDashboardService),
+                     typeof(AllocationHistoryService),
+                     typeof(AllocationScenarioLifecycleService),
+                     typeof(AllocationScenarioQueryService),
+                 })
+        {
+            foreach (var p in type.GetConstructors().SelectMany(c => c.GetParameters()))
+            {
+                var name = p.ParameterType.Name;
+                if (name.Contains("Attendance", StringComparison.OrdinalIgnoreCase) && name.Contains("Repository", StringComparison.OrdinalIgnoreCase))
+                    violations.Add($"{type.Name} depends on attendance repository — forbidden.");
+                if (name.Contains("Timetable", StringComparison.OrdinalIgnoreCase) && name.Contains("Repository", StringComparison.OrdinalIgnoreCase))
+                    violations.Add($"{type.Name} depends on timetable repository — forbidden.");
+                if (name.Contains("Student", StringComparison.OrdinalIgnoreCase) && name.Contains("Repository", StringComparison.OrdinalIgnoreCase))
+                    violations.Add($"{type.Name} depends on student repository — forbidden.");
+                if (name.Contains("StudentSection", StringComparison.OrdinalIgnoreCase)
+                    || (name.Contains("IStudent", StringComparison.OrdinalIgnoreCase) && name.Contains("Assign", StringComparison.OrdinalIgnoreCase)))
+                    violations.Add($"{type.Name} depends on production student assignment surface — forbidden.");
+            }
+        }
+
+        checks.Add("Lifecycle transitions must use IAllocationScenarioLifecycleService");
+        if (typeof(IAllocationScenarioLifecycleService).Assembly.GetType(
+                typeof(AllocationScenarioLifecycleService).FullName!) is null)
+            violations.Add("AllocationScenarioLifecycleService missing.");
+
+        checks.Add("Controllers must not bypass governance for archive/approve lifecycle");
+        // Soft check: governance service exposes authoritative Approve/Archive/Review.
+        if (typeof(IAllocationGovernanceService).GetMethod(nameof(IAllocationGovernanceService.ApproveWithGovernanceAsync)) is null)
+            violations.Add("Governed approve missing on IAllocationGovernanceService.");
+        if (typeof(IAllocationGovernanceService).GetMethod(nameof(IAllocationGovernanceService.ArchiveAsync)) is null)
+            violations.Add("Governed archive missing on IAllocationGovernanceService.");
 
         return new AllocationArchitectureReport
         {

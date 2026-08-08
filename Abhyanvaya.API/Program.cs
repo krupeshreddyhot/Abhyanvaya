@@ -110,6 +110,7 @@ builder.Services.Configure<HostOptions>(options =>
 builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddApplication();
+builder.Services.AddScoped<Abhyanvaya.Application.Academic.Allocation.IAllocationProgressPublisher, Abhyanvaya.API.Hubs.AllocationSignalRPublisher>();
 builder.Services.AddAutoMapper(typeof(StudentMappingProfile).Assembly);
 builder.Services.AddMediaStorage();
 builder.Services.AddStudentPhotoServices();
@@ -325,6 +326,21 @@ builder.Services.AddAuthorization(options =>
     AddSetupManagePolicy(AuthorizationPolicies.CanSplitSections, PermissionKeys.SectionSplit);
     AddSetupManagePolicy(AuthorizationPolicies.CanManageSectionCapacity, PermissionKeys.SectionCapacity);
     AddSetupManagePolicy(AuthorizationPolicies.CanViewSectionReadiness, PermissionKeys.SectionReadiness);
+
+    // AI29.1C — Allocation engine permissions
+    AddSetupManagePolicy(AuthorizationPolicies.CanRunAllocation, PermissionKeys.AllocationRun);
+    AddSetupManagePolicy(AuthorizationPolicies.CanApproveAllocation, PermissionKeys.AllocationApprove);
+
+    // AI29.1C.5 — Allocation operations permissions
+    AddSetupManagePolicy(AuthorizationPolicies.CanViewAllocationOperations, PermissionKeys.AllocationOperationsView);
+    AddSetupManagePolicy(AuthorizationPolicies.CanViewAllocationScenarios, PermissionKeys.AllocationScenarioView);
+    AddSetupManagePolicy(AuthorizationPolicies.CanCreateAllocationScenarios, PermissionKeys.AllocationScenarioCreate);
+    AddSetupManagePolicy(AuthorizationPolicies.CanCompareAllocationScenarios, PermissionKeys.AllocationScenarioCompare);
+    AddSetupManagePolicy(AuthorizationPolicies.CanReplayAllocationScenarios, PermissionKeys.AllocationScenarioReplay);
+    AddSetupManagePolicy(AuthorizationPolicies.CanReviewAllocationScenarios, PermissionKeys.AllocationScenarioReview);
+    AddSetupManagePolicy(AuthorizationPolicies.CanArchiveAllocationScenarios, PermissionKeys.AllocationScenarioArchive);
+    AddSetupManagePolicy(AuthorizationPolicies.CanRejectAllocation, PermissionKeys.AllocationReject);
+    AddSetupManagePolicy(AuthorizationPolicies.CanExportAllocation, PermissionKeys.AllocationExport);
 
     // AI29.1A — Program permissions
     AddSetupManagePolicy(AuthorizationPolicies.CanViewPrograms, PermissionKeys.ProgramView);
@@ -608,6 +624,7 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHub<EnrollmentHub>("/hubs/enrollment").RequireCors("AllowReact");
 app.MapHub<Abhyanvaya.API.Hubs.OptimizationHub>("/hubs/optimization").RequireCors("AllowReact");
+app.MapHub<Abhyanvaya.API.Hubs.AllocationHub>("/hubs/allocation").RequireCors("AllowReact");
 app.MapHub<Abhyanvaya.API.Hubs.FacultyHub>("/hubs/faculty").RequireCors("AllowReact");
 
 MapPlatformHealthEndpoints(app);

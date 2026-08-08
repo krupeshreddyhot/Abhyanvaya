@@ -29,13 +29,21 @@ import {
   type SemesterRow,
 } from "../../services/setupService";
 import {
+  approveAllocation,
+  compareAllocation,
   createAllocationSnapshot,
   getAllocationArchitectureReport,
   getAllocationContext,
+  getAllocationDashboard,
   getAllocationHealth,
   getAllocationReadiness,
   getAllocationValidation,
   listAllocationSnapshots,
+  runAllocation,
+  type AllocationComparisonReport,
+  type AllocationDashboardDto,
+  type AllocationDraft,
+  type AllocationExecutionResult,
   type AllocationHealthReport,
   type AllocationReadinessReport,
   type AllocationSnapshotDto,
@@ -52,6 +60,8 @@ const errMsg = (e: unknown): string => {
 const AllocationContextPage = () => {
   const { hasPermission } = useAuth();
   const canView = hasPermission(PermissionKeys.SectionView);
+  const canRun = hasPermission(PermissionKeys.AllocationRun);
+  const canApprove = hasPermission(PermissionKeys.AllocationApprove);
 
   const [years, setYears] = useState<AcademicYearDto[]>([]);
   const [courses, setCourses] = useState<CourseRow[]>([]);
@@ -70,6 +80,11 @@ const AllocationContextPage = () => {
   const [validation, setValidation] = useState<AllocationValidationReport | null>(null);
   const [snapshots, setSnapshots] = useState<AllocationSnapshotDto[]>([]);
   const [arch, setArch] = useState<string>("");
+  const [runResult, setRunResult] = useState<AllocationExecutionResult | null>(null);
+  const [comparison, setComparison] = useState<AllocationComparisonReport | null>(null);
+  const [draft, setDraft] = useState<AllocationDraft | null>(null);
+  const [dashboard, setDashboard] = useState<AllocationDashboardDto | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   const filteredGroups = useMemo(() => groups.filter((g) => !courseId || g.courseId === courseId), [groups, courseId]);
   const filteredSemesters = useMemo(
@@ -132,6 +147,47 @@ const AllocationContextPage = () => {
       await createAllocationSnapshot(scope);
       const snaps = await listAllocationSnapshots(scope);
       setSnapshots(snaps.data);
+    } catch (e) {
+      setError(errMsg(e));
+    }
+  };
+
+  const runEngine = async () => {
+    if (!scopeReady) return;
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await runAllocation({ ...scope, groupingMode: "Alphabetical" });
+      setRunResult(res.data);
+      setComparison(null);
+      setDraft(null);
+      const dash = await getAllocationDashboard();
+      setDashboard(dash.data);
+      setMessage(`Scenario ${res.data.scenarioId} generated (score ${res.data.score?.totalScore ?? 0}). No live student writes.`);
+    } catch (e) {
+      setError(errMsg(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const compare = async () => {
+    if (!runResult?.scenarioId) return;
+    try {
+      const res = await compareAllocation(runResult.scenarioId);
+      setComparison(res.data);
+    } catch (e) {
+      setError(errMsg(e));
+    }
+  };
+
+  const approve = async () => {
+    if (!runResult?.scenarioId) return;
+    try {
+      const res = await approveAllocation(runResult.scenarioId);
+      setDraft(res.data);
+      setMessage(res.data.note || "Draft created.");
     } catch (e) {
       setError(errMsg(e));
     }
@@ -222,8 +278,22 @@ const AllocationContextPage = () => {
         <Button variant="outlined" disabled={!scopeReady || loading} onClick={() => void snapshot()}>
           Create Snapshot
         </Button>
+        <Button variant="contained" color="secondary" disabled={!scopeReady || loading || !canRun} onClick={() => void runEngine()}>
+          Run Allocation Engine
+        </Button>
+        <Button variant="outlined" disabled={!runResult || loading} onClick={() => void compare()}>
+          Compare
+        </Button>
+        <Button variant="outlined" disabled={!runResult || loading || !canApprove} onClick={() => void approve()}>
+          Approve → Draft
+        </Button>
       </Stack>
 
+      {message && (
+        <Alert severity="success" sx={{ mb: 1.5 }} onClose={() => setMessage(null)}>
+          {message}
+        </Alert>
+      )}
       {loading && <CircularProgress size={28} />}
 
       {context && (
@@ -322,6 +392,74 @@ const AllocationContextPage = () => {
               ? "No snapshots yet."
               : snapshots.map((s) => `${s.snapshotId} @ ${s.generatedDate} (${s.checksum?.slice(0, 8)}…)`).join("\n")}
           </Typography>
+
+          {dashboard && (
+            <Alert severity="info">
+              Dashboard — runs {dashboard.totalRuns} · best score {dashboard.bestScore} · utilization{" "}
+              {dashboard.averageCapacityUtilization}% · compliance {dashboard.averageConstraintCompliance}%
+            </Alert>
+          )}
+
+          {runResult && (
+            <>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                Scenario Viewer — {runResult.scenarioId}
+              </Typography>
+              <Typography variant="body2">
+                Score {runResult.score?.totalScore} · status {runResult.status} · recommendations{" "}
+                {runResult.scenario?.recommendations?.length ?? 0}
+              </Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                Strategy Trace
+              </Typography>
+              <Typography variant="body2" component="pre" sx={{ whiteSpace: "pre-wrap" }}>
+                {(runResult.trace?.steps || [])
+                  .map(
+                    (s) =>
+                      `${s.order}. ${s.strategyCode} ${s.executed ? "executed" : "skipped"} (${s.durationMs?.toFixed?.(1) ?? s.durationMs}ms) score=${s.scoreAfter}`,
+                  )
+                  .join("\n")}
+              </Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                Constraint Trace
+              </Typography>
+              <Typography variant="body2">
+                {(runResult.scenario?.constraints || [])
+                  .map((c) => `${c.constraintCode}:${c.priority}:${c.satisfied ? "ok" : "fail"}`)
+                  .join(" · ")}
+              </Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                Score Breakdown
+              </Typography>
+              <Typography variant="body2">
+                total={runResult.score?.totalScore} capacity={runResult.score?.capacityUtilization} policy=
+                {runResult.score?.policyCompliance} gender={runResult.score?.genderBalance}
+              </Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                Sample Explanations
+              </Typography>
+              <Typography variant="body2" component="pre" sx={{ whiteSpace: "pre-wrap" }}>
+                {(runResult.scenario?.recommendations || [])
+                  .slice(0, 5)
+                  .map(
+                    (r) =>
+                      `${r.studentNumber || r.studentId} → ${r.toSectionCode}: ${(r.explanations || []).join("; ")}`,
+                  )
+                  .join("\n")}
+              </Typography>
+            </>
+          )}
+          {comparison && (
+            <Alert severity="info">
+              Compare — capacity Δ {comparison.capacityImprovement}pp · gender {comparison.genderBalanceScore} · policy{" "}
+              {comparison.policyComplianceScore} · {comparison.summary}
+            </Alert>
+          )}
+          {draft && (
+            <Alert severity="warning">
+              Draft {draft.draftId} ({draft.status}) — {draft.note}
+            </Alert>
+          )}
         </Stack>
       )}
     </Box>

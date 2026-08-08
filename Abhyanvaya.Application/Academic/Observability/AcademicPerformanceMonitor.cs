@@ -35,6 +35,15 @@ public sealed class AcademicPerformanceMonitor : IAcademicPerformanceMonitor
             AcademicOperations.AllocationValidation,
             AcademicOperations.AllocationReadiness,
             AcademicOperations.AllocationHealth,
+            AcademicOperations.AllocationEngineRun,
+            AcademicOperations.AllocationSimulation,
+            AcademicOperations.AllocationComparison,
+            AcademicOperations.AllocationApproval,
+            AcademicOperations.AllocationScoring,
+            AcademicOperations.AllocationConstraintEval,
+            AcademicOperations.AllocationReplay,
+            AcademicOperations.AllocationScenarioCreate,
+            AcademicOperations.AllocationGovernance,
         }.Select(GetOperation).ToList();
 
         return new AcademicPerformanceReportDto
@@ -89,4 +98,15 @@ public static class AcademicOperations
     public const string AllocationCacheMiss = "allocation.cache.miss";
     public const string AllocationCacheWarm = "allocation.cache.warm";
     public const string AllocationCacheRefresh = "allocation.cache.refresh";
+
+    // AI29.1C — Allocation engine
+    public const string AllocationEngineRun = "allocation.engine.run";
+    public const string AllocationSimulation = "allocation.simulation";
+    public const string AllocationComparison = "allocation.comparison";
+    public const string AllocationApproval = "allocation.approval";
+    public const string AllocationScoring = "allocation.scoring";
+    public const string AllocationConstraintEval = "allocation.constraint.eval";
+    public const string AllocationReplay = "allocation.replay";
+    public const string AllocationScenarioCreate = "allocation.scenario.create";
+    public const string AllocationGovernance = "allocation.governance";
 }

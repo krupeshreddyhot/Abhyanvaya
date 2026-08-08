@@ -199,6 +199,19 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<Abhyanvaya.Domain.Entities.Academic.SectionAllocationSnapshot> SectionAllocationSnapshots =>
             Set<Abhyanvaya.Domain.Entities.Academic.SectionAllocationSnapshot>();
 
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.AllocationEngineSession> AllocationEngineSessions =>
+            Set<Abhyanvaya.Domain.Entities.Academic.AllocationEngineSession>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.AllocationEngineScenario> AllocationEngineScenarios =>
+            Set<Abhyanvaya.Domain.Entities.Academic.AllocationEngineScenario>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.AllocationEngineDraft> AllocationEngineDrafts =>
+            Set<Abhyanvaya.Domain.Entities.Academic.AllocationEngineDraft>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.AllocationEngineSandboxItem> AllocationEngineSandboxItems =>
+            Set<Abhyanvaya.Domain.Entities.Academic.AllocationEngineSandboxItem>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.AllocationScenarioVersion> AllocationScenarioVersions =>
+            Set<Abhyanvaya.Domain.Entities.Academic.AllocationScenarioVersion>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.AllocationAuditEntry> AllocationAuditEntries =>
+            Set<Abhyanvaya.Domain.Entities.Academic.AllocationAuditEntry>();
+
         // AI29.1A
         public IQueryable<Abhyanvaya.Domain.Entities.Academic.Program> Programs =>
             Set<Abhyanvaya.Domain.Entities.Academic.Program>();
@@ -342,6 +355,66 @@ namespace Abhyanvaya.Infrastructure.Persistence
                 e.Property(x => x.Checksum).HasMaxLength(128);
                 e.HasIndex(x => new { x.TenantId, x.SnapshotId }).IsUnique();
                 e.HasIndex(x => new { x.TenantId, x.AcademicYearId, x.CourseId, x.GroupId, x.SemesterId, x.GeneratedDate });
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.AllocationEngineSession>(e =>
+            {
+                e.ToTable("AllocationEngineSessions");
+                e.Property(x => x.Status).HasMaxLength(64);
+                e.Property(x => x.GroupingMode).HasMaxLength(64);
+                e.Property(x => x.ContextChecksum).HasMaxLength(128);
+                e.HasIndex(x => new { x.TenantId, x.SessionId }).IsUnique();
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.AllocationEngineScenario>(e =>
+            {
+                e.ToTable("AllocationEngineScenarios");
+                e.Property(x => x.Status).HasMaxLength(64);
+                e.Property(x => x.ContextChecksum).HasMaxLength(128);
+                e.HasIndex(x => new { x.TenantId, x.ScenarioId }).IsUnique();
+                e.HasIndex(x => new { x.TenantId, x.SessionId });
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.AllocationEngineDraft>(e =>
+            {
+                e.ToTable("AllocationEngineDrafts");
+                e.Property(x => x.Status).HasMaxLength(64);
+                e.HasIndex(x => new { x.TenantId, x.DraftId }).IsUnique();
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.AllocationEngineSandboxItem>(e =>
+            {
+                e.ToTable("AllocationEngineSandboxItems");
+                e.Property(x => x.Name).HasMaxLength(200);
+                e.HasIndex(x => new { x.TenantId, x.SandboxId }).IsUnique();
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.AllocationEngineScenario>(e =>
+            {
+                e.Property(x => x.LifecycleStatus).HasMaxLength(64);
+                e.Property(x => x.ContextVersion).HasMaxLength(64);
+                e.Property(x => x.ScenarioChecksum).HasMaxLength(128);
+                e.Property(x => x.StrategyConfigurationVersion).HasMaxLength(32);
+                e.Property(x => x.ConstraintConfigurationVersion).HasMaxLength(32);
+                // AI29.1C.5A — optimistic concurrency (bytea token, same pattern as AttendanceSession)
+                e.Property(x => x.RowVersion)
+                    .IsConcurrencyToken()
+                    .HasColumnType("bytea")
+                    .IsRequired();
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.AllocationScenarioVersion>(e =>
+            {
+                e.ToTable("AllocationScenarioVersions");
+                e.Property(x => x.ContextVersion).HasMaxLength(64);
+                e.Property(x => x.ContextChecksum).HasMaxLength(128);
+                e.Property(x => x.Checksum).HasMaxLength(128);
+                e.Property(x => x.Status).HasMaxLength(64);
+                e.Property(x => x.Operation).HasMaxLength(64);
+                e.Property(x => x.Reason).HasMaxLength(512);
+                e.HasIndex(x => new { x.TenantId, x.ScenarioId, x.VersionNumber }).IsUnique();
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.AllocationAuditEntry>(e =>
+            {
+                e.ToTable("AllocationAuditEntries");
+                e.Property(x => x.Action).HasMaxLength(64);
+                e.Property(x => x.Result).HasMaxLength(64);
+                e.HasIndex(x => new { x.TenantId, x.OccurredAt });
+                e.HasIndex(x => new { x.TenantId, x.AuditId }).IsUnique();
             });
             builder.Entity<Abhyanvaya.Domain.Entities.Academic.StudentSection>(e =>
             {
@@ -732,6 +805,21 @@ namespace Abhyanvaya.Infrastructure.Persistence
             }
 
             foreach (var entry in ChangeTracker.Entries<StudentEnrollmentItem>())
+            {
+                if (entry.State == EntityState.Added
+                    && (entry.Entity.RowVersion == null || entry.Entity.RowVersion.Length == 0))
+                {
+                    entry.Entity.RowVersion = CreateInitialRowVersion();
+                    entry.Property(x => x.RowVersion).IsModified = true;
+                }
+                else if (entry.State == EntityState.Modified)
+                {
+                    entry.Entity.RowVersion = CreateInitialRowVersion();
+                    entry.Property(x => x.RowVersion).IsModified = true;
+                }
+            }
+
+            foreach (var entry in ChangeTracker.Entries<Abhyanvaya.Domain.Entities.Academic.AllocationEngineScenario>())
             {
                 if (entry.State == EntityState.Added
                     && (entry.Entity.RowVersion == null || entry.Entity.RowVersion.Length == 0))
