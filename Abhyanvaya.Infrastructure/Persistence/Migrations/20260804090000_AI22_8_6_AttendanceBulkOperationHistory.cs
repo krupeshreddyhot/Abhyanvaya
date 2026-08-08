@@ -1,4 +1,6 @@
 using System;
+using Abhyanvaya.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -6,6 +8,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Abhyanvaya.Infrastructure.Persistence.Migrations;
 
 /// <summary>AI22.8.6.4 — admin bulk operation audit history (additive).</summary>
+[DbContext(typeof(ApplicationDbContext))]
+[Migration("20260804090000_AI22_8_6_AttendanceBulkOperationHistory")]
 public partial class AI22_8_6_AttendanceBulkOperationHistory : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

@@ -60,6 +60,13 @@ export const PermissionKeys = {
   SectionDelete: "Section.Delete",
   SectionAssignStudents: "Section.AssignStudents",
   SectionAssignFaculty: "Section.AssignFaculty",
+  // AI29.1B
+  SectionLifecycleView: "SectionLifecycle.View",
+  SectionLifecycleEdit: "SectionLifecycle.Edit",
+  SectionMerge: "Section.Merge",
+  SectionSplit: "Section.Split",
+  SectionCapacity: "Section.Capacity",
+  SectionReadiness: "Section.Readiness",
   // AI29.1A — Program management
   ProgramView: "Program.View",
   ProgramCreate: "Program.Create",

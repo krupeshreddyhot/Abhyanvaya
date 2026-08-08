@@ -1,4 +1,5 @@
 using Abhyanvaya.Application.Academic;
+using Abhyanvaya.Application.Academic.Allocation;
 using Abhyanvaya.Application.Academic.Observability;
 using Abhyanvaya.Application.AttendanceRecovery;
 using Abhyanvaya.Application.Common.Interfaces;
@@ -22,7 +23,40 @@ public static class DependencyInjection
         services.AddScoped<IStudentService, StudentService>();
 
         // AI29 — Academic Structure & Section Management
+        services.AddScoped<ISectionCapacityEngine, SectionCapacityEngine>();
         services.AddScoped<ISectionManagementService, SectionManagementService>();
+
+        // AI29.1B — Section lifecycle, capacity ops, merge/split, readiness, reports
+        services.AddScoped<ISectionLifecycleService, SectionLifecycleService>();
+        services.AddScoped<ISectionMergeService, SectionMergeService>();
+        services.AddScoped<ISectionSplitService, SectionSplitService>();
+        services.AddScoped<ISectionReadinessService, SectionReadinessService>();
+        services.AddScoped<ISectionGroupService, SectionGroupService>();
+        services.AddScoped<ISectionOperationalReportService, SectionOperationalReportService>();
+        services.AddScoped<ISectionAllocationRecommendationService, NullSectionAllocationRecommendationService>();
+
+        // AI29.1B.5 — Section operations hardening
+        services.AddScoped<ISectionVersioningService, SectionVersioningService>();
+        services.AddScoped<ISectionCapacityHistoryService, SectionCapacityHistoryService>();
+        services.AddScoped<ISectionTimelineService, SectionTimelineService>();
+        services.AddScoped<IMergePreviewService, MergePreviewService>();
+        services.AddScoped<ISplitPreviewService, SplitPreviewService>();
+        services.AddScoped<ISectionPolicyService, SectionPolicyService>();
+        services.AddScoped<ISectionCapacityRecommendationService, SectionCapacityRecommendationService>();
+        services.AddScoped<ISectionHealthService, SectionHealthService>();
+
+        // AI29.1B.7 — Allocation platform & readiness (no allocation algorithms)
+        services.AddScoped<ISectionAllocationContextValidator, SectionAllocationContextValidator>();
+        services.AddScoped<IAllocationSnapshotService, AllocationSnapshotService>();
+        services.AddScoped<ISectionAllocationContextBuilder, SectionAllocationContextBuilder>();
+        services.AddScoped<IAllocationReadinessService, AllocationReadinessService>();
+        services.AddScoped<IAllocationHealthService, AllocationHealthService>();
+        services.AddScoped<IAllocationContextCache, AllocationContextCache>();
+        services.AddScoped<IAllocationStrategy, NoOpAllocationStrategy>();
+        services.AddScoped<IAllocationConstraint, NoOpAllocationConstraint>();
+        services.AddScoped<IAllocationScoringProvider, NoOpAllocationScoringProvider>();
+        services.AddScoped<IAllocationRecommendationProvider, NoOpAllocationRecommendationProvider>();
+        services.AddScoped<IAllocationEngine, NullAllocationEngine>();
 
         // AI29.1A / AI29.1A.5 / AI29.1A.6 / AI29.1A.7 — Academic Hierarchy + Observability
         services.AddOptions<AcademicHierarchyOptions>()

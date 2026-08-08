@@ -18,6 +18,64 @@ export type SectionDto = {
   status: string;
   currentStrength: number;
   remainingCapacity: number;
+  sectionTypeCode?: string;
+  minimumCapacity?: number;
+  recommendedCapacity?: number;
+  reservedSeats?: number;
+  waitingListCount?: number;
+  occupancyPercent?: number | null;
+  capacityStatus?: string | null;
+  parentSectionId?: number | null;
+  sectionGroupId?: number | null;
+};
+
+export type SectionCapacitySnapshotDto = {
+  sectionId: number;
+  sectionCode: string;
+  sectionName: string;
+  lifecycleStatus: string;
+  maximumCapacity: number;
+  minimumCapacity: number;
+  recommendedCapacity: number;
+  currentStrength: number;
+  reservedSeats: number;
+  waitingList: number;
+  availableSeats: number;
+  occupancyPercent: number;
+  capacityStatus: string;
+  isOverCapacity: boolean;
+  isUnderCapacity: boolean;
+  hasWarning: boolean;
+  warnings: string[];
+};
+
+export type SectionReadinessDto = {
+  sectionId: number;
+  sectionCode: string;
+  sectionName: string;
+  overallStatus: string;
+  checks: { area: string; status: string; message: string }[];
+};
+
+export type SectionMergePreviewDto = {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+  combinedStudentCount: number;
+  combinedFacultyCount: number;
+  targetMaximumCapacity: number;
+  sourceSectionIds: number[];
+  targetSectionId?: number | null;
+};
+
+export type SectionSplitPreviewDto = {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+  sourceSectionId: number;
+  sourceStudentCount: number;
+  strategyCode: string;
+  proposedChildren: { proposedCode: string; proposedName: string; proposedCapacity: number; plannedStudentCount: number }[];
 };
 
 export type StudentSectionDto = {
@@ -146,3 +204,52 @@ export const autoAllocateSections = (body: {
 
 export const getSectionStatistics = (params?: { academicYearId?: number; semesterId?: number }) =>
   api.get<SectionStatisticsDto[]>(`${base}/statistics`, { params });
+
+// AI29.1B — Lifecycle / capacity / merge / split / readiness
+export const listLifecycleStates = () => api.get<string[]>(`${base}/lifecycle/states`);
+export const transitionSectionLifecycle = (sectionId: number, body: { targetStatus: string; reason?: string }) =>
+  api.post<SectionDto>(`${base}/lifecycle/${sectionId}/transition`, body);
+export const getLifecycleHistory = (sectionId: number) =>
+  api.get<{ id: number; fromStatus: string; toStatus: string; reason?: string; transitionedUtc: string }[]>(
+    `${base}/lifecycle/${sectionId}/history`,
+  );
+
+export const getCapacitySummary = (params?: { academicYearId?: number; semesterId?: number }) =>
+  api.get<{
+    sectionCount: number;
+    totalMaximumCapacity: number;
+    totalCurrentStrength: number;
+    totalAvailableSeats: number;
+    overCapacityCount: number;
+    underCapacityCount: number;
+    warningCount: number;
+    averageOccupancyPercent: number;
+  }>(`${base}/capacity/summary`, { params });
+
+export const getSectionOccupancy = (params?: { academicYearId?: number; semesterId?: number }) =>
+  api.get<SectionCapacitySnapshotDto[]>(`${base}/capacity/occupancy`, { params });
+
+export const getSectionHealth = () => api.get<SectionReadinessDto[]>(`${base}/capacity/health`);
+export const getSectionReadiness = (sectionId: number) => api.get<SectionReadinessDto>(`${base}/readiness/${sectionId}`);
+
+export const previewMerge = (body: { sourceSectionIds: number[]; targetSectionId: number }) =>
+  api.post<SectionMergePreviewDto>(`${base}/merge/preview`, body);
+export const commitMerge = (body: { sourceSectionIds: number[]; targetSectionId: number; effectiveDate: string; notes?: string }) =>
+  api.post<{ transactionId: string; status: string }>(`${base}/merge/commit`, body);
+export const getMergeHistory = () => api.get<{ transactionId: string; targetSectionId: number; sourceSectionIds: number[]; status: string; isReversed: boolean }[]>(`${base}/merge/history`);
+
+export const previewSplit = (body: { sourceSectionId: number; childCount?: number; strategyCode?: string }) =>
+  api.post<SectionSplitPreviewDto>(`${base}/split/preview`, body);
+export const commitSplit = (body: {
+  sourceSectionId: number;
+  strategyCode?: string;
+  effectiveDate: string;
+  children?: { proposedCode: string; proposedName: string; proposedCapacity: number; plannedStudentCount: number }[];
+}) => api.post<{ transactionId: string; status: string }>(`${base}/split/commit`, body);
+export const getSplitHistory = () =>
+  api.get<{ transactionId: string; sourceSectionId: number; childSectionIds: number[]; strategyCode: string; status: string; isReversed: boolean }[]>(
+    `${base}/split/history`,
+  );
+
+export const exportSectionReport = (kind: string, format: string) =>
+  api.get<Blob>(`${base}/reports/export`, { params: { kind, format }, responseType: "blob" });
