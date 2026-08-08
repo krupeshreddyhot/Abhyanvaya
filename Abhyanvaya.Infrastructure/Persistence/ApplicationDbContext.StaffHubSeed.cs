@@ -76,6 +76,12 @@ namespace Abhyanvaya.Infrastructure.Persistence
                 new Permission { Id = 213, Key = PermissionKeys.SectionDelete, Resource = "Section", Action = "Delete" },
                 new Permission { Id = 214, Key = PermissionKeys.SectionAssignStudents, Resource = "Section", Action = "AssignStudents" },
                 new Permission { Id = 215, Key = PermissionKeys.SectionAssignFaculty, Resource = "Section", Action = "AssignFaculty" },
+                new Permission { Id = 216, Key = PermissionKeys.SectionLifecycleView, Resource = "SectionLifecycle", Action = "View" },
+                new Permission { Id = 217, Key = PermissionKeys.SectionLifecycleEdit, Resource = "SectionLifecycle", Action = "Edit" },
+                new Permission { Id = 218, Key = PermissionKeys.SectionMerge, Resource = "Section", Action = "Merge" },
+                new Permission { Id = 219, Key = PermissionKeys.SectionSplit, Resource = "Section", Action = "Split" },
+                new Permission { Id = 225, Key = PermissionKeys.SectionCapacity, Resource = "Section", Action = "Capacity" },
+                new Permission { Id = 226, Key = PermissionKeys.SectionReadiness, Resource = "Section", Action = "Readiness" },
                 new Permission { Id = 220, Key = PermissionKeys.ProgramView, Resource = "Program", Action = "View" },
                 new Permission { Id = 221, Key = PermissionKeys.ProgramCreate, Resource = "Program", Action = "Create" },
                 new Permission { Id = 222, Key = PermissionKeys.ProgramEdit, Resource = "Program", Action = "Edit" },
@@ -112,10 +118,13 @@ namespace Abhyanvaya.Infrastructure.Persistence
                     IsDeleted = false
                 });
 
-            // Include AI30 Phase 2B Conflict (54–55) + AI29 Section (210–215) + AI29.1A Program (220–224)
+            // Include AI30 Phase 2B Conflict (54–55) + AI29 Section (210–215)
+            // + AI29.1B (216–219, 225–226) + AI29.1A Program (220–224)
             var adminLinks = Enumerable.Range(1, 55)
-                .Concat(Enumerable.Range(210, 6))
+                .Concat(Enumerable.Range(210, 10))
                 .Concat(Enumerable.Range(220, 5))
+                .Concat(Enumerable.Range(225, 2))
+                .Distinct()
                 .Select(pid => new ApplicationRolePermission { ApplicationRoleId = 100, PermissionId = pid })
                 .ToArray();
 

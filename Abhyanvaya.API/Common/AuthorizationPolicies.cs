@@ -35,6 +35,14 @@ namespace Abhyanvaya.API.Common
         public const string CanAssignSectionStudents = "CanAssignSectionStudents";
         public const string CanAssignSectionFaculty = "CanAssignSectionFaculty";
 
+        // AI29.1B — Section lifecycle & capacity
+        public const string CanViewSectionLifecycle = "CanViewSectionLifecycle";
+        public const string CanEditSectionLifecycle = "CanEditSectionLifecycle";
+        public const string CanMergeSections = "CanMergeSections";
+        public const string CanSplitSections = "CanSplitSections";
+        public const string CanManageSectionCapacity = "CanManageSectionCapacity";
+        public const string CanViewSectionReadiness = "CanViewSectionReadiness";
+
         // AI29.1A — Program management
         public const string CanViewPrograms = "CanViewPrograms";
         public const string CanCreatePrograms = "CanCreatePrograms";

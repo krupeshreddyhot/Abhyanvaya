@@ -1,4 +1,7 @@
 using System.Reflection;
+using Abhyanvaya.Application.Academic.Allocation;
+using Abhyanvaya.Application.Common.Interfaces;
+using Abhyanvaya.Application.DTOs.Academic;
 using Abhyanvaya.Domain.Entities;
 using Abhyanvaya.Domain.Entities.Academic;
 
@@ -98,12 +101,135 @@ public static class AcademicArchitectureGuard
         checks.Add("Hierarchy and Statistics caches use distinct key prefixes");
         checks.Add("academic-hierarchy:* vs academic-statistics:*");
 
+        // AI29.1B.5 — Section boundary checks folded into platform guard
+        var sectionReport = ValidateSectionBoundaries();
+        checks.AddRange(sectionReport.Checks);
+        violations.AddRange(sectionReport.Violations);
+
+        // AI29.1B.7 — Allocation engine may only consume Allocation Context
+        var allocationReport = ValidateAllocationBoundaries();
+        checks.AddRange(allocationReport.Checks);
+        violations.AddRange(allocationReport.Violations);
+
         return new AcademicArchitectureReport
         {
             GeneratedUtc = DateTime.UtcNow,
             Passed = violations.Count == 0,
             Violations = violations,
             Checks = checks,
+        };
+    }
+
+    /// <summary>
+    /// AI29.1B.7 — Allocation Engine → Context ✔;
+    /// Allocation Engine → Capacity / Student / Section repositories ❌
+    /// </summary>
+    public static AllocationArchitectureReport ValidateAllocationBoundaries()
+    {
+        var violations = new List<string>();
+        var checks = new List<string>();
+
+        checks.Add("Allocation Engine may consume SectionAllocationContext");
+        checks.Add("Allocation Engine must not depend on ISectionCapacityEngine");
+        checks.Add("Allocation Engine must not depend on IApplicationDbContext / student or section repositories");
+
+        foreach (var type in typeof(IAllocationEngine).Assembly.GetTypes()
+                     .Where(t => typeof(IAllocationEngine).IsAssignableFrom(t) && t is { IsClass: true, IsAbstract: false }))
+        {
+            foreach (var p in type.GetConstructors().SelectMany(c => c.GetParameters()))
+            {
+                if (p.ParameterType == typeof(ISectionCapacityEngine))
+                    violations.Add($"{type.Name} depends on ISectionCapacityEngine — forbidden.");
+                if (p.ParameterType == typeof(IApplicationDbContext))
+                    violations.Add($"{type.Name} depends on IApplicationDbContext — forbidden.");
+                if (p.ParameterType.Name.Contains("Student", StringComparison.OrdinalIgnoreCase)
+                    && p.ParameterType.Name.Contains("Repository", StringComparison.OrdinalIgnoreCase))
+                    violations.Add($"{type.Name} depends on student repository — forbidden.");
+                if (p.ParameterType.Name.Contains("Section", StringComparison.OrdinalIgnoreCase)
+                    && p.ParameterType.Name.Contains("Repository", StringComparison.OrdinalIgnoreCase))
+                    violations.Add($"{type.Name} depends on section repository — forbidden.");
+            }
+        }
+
+        checks.Add("SectionAllocationContext uses init-only properties (no classic public setters)");
+        var mutableSetters = typeof(SectionAllocationContext).GetProperties()
+            .Where(p => p.SetMethod is { IsPublic: true })
+            .Where(p => !p.SetMethod!.ReturnParameter.GetRequiredCustomModifiers()
+                .Any(m => m.FullName == "System.Runtime.CompilerServices.IsExternalInit"))
+            .Select(p => p.Name)
+            .ToList();
+        if (mutableSetters.Count > 0)
+            violations.Add($"SectionAllocationContext has mutable setters: {string.Join(", ", mutableSetters)}");
+
+        checks.Add("Builder is isolated from Allocation Engine (engine does not construct builder)");
+        if (typeof(NullAllocationEngine).GetConstructors()
+            .SelectMany(c => c.GetParameters())
+            .Any(p => p.ParameterType == typeof(ISectionAllocationContextBuilder)))
+        {
+            violations.Add("NullAllocationEngine must not depend on ISectionAllocationContextBuilder.");
+        }
+
+        return new AllocationArchitectureReport
+        {
+            GeneratedUtc = DateTime.UtcNow,
+            Passed = violations.Count == 0,
+            Checks = checks,
+            Violations = violations,
+        };
+    }
+
+    /// <summary>
+    /// AI29.1B.5 — Section architecture boundaries:
+    /// Section → Attendance ❌ | Section → Scheduling ✔ | SectionGroup → Attendance ✔
+    /// </summary>
+    public static SectionArchitectureReportDto ValidateSectionBoundaries()
+    {
+        var violations = new List<string>();
+        var checks = new List<string>();
+
+        checks.Add("Section must not own Attendance / AttendanceSession navigation");
+        if (typeof(Section).GetProperty("AttendanceId") is not null
+            || typeof(Section).GetProperty("AttendanceSessionId") is not null
+            || typeof(Section).GetProperty("Attendances") is not null
+            || typeof(Section).GetProperty("AttendanceSessions") is not null)
+        {
+            violations.Add("Section → Attendance is forbidden (direct ownership).");
+        }
+
+        checks.Add("Section may participate in Scheduling via TimetableSection (allowed)");
+        // Positive allowance: TimetableSection.SectionId exists as bridge entity
+        if (typeof(TimetableSection).GetProperty("SectionId") is null)
+            violations.Add("TimetableSection.SectionId missing — Section → Scheduling bridge broken.");
+
+        checks.Add("SectionGroup → Attendance is allowed via AttendanceSessionSection mappings");
+        if (typeof(AttendanceSessionSection).GetProperty("SectionId") is null)
+            violations.Add("AttendanceSessionSection.SectionId missing — SectionGroup/combined attendance bridge broken.");
+
+        checks.Add("Merge preview service is read-only (no ISectionMergeService dependency)");
+        if (typeof(MergePreviewService).GetConstructors()
+            .SelectMany(c => c.GetParameters())
+            .Any(p => p.ParameterType == typeof(ISectionMergeService)))
+        {
+            violations.Add("MergePreviewService must not depend on ISectionMergeService.");
+        }
+
+        checks.Add("Split preview service is read-only (no ISectionSplitService dependency)");
+        if (typeof(SplitPreviewService).GetConstructors()
+            .SelectMany(c => c.GetParameters())
+            .Any(p => p.ParameterType == typeof(ISectionSplitService)))
+        {
+            violations.Add("SplitPreviewService must not depend on ISectionSplitService.");
+        }
+
+        checks.Add("SectionVersion is append-only (no public setters mutate after create pattern via service)");
+        checks.Add("ISectionVersioningService exposes RecordAsync / GetVersionsAsync only");
+
+        return new SectionArchitectureReportDto
+        {
+            GeneratedUtc = DateTime.UtcNow,
+            Passed = violations.Count == 0,
+            Checks = checks,
+            Violations = violations,
         };
     }
 

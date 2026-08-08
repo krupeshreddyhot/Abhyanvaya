@@ -1,4 +1,6 @@
 using System;
+using Abhyanvaya.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -16,6 +18,8 @@ namespace Abhyanvaya.Infrastructure.Persistence.Migrations;
 /// Existing databases that already ran those scripts should mark this migration
 /// applied without running Up() (see scripts/MarkApplied_AI29_AcademicHierarchyBaseline.sql).
 /// </summary>
+[DbContext(typeof(ApplicationDbContext))]
+[Migration("20260806180000_AI29_AcademicHierarchyBaseline")]
 public partial class AI29_AcademicHierarchyBaseline : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

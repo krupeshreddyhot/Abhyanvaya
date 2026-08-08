@@ -171,6 +171,34 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<Abhyanvaya.Domain.Entities.Academic.SectionAllocationPreference> SectionAllocationPreferences =>
             Set<Abhyanvaya.Domain.Entities.Academic.SectionAllocationPreference>();
 
+        // AI29.1B — Section lifecycle & capacity
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.SectionGroup> SectionGroups =>
+            Set<Abhyanvaya.Domain.Entities.Academic.SectionGroup>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.SectionGroupMember> SectionGroupMembers =>
+            Set<Abhyanvaya.Domain.Entities.Academic.SectionGroupMember>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.SectionLifecycleTransition> SectionLifecycleTransitions =>
+            Set<Abhyanvaya.Domain.Entities.Academic.SectionLifecycleTransition>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.SectionMergeTransaction> SectionMergeTransactions =>
+            Set<Abhyanvaya.Domain.Entities.Academic.SectionMergeTransaction>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.SectionSplitTransaction> SectionSplitTransactions =>
+            Set<Abhyanvaya.Domain.Entities.Academic.SectionSplitTransaction>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.SectionLineage> SectionLineages =>
+            Set<Abhyanvaya.Domain.Entities.Academic.SectionLineage>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.TenantSectionCapacityPolicy> TenantSectionCapacityPolicies =>
+            Set<Abhyanvaya.Domain.Entities.Academic.TenantSectionCapacityPolicy>();
+
+        // AI29.1B.5 — Section operations hardening
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.SectionVersion> SectionVersions =>
+            Set<Abhyanvaya.Domain.Entities.Academic.SectionVersion>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.SectionCapacityHistory> SectionCapacityHistories =>
+            Set<Abhyanvaya.Domain.Entities.Academic.SectionCapacityHistory>();
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.SectionPolicy> SectionPolicies =>
+            Set<Abhyanvaya.Domain.Entities.Academic.SectionPolicy>();
+
+        // AI29.1B.7 — Allocation platform
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.SectionAllocationSnapshot> SectionAllocationSnapshots =>
+            Set<Abhyanvaya.Domain.Entities.Academic.SectionAllocationSnapshot>();
+
         // AI29.1A
         public IQueryable<Abhyanvaya.Domain.Entities.Academic.Program> Programs =>
             Set<Abhyanvaya.Domain.Entities.Academic.Program>();
@@ -228,7 +256,92 @@ namespace Abhyanvaya.Infrastructure.Persistence
                 e.Property(x => x.SectionCode).HasMaxLength(32);
                 e.Property(x => x.SectionName).HasMaxLength(128);
                 e.Property(x => x.Status).HasMaxLength(32);
+                e.Property(x => x.SectionTypeCode).HasMaxLength(64);
                 e.HasIndex(x => new { x.TenantId, x.AcademicYearId, x.CourseId, x.GroupId, x.SemesterId, x.SectionCode });
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.SectionGroup>(e =>
+            {
+                e.ToTable("SectionGroups");
+                e.Property(x => x.GroupCode).HasMaxLength(32);
+                e.Property(x => x.GroupName).HasMaxLength(128);
+                e.Property(x => x.Status).HasMaxLength(32);
+                e.Property(x => x.Notes).HasMaxLength(512);
+                e.HasIndex(x => new { x.TenantId, x.AcademicYearId, x.CourseId, x.GroupId, x.SemesterId, x.GroupCode });
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.SectionGroupMember>(e =>
+            {
+                e.ToTable("SectionGroupMembers");
+                e.HasIndex(x => new { x.TenantId, x.SectionGroupId, x.IsCurrent });
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.SectionLifecycleTransition>(e =>
+            {
+                e.ToTable("SectionLifecycleTransitions");
+                e.Property(x => x.FromStatus).HasMaxLength(32);
+                e.Property(x => x.ToStatus).HasMaxLength(32);
+                e.Property(x => x.Reason).HasMaxLength(512);
+                e.HasIndex(x => new { x.TenantId, x.SectionId, x.TransitionedUtc });
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.SectionMergeTransaction>(e =>
+            {
+                e.ToTable("SectionMergeTransactions");
+                e.Property(x => x.SourceSectionIdsCsv).HasMaxLength(512);
+                e.Property(x => x.Status).HasMaxLength(32);
+                e.Property(x => x.Notes).HasMaxLength(1024);
+                e.HasIndex(x => new { x.TenantId, x.TransactionId }).IsUnique();
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.SectionSplitTransaction>(e =>
+            {
+                e.ToTable("SectionSplitTransactions");
+                e.Property(x => x.ChildSectionIdsCsv).HasMaxLength(512);
+                e.Property(x => x.StrategyCode).HasMaxLength(64);
+                e.Property(x => x.Status).HasMaxLength(32);
+                e.Property(x => x.Notes).HasMaxLength(1024);
+                e.HasIndex(x => new { x.TenantId, x.TransactionId }).IsUnique();
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.SectionLineage>(e =>
+            {
+                e.ToTable("SectionLineages");
+                e.Property(x => x.RelationKind).HasMaxLength(32);
+                e.HasIndex(x => new { x.TenantId, x.ParentSectionId, x.ChildSectionId });
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.TenantSectionCapacityPolicy>(e =>
+            {
+                e.ToTable("TenantSectionCapacityPolicies");
+                e.HasIndex(x => x.TenantId).IsUnique();
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.SectionVersion>(e =>
+            {
+                e.ToTable("SectionVersions");
+                e.Property(x => x.Operation).HasMaxLength(64);
+                e.Property(x => x.SectionCode).HasMaxLength(32);
+                e.Property(x => x.SectionName).HasMaxLength(128);
+                e.Property(x => x.Status).HasMaxLength(32);
+                e.Property(x => x.SectionTypeCode).HasMaxLength(64);
+                e.Property(x => x.Reason).HasMaxLength(512);
+                e.HasIndex(x => new { x.TenantId, x.SectionId, x.VersionNumber }).IsUnique();
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.SectionCapacityHistory>(e =>
+            {
+                e.ToTable("SectionCapacityHistories");
+                e.Property(x => x.Reason).HasMaxLength(512);
+                e.HasIndex(x => new { x.TenantId, x.SectionId, x.RecordedDate });
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.SectionPolicy>(e =>
+            {
+                e.ToTable("SectionPolicies");
+                e.Property(x => x.ScopeLevel).HasMaxLength(32);
+                e.Property(x => x.SectionTypeCode).HasMaxLength(64);
+                e.Property(x => x.Notes).HasMaxLength(512);
+                e.HasIndex(x => new { x.TenantId, x.ScopeLevel, x.ProgramId, x.CourseId, x.SectionTypeCode });
+            });
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.SectionAllocationSnapshot>(e =>
+            {
+                e.ToTable("SectionAllocationSnapshots");
+                e.Property(x => x.ContextVersion).HasMaxLength(32);
+                e.Property(x => x.SchemaVersion).HasMaxLength(32);
+                e.Property(x => x.Checksum).HasMaxLength(128);
+                e.HasIndex(x => new { x.TenantId, x.SnapshotId }).IsUnique();
+                e.HasIndex(x => new { x.TenantId, x.AcademicYearId, x.CourseId, x.GroupId, x.SemesterId, x.GeneratedDate });
             });
             builder.Entity<Abhyanvaya.Domain.Entities.Academic.StudentSection>(e =>
             {

@@ -318,6 +318,14 @@ builder.Services.AddAuthorization(options =>
     AddSetupManagePolicy(AuthorizationPolicies.CanAssignSectionStudents, PermissionKeys.SectionAssignStudents);
     AddSetupManagePolicy(AuthorizationPolicies.CanAssignSectionFaculty, PermissionKeys.SectionAssignFaculty);
 
+    // AI29.1B — Section lifecycle & capacity permissions
+    AddSetupManagePolicy(AuthorizationPolicies.CanViewSectionLifecycle, PermissionKeys.SectionLifecycleView);
+    AddSetupManagePolicy(AuthorizationPolicies.CanEditSectionLifecycle, PermissionKeys.SectionLifecycleEdit);
+    AddSetupManagePolicy(AuthorizationPolicies.CanMergeSections, PermissionKeys.SectionMerge);
+    AddSetupManagePolicy(AuthorizationPolicies.CanSplitSections, PermissionKeys.SectionSplit);
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageSectionCapacity, PermissionKeys.SectionCapacity);
+    AddSetupManagePolicy(AuthorizationPolicies.CanViewSectionReadiness, PermissionKeys.SectionReadiness);
+
     // AI29.1A — Program permissions
     AddSetupManagePolicy(AuthorizationPolicies.CanViewPrograms, PermissionKeys.ProgramView);
     AddSetupManagePolicy(AuthorizationPolicies.CanCreatePrograms, PermissionKeys.ProgramCreate);

@@ -16,6 +16,26 @@ export type SemesterRow = {
   groupName: string | null;
 };
 
+/**
+ * Semesters for a course/group scope.
+ * Prefers course-wide (null group) + group-specific rows; if the selected group has none,
+ * falls back to all semesters for the course (common when older data was saved under one group).
+ */
+export const filterSemestersForScope = (
+  semesters: SemesterRow[],
+  courseId: number,
+  groupId: number,
+): SemesterRow[] => {
+  if (!courseId) return semesters;
+  const cid = Number(courseId);
+  const gid = Number(groupId);
+  const forCourse = semesters.filter((s) => Number(s.courseId) === cid);
+  if (!gid) return forCourse;
+
+  const scoped = forCourse.filter((s) => s.groupId == null || Number(s.groupId) === gid);
+  return scoped.length > 0 ? scoped : forCourse;
+};
+
 export type ElectiveGroupRow = {
   id: number;
   name: string;
