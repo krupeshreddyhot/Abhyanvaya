@@ -211,6 +211,23 @@ namespace Abhyanvaya.Application.Common.Interfaces
         IQueryable<AttendanceSessionSection> AttendanceSessionSections { get; }
         IQueryable<SectionAllocationPreference> SectionAllocationPreferences { get; }
 
+        // AI29.1B — Section lifecycle, capacity, merge/split, combined groups
+        IQueryable<SectionGroup> SectionGroups { get; }
+        IQueryable<SectionGroupMember> SectionGroupMembers { get; }
+        IQueryable<SectionLifecycleTransition> SectionLifecycleTransitions { get; }
+        IQueryable<SectionMergeTransaction> SectionMergeTransactions { get; }
+        IQueryable<SectionSplitTransaction> SectionSplitTransactions { get; }
+        IQueryable<SectionLineage> SectionLineages { get; }
+        IQueryable<TenantSectionCapacityPolicy> TenantSectionCapacityPolicies { get; }
+
+        // AI29.1B.5 — Section operations hardening
+        IQueryable<SectionVersion> SectionVersions { get; }
+        IQueryable<SectionCapacityHistory> SectionCapacityHistories { get; }
+        IQueryable<SectionPolicy> SectionPolicies { get; }
+
+        // AI29.1B.7 — Allocation platform snapshots
+        IQueryable<SectionAllocationSnapshot> SectionAllocationSnapshots { get; }
+
         // AI29.1A — Program & academic hierarchy configuration
         IQueryable<Program> Programs { get; }
         IQueryable<TenantAcademicConfiguration> TenantAcademicConfigurations { get; }

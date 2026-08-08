@@ -19,6 +19,17 @@ public sealed class SectionDto
     public string Status { get; init; } = "Active";
     public int CurrentStrength { get; init; }
     public int RemainingCapacity { get; init; }
+
+    // AI29.1B
+    public string SectionTypeCode { get; init; } = "Regular";
+    public int MinimumCapacity { get; init; }
+    public int RecommendedCapacity { get; init; }
+    public int ReservedSeats { get; init; }
+    public int WaitingListCount { get; init; }
+    public int? ParentSectionId { get; init; }
+    public int? SectionGroupId { get; init; }
+    public double? OccupancyPercent { get; init; }
+    public string? CapacityStatus { get; init; }
 }
 
 public sealed class CreateSectionRequest
@@ -33,6 +44,11 @@ public sealed class CreateSectionRequest
     public int DisplayOrder { get; init; }
     public int MaximumStrength { get; init; } = 60;
     public string Status { get; init; } = "Active";
+    public string SectionTypeCode { get; init; } = "Regular";
+    public int MinimumCapacity { get; init; }
+    public int RecommendedCapacity { get; init; }
+    public int ReservedSeats { get; init; }
+    public int WaitingListCount { get; init; }
 }
 
 public sealed class UpdateSectionRequest
@@ -41,7 +57,13 @@ public sealed class UpdateSectionRequest
     public string SectionName { get; init; } = "";
     public int DisplayOrder { get; init; }
     public int MaximumStrength { get; init; }
+    /// <summary>Ignored for direct updates — use lifecycle transition API.</summary>
     public string Status { get; init; } = "Active";
+    public string SectionTypeCode { get; init; } = "Regular";
+    public int MinimumCapacity { get; init; }
+    public int RecommendedCapacity { get; init; }
+    public int ReservedSeats { get; init; }
+    public int WaitingListCount { get; init; }
 }
 
 public sealed class StudentSectionDto

@@ -71,6 +71,14 @@ namespace Abhyanvaya.Domain.Authorization
         public const string SectionAssignStudents = "Section.AssignStudents";
         public const string SectionAssignFaculty = "Section.AssignFaculty";
 
+        // AI29.1B — Section lifecycle & capacity operations
+        public const string SectionLifecycleView = "SectionLifecycle.View";
+        public const string SectionLifecycleEdit = "SectionLifecycle.Edit";
+        public const string SectionMerge = "Section.Merge";
+        public const string SectionSplit = "Section.Split";
+        public const string SectionCapacity = "Section.Capacity";
+        public const string SectionReadiness = "Section.Readiness";
+
         // AI29.1A — Program management
         public const string ProgramView = "Program.View";
         public const string ProgramCreate = "Program.Create";
@@ -139,6 +147,12 @@ namespace Abhyanvaya.Domain.Authorization
             SectionDelete,
             SectionAssignStudents,
             SectionAssignFaculty,
+            SectionLifecycleView,
+            SectionLifecycleEdit,
+            SectionMerge,
+            SectionSplit,
+            SectionCapacity,
+            SectionReadiness,
             ProgramView,
             ProgramCreate,
             ProgramEdit,

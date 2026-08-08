@@ -1,4 +1,6 @@
 using System;
+using Abhyanvaya.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -6,6 +8,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Abhyanvaya.Infrastructure.Persistence.Migrations;
 
 /// <summary>AI22.8 — additive workflow recovery columns + retry history. Does not replace AttendanceSession.Status.</summary>
+[DbContext(typeof(ApplicationDbContext))]
+[Migration("20260803123000_AI22_8_AttendanceRecovery")]
 public partial class AI22_8_AttendanceRecovery : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

@@ -1,4 +1,6 @@
 using System;
+using Abhyanvaya.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -7,6 +9,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Abhyanvaya.Infrastructure.Persistence.Migrations;
 
 /// <summary>AI29.1A.7 — Architecture trend persistence for observability.</summary>
+[DbContext(typeof(ApplicationDbContext))]
+[Migration("20260807120000_AI29_1A7_Observability")]
 public partial class AI29_1A7_Observability : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

@@ -1,4 +1,6 @@
 using System;
+using Abhyanvaya.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -7,6 +9,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Abhyanvaya.Infrastructure.Persistence.Migrations;
 
 /// <summary>AI22.8.5.3 — tenant-scoped faculty recovery preferences.</summary>
+[DbContext(typeof(ApplicationDbContext))]
+[Migration("20260803180000_AI22_8_5_AttendanceRecoveryPreference")]
 public partial class AI22_8_5_AttendanceRecoveryPreference : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

@@ -9,11 +9,19 @@ public sealed class SectionManagementService : ISectionManagementService
 {
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
+    private readonly ISectionCapacityEngine _capacity;
+    private readonly ISectionVersioningService _versions;
 
-    public SectionManagementService(IApplicationDbContext db, ICurrentUserService currentUser)
+    public SectionManagementService(
+        IApplicationDbContext db,
+        ICurrentUserService currentUser,
+        ISectionCapacityEngine capacity,
+        ISectionVersioningService versions)
     {
         _db = db;
         _currentUser = currentUser;
+        _capacity = capacity;
+        _versions = versions;
     }
 
     public async Task<IReadOnlyList<SectionDto>> GetSectionsAsync(
@@ -61,6 +69,7 @@ public sealed class SectionManagementService : ISectionManagementService
             ? request.CollegeId.Value
             : await ResolveCollegeIdAsync(cancellationToken);
 
+        var maxCap = request.MaximumStrength > 0 ? request.MaximumStrength : 60;
         var entity = new Section
         {
             CollegeId = collegeId,
@@ -71,8 +80,13 @@ public sealed class SectionManagementService : ISectionManagementService
             SectionCode = code,
             SectionName = request.SectionName.Trim(),
             DisplayOrder = request.DisplayOrder,
-            MaximumStrength = request.MaximumStrength > 0 ? request.MaximumStrength : 60,
+            MaximumStrength = maxCap,
+            MinimumCapacity = Math.Max(0, request.MinimumCapacity),
+            RecommendedCapacity = request.RecommendedCapacity > 0 ? request.RecommendedCapacity : maxCap,
+            ReservedSeats = Math.Max(0, request.ReservedSeats),
+            WaitingListCount = Math.Max(0, request.WaitingListCount),
             Status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim(),
+            SectionTypeCode = string.IsNullOrWhiteSpace(request.SectionTypeCode) ? "Regular" : request.SectionTypeCode.Trim(),
             TenantId = _currentUser.TenantId,
             CreatedDate = DateTime.UtcNow,
             CreatedBy = _currentUser.UserId > 0 ? _currentUser.UserId : null,
@@ -80,6 +94,7 @@ public sealed class SectionManagementService : ISectionManagementService
 
         await _db.AddAsync(entity);
         await _db.SaveChangesAsync(cancellationToken);
+        await _versions.RecordAsync(entity, Domain.Academic.SectionVersionOperations.Create, "Section created", 0, cancellationToken);
         return (await GetSectionAsync(entity.Id, cancellationToken))!;
     }
 
@@ -103,11 +118,19 @@ public sealed class SectionManagementService : ISectionManagementService
         entity.SectionName = request.SectionName.Trim();
         entity.DisplayOrder = request.DisplayOrder;
         entity.MaximumStrength = request.MaximumStrength > 0 ? request.MaximumStrength : entity.MaximumStrength;
-        entity.Status = string.IsNullOrWhiteSpace(request.Status) ? entity.Status : request.Status.Trim();
+        entity.MinimumCapacity = Math.Max(0, request.MinimumCapacity);
+        entity.RecommendedCapacity = request.RecommendedCapacity > 0 ? request.RecommendedCapacity : entity.MaximumStrength;
+        entity.ReservedSeats = Math.Max(0, request.ReservedSeats);
+        entity.WaitingListCount = Math.Max(0, request.WaitingListCount);
+        if (!string.IsNullOrWhiteSpace(request.SectionTypeCode))
+            entity.SectionTypeCode = request.SectionTypeCode.Trim();
+        // Status changes are owned by ISectionLifecycleService (AI29.1B state machine).
         entity.UpdatedDate = DateTime.UtcNow;
         entity.UpdatedBy = _currentUser.UserId > 0 ? _currentUser.UserId : null;
 
         await _db.SaveChangesAsync(cancellationToken);
+        var strength = await _db.StudentSections.CountAsync(x => x.SectionId == id && x.IsCurrent, cancellationToken);
+        await _versions.RecordAsync(entity, Domain.Academic.SectionVersionOperations.Update, "Section updated", strength, cancellationToken);
         return (await GetSectionAsync(id, cancellationToken))!;
     }
 
@@ -182,7 +205,7 @@ public sealed class SectionManagementService : ISectionManagementService
             && s.SemesterId == section.SemesterId, cancellationToken);
         if (!studentOk) throw new InvalidOperationException("Student does not belong to the section's course/group/semester.");
 
-        await EnsureCapacityAsync(section, cancellationToken);
+        await _capacity.EnsureCanAcceptStudentAsync(section, cancellationToken);
 
         var current = await _db.StudentSections
             .Where(x => x.TenantId == _currentUser.TenantId && x.StudentId == request.StudentId && x.IsCurrent)
@@ -546,22 +569,12 @@ public sealed class SectionManagementService : ISectionManagementService
         return id > 0 ? id : _currentUser.TenantId;
     }
 
-    private async Task EnsureCapacityAsync(Section section, CancellationToken ct)
-    {
-        var count = await _db.StudentSections.CountAsync(x => x.SectionId == section.Id && x.IsCurrent, ct);
-        if (count >= section.MaximumStrength)
-            throw new InvalidOperationException($"Section {section.SectionCode} is at maximum strength ({section.MaximumStrength}).");
-    }
-
     private async Task<IReadOnlyList<SectionDto>> MapSectionsAsync(IReadOnlyList<Section> rows, CancellationToken ct)
     {
         if (rows.Count == 0) return [];
         var ids = rows.Select(r => r.Id).ToList();
-        var counts = await _db.StudentSections.AsNoTracking()
-            .Where(x => x.TenantId == _currentUser.TenantId && x.IsCurrent && ids.Contains(x.SectionId))
-            .GroupBy(x => x.SectionId)
-            .Select(g => new { SectionId = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.SectionId, x => x.Count, ct);
+        var capacityMap = (await _capacity.GetOccupancyAsync(ids, cancellationToken: ct))
+            .ToDictionary(x => x.SectionId);
 
         var yearIds = rows.Select(r => r.AcademicYearId).Distinct().ToList();
         var courseIds = rows.Select(r => r.CourseId).Distinct().ToList();
@@ -575,7 +588,8 @@ public sealed class SectionManagementService : ISectionManagementService
 
         return rows.Select(r =>
         {
-            var strength = counts.GetValueOrDefault(r.Id);
+            capacityMap.TryGetValue(r.Id, out var cap);
+            var strength = cap?.CurrentStrength ?? 0;
             return new SectionDto
             {
                 Id = r.Id,
@@ -594,7 +608,16 @@ public sealed class SectionManagementService : ISectionManagementService
                 MaximumStrength = r.MaximumStrength,
                 Status = r.Status,
                 CurrentStrength = strength,
-                RemainingCapacity = Math.Max(0, r.MaximumStrength - strength),
+                RemainingCapacity = cap?.AvailableSeats ?? Math.Max(0, r.MaximumStrength - strength),
+                SectionTypeCode = r.SectionTypeCode,
+                MinimumCapacity = r.MinimumCapacity,
+                RecommendedCapacity = r.RecommendedCapacity,
+                ReservedSeats = r.ReservedSeats,
+                WaitingListCount = r.WaitingListCount,
+                ParentSectionId = r.ParentSectionId,
+                SectionGroupId = r.SectionGroupId,
+                OccupancyPercent = cap?.OccupancyPercent,
+                CapacityStatus = cap?.CapacityStatus,
             };
         }).ToList();
     }

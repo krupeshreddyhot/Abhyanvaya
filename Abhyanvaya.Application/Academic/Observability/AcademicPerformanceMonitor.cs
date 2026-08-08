@@ -23,6 +23,18 @@ public sealed class AcademicPerformanceMonitor : IAcademicPerformanceMonitor
             AcademicOperations.Snapshot,
             AcademicOperations.ArchitectureGuard,
             AcademicOperations.ProgramStatistics,
+            AcademicOperations.SectionMergePreview,
+            AcademicOperations.SectionSplitPreview,
+            AcademicOperations.SectionPolicyResolve,
+            AcademicOperations.SectionCapacityRecommend,
+            AcademicOperations.SectionHealth,
+            AcademicOperations.SectionTimeline,
+            AcademicOperations.AllocationContextBuild,
+            AcademicOperations.AllocationContextRefresh,
+            AcademicOperations.AllocationSnapshot,
+            AcademicOperations.AllocationValidation,
+            AcademicOperations.AllocationReadiness,
+            AcademicOperations.AllocationHealth,
         }.Select(GetOperation).ToList();
 
         return new AcademicPerformanceReportDto
@@ -57,4 +69,24 @@ public static class AcademicOperations
     public const string Snapshot = "snapshot.generate";
     public const string ArchitectureGuard = "architecture.guard";
     public const string ProgramStatistics = "program.statistics";
+
+    // AI29.1B.5 — Section operations hardening
+    public const string SectionMergePreview = "section.merge.preview";
+    public const string SectionSplitPreview = "section.split.preview";
+    public const string SectionPolicyResolve = "section.policy.resolve";
+    public const string SectionCapacityRecommend = "section.capacity.recommend";
+    public const string SectionHealth = "section.health.evaluate";
+    public const string SectionTimeline = "section.timeline.build";
+
+    // AI29.1B.7 — Allocation platform
+    public const string AllocationContextBuild = "allocation.context.build";
+    public const string AllocationContextRefresh = "allocation.context.refresh";
+    public const string AllocationSnapshot = "allocation.snapshot.generate";
+    public const string AllocationValidation = "allocation.validation";
+    public const string AllocationReadiness = "allocation.readiness";
+    public const string AllocationHealth = "allocation.health";
+    public const string AllocationCacheHit = "allocation.cache.hit";
+    public const string AllocationCacheMiss = "allocation.cache.miss";
+    public const string AllocationCacheWarm = "allocation.cache.warm";
+    public const string AllocationCacheRefresh = "allocation.cache.refresh";
 }

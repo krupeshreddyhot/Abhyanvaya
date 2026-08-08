@@ -88,7 +88,8 @@ const SemestersPage = () => {
     setName("");
     const c0 = courses[0]?.id ?? 0;
     setCourseId(c0);
-    setGroupId(groups.find((g) => g.courseId === c0)?.id ?? NONE_GROUP);
+    // Default course-wide so all groups (e.g. Computer Applications + Finance) share the semester.
+    setGroupId(NONE_GROUP);
     setDialogOpen(true);
   };
 
@@ -186,10 +187,8 @@ const SemestersPage = () => {
               label="Course"
               value={courseId || ""}
               onChange={(e) => {
-                const cid = Number(e.target.value);
-                setCourseId(cid);
-                const firstG = groups.find((g) => g.courseId === cid);
-                setGroupId(firstG?.id ?? NONE_GROUP);
+                setCourseId(Number(e.target.value));
+                setGroupId(NONE_GROUP);
               }}
               fullWidth
               required
