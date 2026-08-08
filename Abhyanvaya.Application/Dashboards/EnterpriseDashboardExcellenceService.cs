@@ -582,7 +582,8 @@ public sealed class EnterpriseDashboardExcellenceService : IEnterpriseDashboardE
         {
             Title = cc.Title,
             Subtitle = cc.Subtitle,
-            RefreshIntervalSeconds = prefs.RefreshIntervalSeconds > 0 ? prefs.RefreshIntervalSeconds : cc.RefreshIntervalSeconds,
+            // 0 = Manual — must not fall back to command-center default (60).
+            RefreshIntervalSeconds = prefs.RefreshIntervalSeconds,
             AttentionRequired = MapSection(cc.AttentionRequired),
             TodaysOperations = MapSection(cc.TodaysOperations),
             SchedulingOperations = MapSection(cc.SchedulingOperations),

@@ -1,6 +1,7 @@
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Scheduling.Conflicts;
 using Abhyanvaya.Application.UnitTests.Scheduling.Phase2;
+using Abhyanvaya.Domain.Entities.Academic;
 using Abhyanvaya.Domain.Entities.Scheduling;
 using Abhyanvaya.Domain.Enums.Scheduling;
 using Moq;
@@ -20,6 +21,8 @@ public sealed class AttendanceSessionResolverTests
         context.Setup(c => c.SchedulingRooms).Returns(Array.Empty<Room>().AsAsyncQueryable());
         context.Setup(c => c.Subjects).Returns(Array.Empty<Domain.Entities.Subject>().AsAsyncQueryable());
         context.Setup(c => c.TenantSubjects).Returns(Array.Empty<Domain.Entities.TenantSubject>().AsAsyncQueryable());
+        context.Setup(c => c.TimetableSections).Returns(Array.Empty<TimetableSection>().AsAsyncQueryable());
+        context.Setup(c => c.Sections).Returns(Array.Empty<Section>().AsAsyncQueryable());
 
         var user = new Mock<ICurrentUserService>();
         user.SetupGet(u => u.TenantId).Returns(1);
@@ -81,6 +84,9 @@ public sealed class AttendanceSessionResolverTests
         context.Setup(c => c.SchedulingRooms).Returns(new[] { new Room { Id = 7, Name = "Lab-1", Code = "L1", FloorId = 1 } }.AsAsyncQueryable());
         context.Setup(c => c.Subjects).Returns(new[] { new Domain.Entities.Subject { Id = 6, TenantSubjectId = 60 } }.AsAsyncQueryable());
         context.Setup(c => c.TenantSubjects).Returns(new[] { new Domain.Entities.TenantSubject { Id = 60, Name = "Physics" } }.AsAsyncQueryable());
+        // AI29 additive TimetableSections join — mock async queryables (do not change resolver).
+        context.Setup(c => c.TimetableSections).Returns(Array.Empty<TimetableSection>().AsAsyncQueryable());
+        context.Setup(c => c.Sections).Returns(Array.Empty<Section>().AsAsyncQueryable());
 
         var user = new Mock<ICurrentUserService>();
         user.SetupGet(u => u.TenantId).Returns(1);

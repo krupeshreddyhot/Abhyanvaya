@@ -236,6 +236,8 @@ const AdminOperationsDashboardPage = () => {
   const [toolbarExpanded, setToolbarExpanded] = useState(false);
   const [filterPanelExpanded, setFilterPanelExpanded] = useState(true);
   const [nowTick, setNowTick] = useState(() => Date.now());
+  /** Local refresh selection — Select is controlled by this so UI doesn't stick on server default 60. */
+  const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState(60);
 
   const load = useCallback(
     async (silent = false, nextFilters?: DashboardFilterRequest) => {
@@ -248,6 +250,14 @@ const AdminOperationsDashboardPage = () => {
         const res = await getAdminDashboardExcellence(f);
         setData(res.data);
         setLastRefresh(new Date());
+        // Sync refresh interval only on full loads — silent polls must not snap the dropdown back to 60.
+        if (!silent) {
+          const serverRefresh =
+            res.data.refreshIntervalSeconds ?? res.data.preferences?.refreshIntervalSeconds;
+          if (typeof serverRefresh === "number" && [0, 30, 60, 120, 300].includes(serverRefresh)) {
+            setRefreshIntervalSeconds(serverRefresh);
+          }
+        }
         if (res.data.preferences?.filters && !nextFilters && Object.values(filters).every((v) => v == null || v === undefined)) {
           setFilters(res.data.preferences.filters);
         }
@@ -272,11 +282,10 @@ const AdminOperationsDashboardPage = () => {
 
   useEffect(() => {
     if (paused) return;
-    const seconds = data?.refreshIntervalSeconds ?? data?.preferences?.refreshIntervalSeconds ?? 60;
-    if (!seconds || seconds <= 0) return;
-    const id = window.setInterval(() => void load(true), Math.max(30, seconds) * 1000);
+    if (!refreshIntervalSeconds || refreshIntervalSeconds <= 0) return;
+    const id = window.setInterval(() => void load(true), Math.max(30, refreshIntervalSeconds) * 1000);
     return () => window.clearInterval(id);
-  }, [data?.refreshIntervalSeconds, data?.preferences?.refreshIntervalSeconds, paused, load]);
+  }, [refreshIntervalSeconds, paused, load]);
 
   useEffect(() => {
     const id = window.setInterval(() => setNowTick(Date.now()), 1000);
@@ -348,12 +357,11 @@ const AdminOperationsDashboardPage = () => {
 
   const filterQuery = toQuery(filters);
   const highContrast = Boolean(data?.preferences?.highContrast);
-  const refreshSeconds = data?.refreshIntervalSeconds ?? data?.preferences?.refreshIntervalSeconds ?? 60;
   const nextRefreshAt = useMemo(() => {
     void nowTick;
-    if (paused || !lastRefresh || !refreshSeconds || refreshSeconds <= 0) return null;
-    return new Date(lastRefresh.getTime() + Math.max(30, refreshSeconds) * 1000);
-  }, [lastRefresh, refreshSeconds, paused, nowTick]);
+    if (paused || !lastRefresh || !refreshIntervalSeconds || refreshIntervalSeconds <= 0) return null;
+    return new Date(lastRefresh.getTime() + Math.max(30, refreshIntervalSeconds) * 1000);
+  }, [lastRefresh, refreshIntervalSeconds, paused, nowTick]);
   const currentTime = useMemo(() => formatClock(new Date(nowTick)), [nowTick]);
 
   const toggle = (code: string, next: boolean) => {
@@ -386,13 +394,25 @@ const AdminOperationsDashboardPage = () => {
   };
 
   const setRefresh = async (seconds: number) => {
-    await upsertDashboardPreferences({ roleScope: "Admin", refreshIntervalSeconds: seconds });
-    await load(true);
+    const next = [0, 30, 60, 120, 300].includes(seconds) ? seconds : 60;
+    setRefreshIntervalSeconds(next); // optimistic — Select must update immediately
+    try {
+      const res = await upsertDashboardPreferences({ roleScope: "Admin", refreshIntervalSeconds: next });
+      const saved = res.data.refreshIntervalSeconds;
+      if (typeof saved === "number" && [0, 30, 60, 120, 300].includes(saved)) {
+        setRefreshIntervalSeconds(saved);
+      }
+      // Refresh dashboard payload without resetting the interval control.
+      await load(true);
+    } catch {
+      // Keep optimistic selection so the dropdown still reflects the user's choice.
+    }
   };
 
   const restoreDefaults = async () => {
     await upsertDashboardPreferences({ roleScope: "Admin", restoreDefaults: true });
     setFilters({});
+    setRefreshIntervalSeconds(60);
     await load(false, {});
   };
 
@@ -507,7 +527,7 @@ const AdminOperationsDashboardPage = () => {
               <InputLabel>Refresh</InputLabel>
               <Select
                 label="Refresh"
-                value={data?.refreshIntervalSeconds ?? 60}
+                value={refreshIntervalSeconds}
                 onChange={(e) => void setRefresh(Number(e.target.value))}
               >
                 <MenuItem value={30}>30 sec</MenuItem>

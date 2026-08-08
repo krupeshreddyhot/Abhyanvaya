@@ -228,6 +228,16 @@ namespace Abhyanvaya.Application.Common.Interfaces
         // AI29.1B.7 — Allocation platform snapshots
         IQueryable<SectionAllocationSnapshot> SectionAllocationSnapshots { get; }
 
+        // AI29.1C — Allocation engine persistence (scenarios / drafts / sandbox)
+        IQueryable<AllocationEngineSession> AllocationEngineSessions { get; }
+        IQueryable<AllocationEngineScenario> AllocationEngineScenarios { get; }
+        IQueryable<AllocationEngineDraft> AllocationEngineDrafts { get; }
+        IQueryable<AllocationEngineSandboxItem> AllocationEngineSandboxItems { get; }
+
+        // AI29.1C.5 — Allocation operations
+        IQueryable<AllocationScenarioVersion> AllocationScenarioVersions { get; }
+        IQueryable<AllocationAuditEntry> AllocationAuditEntries { get; }
+
         // AI29.1A — Program & academic hierarchy configuration
         IQueryable<Program> Programs { get; }
         IQueryable<TenantAcademicConfiguration> TenantAcademicConfigurations { get; }

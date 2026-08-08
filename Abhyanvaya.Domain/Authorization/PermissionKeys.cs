@@ -79,6 +79,21 @@ namespace Abhyanvaya.Domain.Authorization
         public const string SectionCapacity = "Section.Capacity";
         public const string SectionReadiness = "Section.Readiness";
 
+        // AI29.1C — Allocation engine (scenario / draft only)
+        public const string AllocationRun = "Allocation.Run";
+        public const string AllocationApprove = "Allocation.Approve";
+
+        // AI29.1C.5 — Allocation operations
+        public const string AllocationOperationsView = "Allocation.Operations.View";
+        public const string AllocationScenarioView = "Allocation.Scenario.View";
+        public const string AllocationScenarioCreate = "Allocation.Scenario.Create";
+        public const string AllocationScenarioCompare = "Allocation.Scenario.Compare";
+        public const string AllocationScenarioReplay = "Allocation.Scenario.Replay";
+        public const string AllocationScenarioReview = "Allocation.Scenario.Review";
+        public const string AllocationScenarioArchive = "Allocation.Scenario.Archive";
+        public const string AllocationReject = "Allocation.Reject";
+        public const string AllocationExport = "Allocation.Export";
+
         // AI29.1A — Program management
         public const string ProgramView = "Program.View";
         public const string ProgramCreate = "Program.Create";
@@ -153,6 +168,17 @@ namespace Abhyanvaya.Domain.Authorization
             SectionSplit,
             SectionCapacity,
             SectionReadiness,
+            AllocationRun,
+            AllocationApprove,
+            AllocationOperationsView,
+            AllocationScenarioView,
+            AllocationScenarioCreate,
+            AllocationScenarioCompare,
+            AllocationScenarioReplay,
+            AllocationScenarioReview,
+            AllocationScenarioArchive,
+            AllocationReject,
+            AllocationExport,
             ProgramView,
             ProgramCreate,
             ProgramEdit,
