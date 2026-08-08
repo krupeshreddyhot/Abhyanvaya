@@ -67,6 +67,18 @@ export const PermissionKeys = {
   SectionSplit: "Section.Split",
   SectionCapacity: "Section.Capacity",
   SectionReadiness: "Section.Readiness",
+  // AI29.1C — Allocation engine
+  AllocationRun: "Allocation.Run",
+  AllocationApprove: "Allocation.Approve",
+  AllocationOperationsView: "Allocation.Operations.View",
+  AllocationScenarioView: "Allocation.Scenario.View",
+  AllocationScenarioCreate: "Allocation.Scenario.Create",
+  AllocationScenarioCompare: "Allocation.Scenario.Compare",
+  AllocationScenarioReplay: "Allocation.Scenario.Replay",
+  AllocationScenarioReview: "Allocation.Scenario.Review",
+  AllocationScenarioArchive: "Allocation.Scenario.Archive",
+  AllocationReject: "Allocation.Reject",
+  AllocationExport: "Allocation.Export",
   // AI29.1A — Program management
   ProgramView: "Program.View",
   ProgramCreate: "Program.Create",

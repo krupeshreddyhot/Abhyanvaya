@@ -43,6 +43,21 @@ namespace Abhyanvaya.API.Common
         public const string CanManageSectionCapacity = "CanManageSectionCapacity";
         public const string CanViewSectionReadiness = "CanViewSectionReadiness";
 
+        // AI29.1C — Allocation engine
+        public const string CanRunAllocation = "CanRunAllocation";
+        public const string CanApproveAllocation = "CanApproveAllocation";
+
+        // AI29.1C.5 — Allocation operations
+        public const string CanViewAllocationOperations = "CanViewAllocationOperations";
+        public const string CanViewAllocationScenarios = "CanViewAllocationScenarios";
+        public const string CanCreateAllocationScenarios = "CanCreateAllocationScenarios";
+        public const string CanCompareAllocationScenarios = "CanCompareAllocationScenarios";
+        public const string CanReplayAllocationScenarios = "CanReplayAllocationScenarios";
+        public const string CanReviewAllocationScenarios = "CanReviewAllocationScenarios";
+        public const string CanArchiveAllocationScenarios = "CanArchiveAllocationScenarios";
+        public const string CanRejectAllocation = "CanRejectAllocation";
+        public const string CanExportAllocation = "CanExportAllocation";
+
         // AI29.1A — Program management
         public const string CanViewPrograms = "CanViewPrograms";
         public const string CanCreatePrograms = "CanCreatePrograms";

@@ -45,18 +45,61 @@ public static class DependencyInjection
         services.AddScoped<ISectionCapacityRecommendationService, SectionCapacityRecommendationService>();
         services.AddScoped<ISectionHealthService, SectionHealthService>();
 
-        // AI29.1B.7 — Allocation platform & readiness (no allocation algorithms)
+        // AI29.1B.7 — Allocation platform & readiness
         services.AddScoped<ISectionAllocationContextValidator, SectionAllocationContextValidator>();
         services.AddScoped<IAllocationSnapshotService, AllocationSnapshotService>();
         services.AddScoped<ISectionAllocationContextBuilder, SectionAllocationContextBuilder>();
         services.AddScoped<IAllocationReadinessService, AllocationReadinessService>();
         services.AddScoped<IAllocationHealthService, AllocationHealthService>();
         services.AddScoped<IAllocationContextCache, AllocationContextCache>();
-        services.AddScoped<IAllocationStrategy, NoOpAllocationStrategy>();
-        services.AddScoped<IAllocationConstraint, NoOpAllocationConstraint>();
-        services.AddScoped<IAllocationScoringProvider, NoOpAllocationScoringProvider>();
-        services.AddScoped<IAllocationRecommendationProvider, NoOpAllocationRecommendationProvider>();
-        services.AddScoped<IAllocationEngine, NullAllocationEngine>();
+
+        // AI29.1C — Enterprise Section Allocation Engine
+        services.AddScoped<IStudentGroupingStrategy, StudentGroupingStrategy>();
+        services.AddScoped<IAllocationScoreCalculator, AllocationScoreCalculator>();
+        services.AddScoped<IAllocationScoringProvider, AllocationScoreCalculator>();
+        services.AddScoped<IAllocationConstraintEngine, AllocationConstraintEngine>();
+        services.AddScoped<IAllocationRecommendationProvider, ContextAllocationRecommendationProvider>();
+        services.AddScoped<IAllocationPipelineStrategy, ValidationAllocationStrategy>();
+        services.AddScoped<IAllocationPipelineStrategy, CapacityAllocationStrategy>();
+        services.AddScoped<IAllocationPipelineStrategy, PolicyAllocationStrategy>();
+        services.AddScoped<IAllocationPipelineStrategy, GenderAllocationStrategy>();
+        services.AddScoped<IAllocationPipelineStrategy, LanguageAllocationStrategy>();
+        services.AddScoped<IAllocationPipelineStrategy, ScholarshipAllocationStrategy>();
+        services.AddScoped<IAllocationPipelineStrategy, ElectiveAllocationStrategy>();
+        services.AddScoped<IAllocationPipelineStrategy, TransportAllocationStrategy>();
+        services.AddScoped<IAllocationPipelineStrategy, HostelAllocationStrategy>();
+        services.AddScoped<IAllocationPipelineStrategy, MeritAllocationStrategy>();
+        services.AddScoped<IAllocationPipelineStrategy, ScoringAllocationStrategy>();
+        services.AddScoped<IAllocationConstraint, CapacityAllocationConstraint>();
+        services.AddScoped<IAllocationConstraint, ReservedSeatsAllocationConstraint>();
+        services.AddScoped<IAllocationConstraint, GenderBalanceAllocationConstraint>();
+        services.AddScoped<IAllocationConstraint, LanguageAllocationConstraint>();
+        services.AddScoped<IAllocationConstraint, HostelAllocationConstraint>();
+        services.AddScoped<IAllocationConstraint, MeritAllocationConstraint>();
+        services.AddScoped<IAllocationConstraint, ElectiveAllocationConstraint>();
+        services.AddScoped<IAllocationConstraint, MinorSubjectAllocationConstraint>();
+        services.AddScoped<IAllocationEngine, AllocationEngine>();
+        services.AddScoped<IAllocationExecutionService, AllocationExecutionService>();
+        services.AddScoped<IAllocationSimulationService, AllocationSimulationService>();
+        services.AddScoped<IAllocationApprovalService, AllocationApprovalService>();
+        services.AddScoped<IAllocationSandboxService, AllocationSandboxService>();
+        services.AddScoped<IAllocationDashboardService, AllocationDashboardService>();
+        services.AddScoped<IAllocationReportService, AllocationReportService>();
+        // IAllocationProgressPublisher registered by API host (SignalR) or tests (Null)
+
+        // AI29.1C.5 — Allocation intelligence & enterprise operations
+        services.AddScoped<IAllocationAuditService, AllocationAuditService>();
+        services.AddScoped<IAllocationScenarioVersioningService, AllocationScenarioVersioningService>();
+        services.AddScoped<IAllocationScenarioVersionService>(sp => sp.GetRequiredService<IAllocationScenarioVersioningService>());
+        services.AddScoped<IAllocationScenarioLifecycleService, AllocationScenarioLifecycleService>();
+        services.AddScoped<IAllocationHistoryService, AllocationHistoryService>();
+        services.AddScoped<IAllocationReplayService, AllocationReplayService>();
+        services.AddScoped<IAllocationComparisonService, AllocationComparisonService>();
+        services.AddScoped<IAllocationExplanationService, AllocationExplanationService>();
+        services.AddScoped<IAllocationAnalyticsService, AllocationAnalyticsService>();
+        services.AddScoped<IAllocationGovernanceService, AllocationGovernanceService>();
+        services.AddScoped<IAllocationOpsDashboardService, AllocationOpsDashboardService>();
+        services.AddScoped<IAllocationScenarioQueryService, AllocationScenarioQueryService>();
 
         // AI29.1A / AI29.1A.5 / AI29.1A.6 / AI29.1A.7 — Academic Hierarchy + Observability
         services.AddOptions<AcademicHierarchyOptions>()

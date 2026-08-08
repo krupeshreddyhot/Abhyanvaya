@@ -82,6 +82,17 @@ namespace Abhyanvaya.Infrastructure.Persistence
                 new Permission { Id = 219, Key = PermissionKeys.SectionSplit, Resource = "Section", Action = "Split" },
                 new Permission { Id = 225, Key = PermissionKeys.SectionCapacity, Resource = "Section", Action = "Capacity" },
                 new Permission { Id = 226, Key = PermissionKeys.SectionReadiness, Resource = "Section", Action = "Readiness" },
+                new Permission { Id = 227, Key = PermissionKeys.AllocationRun, Resource = "Allocation", Action = "Run" },
+                new Permission { Id = 228, Key = PermissionKeys.AllocationApprove, Resource = "Allocation", Action = "Approve" },
+                new Permission { Id = 229, Key = PermissionKeys.AllocationOperationsView, Resource = "Allocation", Action = "OperationsView" },
+                new Permission { Id = 230, Key = PermissionKeys.AllocationScenarioView, Resource = "Allocation", Action = "ScenarioView" },
+                new Permission { Id = 231, Key = PermissionKeys.AllocationScenarioCreate, Resource = "Allocation", Action = "ScenarioCreate" },
+                new Permission { Id = 232, Key = PermissionKeys.AllocationScenarioCompare, Resource = "Allocation", Action = "ScenarioCompare" },
+                new Permission { Id = 233, Key = PermissionKeys.AllocationScenarioReplay, Resource = "Allocation", Action = "ScenarioReplay" },
+                new Permission { Id = 234, Key = PermissionKeys.AllocationScenarioReview, Resource = "Allocation", Action = "ScenarioReview" },
+                new Permission { Id = 237, Key = PermissionKeys.AllocationScenarioArchive, Resource = "Allocation", Action = "ScenarioArchive" },
+                new Permission { Id = 235, Key = PermissionKeys.AllocationReject, Resource = "Allocation", Action = "Reject" },
+                new Permission { Id = 236, Key = PermissionKeys.AllocationExport, Resource = "Allocation", Action = "Export" },
                 new Permission { Id = 220, Key = PermissionKeys.ProgramView, Resource = "Program", Action = "View" },
                 new Permission { Id = 221, Key = PermissionKeys.ProgramCreate, Resource = "Program", Action = "Create" },
                 new Permission { Id = 222, Key = PermissionKeys.ProgramEdit, Resource = "Program", Action = "Edit" },
@@ -119,11 +130,11 @@ namespace Abhyanvaya.Infrastructure.Persistence
                 });
 
             // Include AI30 Phase 2B Conflict (54–55) + AI29 Section (210–215)
-            // + AI29.1B (216–219, 225–226) + AI29.1A Program (220–224)
+            // + AI29.1B (216–219, 225–226) + AI29.1A Program (220–224) + AI29.1C/1C.5/5A Allocation (227–237)
             var adminLinks = Enumerable.Range(1, 55)
                 .Concat(Enumerable.Range(210, 10))
                 .Concat(Enumerable.Range(220, 5))
-                .Concat(Enumerable.Range(225, 2))
+                .Concat(Enumerable.Range(225, 13))
                 .Distinct()
                 .Select(pid => new ApplicationRolePermission { ApplicationRoleId = 100, PermissionId = pid })
                 .ToArray();
