@@ -130,11 +130,16 @@ namespace Abhyanvaya.Infrastructure.Persistence
                 });
 
             // Include AI30 Phase 2B Conflict (54–55) + AI29 Section (210–215)
-            // + AI29.1B (216–219, 225–226) + AI29.1A Program (220–224) + AI29.1C/1C.5/5A Allocation (227–237)
+            // + AI29.1B (216–219, 225–226) + AI29.1A Program (220–224)
+            // + AI29.1D.24B.3A least-privilege Allocation operator set on ADMIN:
+            //   Run / Scenario.View / Create / Compare / Replay / Review (227, 230–234).
+            // Governance (Approve/Reject/Archive/Export) and Operations.View are NOT seeded onto ADMIN.
+            var adminAllocationOperatorIds = new[] { 227, 230, 231, 232, 233, 234 };
             var adminLinks = Enumerable.Range(1, 55)
                 .Concat(Enumerable.Range(210, 10))
                 .Concat(Enumerable.Range(220, 5))
-                .Concat(Enumerable.Range(225, 13))
+                .Concat(Enumerable.Range(225, 2)) // SectionCapacity, SectionReadiness
+                .Concat(adminAllocationOperatorIds)
                 .Distinct()
                 .Select(pid => new ApplicationRolePermission { ApplicationRoleId = 100, PermissionId = pid })
                 .ToArray();

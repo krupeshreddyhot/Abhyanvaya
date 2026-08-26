@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Abhyanvaya.API.Controllers.Scheduling;
 
 [ApiController]
-[Authorize(Policy = AuthorizationPolicies.CanViewScheduling)]
+[Authorize]
 [Route("api/scheduling/academic-years")]
 public sealed class AcademicYearsController : ControllerBase
 {
@@ -17,11 +17,14 @@ public sealed class AcademicYearsController : ControllerBase
 
     public AcademicYearsController(IAcademicCalendarService service) => _service = service;
 
+    /// <summary>List years — Attendance/Section operators may read for optional Section scope (AI29.1D).</summary>
     [HttpGet]
+    [Authorize(Policy = AuthorizationPolicies.CanViewAcademicYears)]
     public Task<IReadOnlyList<AcademicYearDto>> List(CancellationToken cancellationToken) =>
         _service.ListYearsAsync(cancellationToken);
 
     [HttpGet("{id:int}")]
+    [Authorize(Policy = AuthorizationPolicies.CanViewAcademicYears)]
     public async Task<ActionResult<AcademicYearDto>> Get(int id, CancellationToken cancellationToken)
     {
         var item = await _service.GetYearByIdAsync(id, cancellationToken);

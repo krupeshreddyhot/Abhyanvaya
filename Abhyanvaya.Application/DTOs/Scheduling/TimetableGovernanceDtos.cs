@@ -157,14 +157,34 @@ public sealed class EnqueueTimetableCloneRequest
 public sealed class SoftWarningDto
 {
     public string Code { get; init; } = null!;
+    /// <summary>Presentation severity: Critical | Error | Warning | Information.</summary>
     public string Severity { get; init; } = "Warning";
     public string Message { get; init; } = null!;
+    /// <summary>AI-SCHED-CAP Prompt 4 — short what-is-wrong title.</summary>
+    public string? Title { get; init; }
+    /// <summary>AI-SCHED-CAP Prompt 4 — why this finding occurred (server metrics).</summary>
+    public string? Why { get; init; }
+    /// <summary>AI-SCHED-CAP Prompt 4 — actionable guidance (no automatic mutation).</summary>
+    public string? SuggestedAction { get; init; }
     public int? EntryId { get; init; }
     public int? StaffId { get; init; }
     public int? RoomId { get; init; }
     public byte? DayOfWeek { get; init; }
     public int? TimeSlotId { get; init; }
     public bool Dismissed { get; init; }
+
+    // Capacity presentation metrics (populate only when relevant to the rule)
+    public int? TeachingGroupId { get; init; }
+    public string? TeachingGroupCode { get; init; }
+    public string? TeachingGroupName { get; init; }
+    public string? TeachingGroupStatus { get; init; }
+    public int? PlacementSize { get; init; }
+    public string? PlacementSizeSource { get; init; }
+    public int? RoomCapacity { get; init; }
+    public decimal? CapacityMarginPercent { get; init; }
+    public decimal? EffectiveRoomCapacity { get; init; }
+    public int? ResolvedStudentCount { get; init; }
+    public int? MaxTeachingCapacity { get; init; }
 }
 
 public sealed class DismissSoftWarningRequest

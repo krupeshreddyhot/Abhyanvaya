@@ -44,6 +44,8 @@ namespace Abhyanvaya.Domain.Authorization
         public const string SchedulingHolidayTypesManage = "Scheduling.HolidayTypes.Manage";
         public const string SchedulingTimetableView = "Scheduling.Timetable.View";
         public const string SchedulingTimetableManage = "Scheduling.Timetable.Manage";
+        public const string SchedulingTeachingGroupView = "Scheduling.TeachingGroup.View";
+        public const string SchedulingTeachingGroupManage = "Scheduling.TeachingGroup.Manage";
         public const string SchedulingVersionView = "Scheduling.Version.View";
         public const string SchedulingVersionManage = "Scheduling.Version.Manage";
         public const string SchedulingReview = "Scheduling.Review";
@@ -138,6 +140,8 @@ namespace Abhyanvaya.Domain.Authorization
             SchedulingHolidayTypesManage,
             SchedulingTimetableView,
             SchedulingTimetableManage,
+            SchedulingTeachingGroupView,
+            SchedulingTeachingGroupManage,
             SchedulingVersionView,
             SchedulingVersionManage,
             SchedulingReview,

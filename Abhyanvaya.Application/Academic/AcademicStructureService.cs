@@ -49,7 +49,13 @@ public sealed class AcademicStructureService : IAcademicStructureService
     public Task DeleteProgramAsync(int id, CancellationToken cancellationToken = default)
         => _catalog.DeleteProgramAsync(id, cancellationToken);
 
-    public Task AssignCourseToProgramAsync(AssignCourseProgramRequest request, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<ProgramDepartmentOptionDto>> GetProgramDepartmentOptionsAsync(
+        CancellationToken cancellationToken = default)
+        => _catalog.GetProgramDepartmentOptionsAsync(cancellationToken);
+
+    public Task<CourseProgramAssignmentOutcome> AssignCourseToProgramAsync(
+        AssignCourseProgramRequest request,
+        CancellationToken cancellationToken = default)
         => _catalog.AssignCourseToProgramAsync(request, cancellationToken);
 
     public Task<IReadOnlyList<Course>> GetCoursesAsync(CancellationToken cancellationToken = default)

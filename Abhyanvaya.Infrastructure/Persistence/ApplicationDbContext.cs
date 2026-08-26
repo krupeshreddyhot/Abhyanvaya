@@ -109,6 +109,9 @@ namespace Abhyanvaya.Infrastructure.Persistence
         public IQueryable<FacultyDayPreference> SchedulingFacultyDayPreferences => Set<FacultyDayPreference>();
         public IQueryable<FacultyTimeSlotPreference> SchedulingFacultyTimeSlotPreferences => Set<FacultyTimeSlotPreference>();
         public IQueryable<SubjectAllocation> SchedulingSubjectAllocations => Set<SubjectAllocation>();
+        public IQueryable<TeachingGroup> SchedulingTeachingGroups => Set<TeachingGroup>();
+        public IQueryable<TeachingGroupSection> SchedulingTeachingGroupSections => Set<TeachingGroupSection>();
+        public IQueryable<TeachingGroupMembership> SchedulingTeachingGroupMemberships => Set<TeachingGroupMembership>();
         public IQueryable<RoomAllocationRule> SchedulingRoomAllocationRules => Set<RoomAllocationRule>();
         public IQueryable<FacultyAvailability> SchedulingFacultyAvailabilities => Set<FacultyAvailability>();
         public IQueryable<RoomAvailability> SchedulingRoomAvailabilities => Set<RoomAvailability>();
@@ -223,6 +226,9 @@ namespace Abhyanvaya.Infrastructure.Persistence
             Set<Abhyanvaya.Domain.Entities.Academic.AcademicHierarchySnapshot>();
         public IQueryable<Abhyanvaya.Domain.Entities.Academic.AcademicArchitectureTrend> AcademicArchitectureTrends =>
             Set<Abhyanvaya.Domain.Entities.Academic.AcademicArchitectureTrend>();
+
+        public IQueryable<Abhyanvaya.Domain.Entities.Academic.LegacySemesterDispositionJournal> LegacySemesterDispositionJournals =>
+            Set<Abhyanvaya.Domain.Entities.Academic.LegacySemesterDispositionJournal>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -444,7 +450,7 @@ namespace Abhyanvaya.Infrastructure.Persistence
                 e.Property(x => x.Strategy).HasMaxLength(64);
             });
 
-            // AI29.1A — Programs
+            // AI29.1A — Programs; AI-SCHED-CATALOG/TIMETABLE P1-2 — Department ownership
             builder.Entity<Abhyanvaya.Domain.Entities.Academic.Program>(e =>
             {
                 e.ToTable("Programs");
@@ -455,6 +461,11 @@ namespace Abhyanvaya.Infrastructure.Persistence
                 e.Property(x => x.Icon).HasMaxLength(64);
                 e.Property(x => x.ThemeColor).HasMaxLength(32);
                 e.HasIndex(x => new { x.TenantId, x.ProgramCode });
+                e.HasIndex(x => new { x.TenantId, x.DepartmentId });
+                e.HasOne(x => x.Department)
+                    .WithMany(d => d.Programs)
+                    .HasForeignKey(x => x.DepartmentId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
             builder.Entity<Abhyanvaya.Domain.Entities.Academic.TenantAcademicConfiguration>(e =>
             {
@@ -478,10 +489,28 @@ namespace Abhyanvaya.Infrastructure.Persistence
                 e.Property(x => x.Summary).HasMaxLength(2000);
                 e.HasIndex(x => new { x.TenantId, x.RecordedUtc });
             });
+            // AI-SCHED-CATALOG/TIMETABLE P1-4 Prompt 3E — disposition journal (not Semester schema hardening)
+            builder.Entity<Abhyanvaya.Domain.Entities.Academic.LegacySemesterDispositionJournal>(e =>
+            {
+                e.ToTable("LegacySemesterDispositionJournals");
+                e.Property(x => x.DispositionCode).HasMaxLength(64);
+                e.Property(x => x.Evidence).HasMaxLength(2000);
+                e.Property(x => x.PromptCode).HasMaxLength(32);
+                e.HasIndex(x => new { x.TenantId, x.SemesterId, x.DispositionCode });
+            });
             builder.Entity<Course>(e =>
             {
                 e.Property(x => x.ProgramId);
                 e.Property(x => x.DisplayOrder).HasDefaultValue(0);
+                e.HasIndex(x => new { x.TenantId, x.DepartmentId });
+                e.HasOne(x => x.Department)
+                    .WithMany()
+                    .HasForeignKey(x => x.DepartmentId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Program)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProgramId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
             builder.Entity<Group>(e =>
             {
@@ -490,6 +519,9 @@ namespace Abhyanvaya.Infrastructure.Persistence
             builder.Entity<Semester>(e =>
             {
                 e.Property(x => x.DisplayOrder).HasDefaultValue(0);
+                // P1-4 Prompt 3J-A — historical disposition SSOT (not soft-delete; not schema hardening).
+                e.Property(x => x.IsHistoricalArchive).HasDefaultValue(false);
+                e.HasIndex(x => new { x.TenantId, x.IsHistoricalArchive });
             });
             builder.Entity<Subject>(e =>
             {
@@ -539,6 +571,9 @@ namespace Abhyanvaya.Infrastructure.Persistence
             builder.Entity<FacultyDayPreference>();
             builder.Entity<FacultyTimeSlotPreference>();
             builder.Entity<SubjectAllocation>();
+            builder.Entity<TeachingGroup>();
+            builder.Entity<TeachingGroupSection>();
+            builder.Entity<TeachingGroupMembership>();
             builder.Entity<RoomAllocationRule>();
             builder.Entity<FacultyTeachingPreference>();
             builder.Entity<RoomFeature>();
@@ -558,7 +593,8 @@ namespace Abhyanvaya.Infrastructure.Persistence
                     {
                         Id = 1,
                         Code = "BCOM",
-                        Name = "B.Com"
+                        Name = "B.Com",
+                        DepartmentId = 1,
                     }
                 );
 
@@ -869,6 +905,9 @@ namespace Abhyanvaya.Infrastructure.Persistence
         {
             Set<T>().Remove(entity);
         }
+
+        public IQueryable<T> QueryIgnoringFilters<T>() where T : class
+            => Set<T>().IgnoreQueryFilters();
 
         public async Task AddRangeAsync<T>(IEnumerable<T> entities) where T : class
         {

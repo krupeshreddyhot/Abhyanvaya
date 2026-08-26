@@ -6,6 +6,8 @@ import SchoolOutlinedIcon from "@mui/icons-material/SchoolOutlined";
 import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
 import AccessTimeOutlinedIcon from "@mui/icons-material/AccessTimeOutlined";
 import { useEffect, useMemo, useState } from "react";
+import { PermissionKeys } from "../../auth/permissionKeys";
+import { useAuth } from "../../context/AuthContext";
 import { useTenantContext } from "../../context/TenantContextProvider";
 import { getTenantCollege } from "../../services/adminService";
 import {
@@ -20,20 +22,24 @@ type Props = {
 };
 
 const OperationalContextBanner = ({ onChangeContext, universityName: universityNameProp }: Props) => {
+  const { hasPermission } = useAuth();
   const { context, isSuperAdmin, hasOperationalContext, clearOperationalContext, loading, renewOperationalContext } =
     useTenantContext();
   const [universityName, setUniversityName] = useState<string | null>(universityNameProp ?? null);
+  const canReadTenantCollege = hasPermission(PermissionKeys.OrganizationManage);
 
   useEffect(() => {
     if (universityNameProp) {
       setUniversityName(universityNameProp);
       return;
     }
-    if (!hasOperationalContext) return;
+    // Faculty/attendance users typically lack Organization.Manage — skip admin college profile call
+    // (avoids noisy 403/405 and is not required for Mark Attendance).
+    if (!hasOperationalContext || !canReadTenantCollege) return;
     void getTenantCollege()
       .then((res) => setUniversityName(res.data.universityName))
       .catch(() => setUniversityName(null));
-  }, [hasOperationalContext, universityNameProp, context?.selectedCollegeId]);
+  }, [hasOperationalContext, universityNameProp, context?.selectedCollegeId, canReadTenantCollege]);
 
   const contextTypeLabel = useMemo(() => {
     if (!context) return "Unknown";

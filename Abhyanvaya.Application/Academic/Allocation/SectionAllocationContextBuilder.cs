@@ -1,7 +1,4 @@
 using System.Diagnostics;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
 using Abhyanvaya.Application.Academic.Observability;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Domain.Academic;
@@ -11,8 +8,6 @@ namespace Abhyanvaya.Application.Academic.Allocation;
 
 public sealed class SectionAllocationContextBuilder : ISectionAllocationContextBuilder
 {
-    private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = false };
-
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly ISectionCapacityEngine _capacity;
@@ -204,6 +199,7 @@ public sealed class SectionAllocationContextBuilder : ISectionAllocationContextB
                     Lifecycle = SectionLifecycleStates.Normalize(s.Status),
                     Health = health.OverallStatus,
                     Readiness = ready.OverallStatus,
+                    DisplayOrder = s.DisplayOrder,
                 });
             }
             return true;
@@ -212,13 +208,27 @@ public sealed class SectionAllocationContextBuilder : ISectionAllocationContextB
         var students = await StepAsync(steps, "Students", async () =>
         {
             var sectionIds = sectionEntities.Select(s => s.Id).ToList();
-            var studentRows = await _db.Students.AsNoTracking()
-                .Where(st => st.TenantId == _currentUser.TenantId
-                             && st.CourseId == scope.CourseId
-                             && st.GroupId == scope.GroupId
-                             && st.SemesterId == scope.SemesterId)
-                .Select(st => new { st.Id, st.StudentNumber, st.Name })
-                .ToListAsync(ct);
+            var studentRows = await (
+                from st in _db.Students.AsNoTracking()
+                join g in _db.Genders.AsNoTracking() on st.GenderId equals g.Id into gg
+                from g in gg.DefaultIfEmpty()
+                join lang in _db.Languages.AsNoTracking() on st.LanguageId equals lang.Id into lg
+                from lang in lg.DefaultIfEmpty()
+                where st.TenantId == _currentUser.TenantId
+                      && st.CourseId == scope.CourseId
+                      && st.GroupId == scope.GroupId
+                      && st.SemesterId == scope.SemesterId
+                select new
+                {
+                    st.Id,
+                    st.StudentNumber,
+                    st.Name,
+                    st.GenderId,
+                    GenderName = g != null ? g.Name : null,
+                    st.LanguageId,
+                    LanguageName = lang != null ? lang.Name : null,
+                }
+            ).ToListAsync(ct);
             var current = sectionIds.Count == 0
                 ? new Dictionary<int, (int SectionId, string Code)>()
                 : await (
@@ -238,6 +248,17 @@ public sealed class SectionAllocationContextBuilder : ISectionAllocationContextB
                     StudentName = st.Name,
                     CurrentSectionId = cur.SectionId == 0 ? null : cur.SectionId,
                     CurrentSectionCode = cur.Code,
+                    GenderId = st.GenderId == 0 ? null : st.GenderId,
+                    Gender = st.GenderName,
+                    LanguageId = st.LanguageId == 0 ? null : st.LanguageId,
+                    Language = st.LanguageName,
+                    // Facets without domain columns remain null until sourced into Allocation Context.
+                    ScholarshipCategory = null,
+                    MinorSubject = null,
+                    TransportRoute = null,
+                    Hostel = null,
+                    ElectiveCombination = null,
+                    Merit = null,
                 };
             }).ToList();
         });
@@ -494,19 +515,7 @@ public sealed class SectionAllocationContextBuilder : ISectionAllocationContextB
         }
     }
 
+    /// <summary>AI29.1D.24B.4A.3 — Delegates to <see cref="AllocationAcademicContextIntegrity"/> (v2.0.0).</summary>
     private static string ComputeChecksum(SectionAllocationContext ctx)
-    {
-        var payload = JsonSerializer.Serialize(new
-        {
-            ctx.ContextId,
-            ctx.SchemaVersion,
-            ctx.Hierarchy,
-            Sections = ctx.Sections.Select(s => s.SectionId),
-            Capacities = ctx.Capacities.Select(c => new { c.SectionId, c.CurrentStrength, c.MaximumCapacity }),
-            StudentCount = ctx.Students.Count,
-            FacultyCount = ctx.FacultyAssignments.Count,
-        }, JsonOpts);
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(payload));
-        return Convert.ToHexString(hash);
-    }
+        => AllocationAcademicContextIntegrity.Compute(ctx);
 }

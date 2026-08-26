@@ -2,6 +2,8 @@ using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Common.Interfaces.Scheduling;
 using Abhyanvaya.Application.DTOs.Scheduling;
 using Abhyanvaya.Application.Internal;
+using Abhyanvaya.Application.Scheduling.Capacity;
+using Abhyanvaya.Application.Scheduling.Conflicts.Intelligence;
 using Abhyanvaya.Domain.Enums.Scheduling;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +20,11 @@ public sealed class TimetableSoftValidationService : ITimetableSoftValidationSer
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUserService _currentUser;
     private readonly IValidator<DismissSoftWarningRequest> _dismissValidator;
+    private readonly ITeachingGroupMembershipResolver _membershipResolver;
+    private readonly IPlacementSizeResolver _placementSizeResolver;
+    private readonly IRoomCapacityEvaluator _roomCapacityEvaluator;
+    private readonly IConflictRuleConfigurationService _ruleConfiguration;
+    private readonly ISchedulingConflictPresentationComposer _presentation;
 
     public TimetableSoftValidationService(
         ITimetableRepository timetableRepository,
@@ -25,7 +32,12 @@ public sealed class TimetableSoftValidationService : ITimetableSoftValidationSer
         IApplicationDbContext context,
         IUnitOfWork unitOfWork,
         ICurrentUserService currentUser,
-        IValidator<DismissSoftWarningRequest> dismissValidator)
+        IValidator<DismissSoftWarningRequest> dismissValidator,
+        ITeachingGroupMembershipResolver membershipResolver,
+        IPlacementSizeResolver placementSizeResolver,
+        IRoomCapacityEvaluator roomCapacityEvaluator,
+        IConflictRuleConfigurationService ruleConfiguration,
+        ISchedulingConflictPresentationComposer presentation)
     {
         _timetableRepository = timetableRepository;
         _dismissalRepository = dismissalRepository;
@@ -33,6 +45,11 @@ public sealed class TimetableSoftValidationService : ITimetableSoftValidationSer
         _unitOfWork = unitOfWork;
         _currentUser = currentUser;
         _dismissValidator = dismissValidator;
+        _membershipResolver = membershipResolver;
+        _placementSizeResolver = placementSizeResolver;
+        _roomCapacityEvaluator = roomCapacityEvaluator;
+        _ruleConfiguration = ruleConfiguration;
+        _presentation = presentation;
     }
 
     private int TenantId => _currentUser.TenantId;
@@ -68,39 +85,102 @@ public sealed class TimetableSoftValidationService : ITimetableSoftValidationSer
         var reschedulingHolidayCount = await _context.SchedulingHolidays
             .CountAsync(x => x.TenantId == TenantId && x.AcademicYearId == timetable.AcademicYearId && x.RequiresRescheduling, cancellationToken);
 
+        // AI-SCHED-CAP Prompt 3A — same margin source as ConflictEngine ROOM_CAPACITY.
+        var thresholds = await _ruleConfiguration.GetThresholdsAsync(TenantId, cancellationToken);
+
+        // AI-SCHED-CAP Prompt 3 — tenant-scoped TG + PlacementSize (no SA→TG inference).
+        var tgIds = entries
+            .Where(e => e.TeachingGroupId.HasValue)
+            .Select(e => e.TeachingGroupId!.Value)
+            .Distinct()
+            .ToList();
+        var teachingGroups = tgIds.Count == 0
+            ? new Dictionary<int, Domain.Entities.Scheduling.TeachingGroup>()
+            : await _context.SchedulingTeachingGroups
+                .Where(g => g.TenantId == TenantId && tgIds.Contains(g.Id))
+                .ToDictionaryAsync(g => g.Id, cancellationToken);
+        var resolvedCounts = new Dictionary<int, int>(teachingGroups.Count);
+        foreach (var tgId in teachingGroups.Keys)
+            resolvedCounts[tgId] = await _membershipResolver.ResolveCountAsync(tgId, cancellationToken);
+
         foreach (var entry in entries)
         {
             if (facultyAvailabilities.Any(a => a.StaffId == entry.StaffId))
             {
-                warnings.Add(Warn("FACULTY_UNAVAILABLE", "Faculty has unavailable/leave records in this academic year.", entry, dismissals));
+                warnings.Add(_presentation.CreateGenericSoftWarning(
+                    "FACULTY_UNAVAILABLE",
+                    "Faculty has unavailable/leave records in this academic year.",
+                    entry,
+                    dismissals));
             }
 
             if (roomAvailabilities.Any(a => a.RoomId == entry.RoomId))
             {
-                warnings.Add(Warn("ROOM_UNAVAILABLE", "Room has blocked/maintenance availability in this academic year.", entry, dismissals));
+                warnings.Add(_presentation.CreateGenericSoftWarning(
+                    "ROOM_UNAVAILABLE",
+                    "Room has blocked/maintenance availability in this academic year.",
+                    entry,
+                    dismissals));
             }
 
             if (rooms.TryGetValue(entry.RoomId, out var room) && allocations.TryGetValue(entry.SubjectAllocationId, out var allocation))
             {
-                if (subjects.TryGetValue(entry.SubjectId, out var subject) && subject.ExpectedCapacity.HasValue && room.Capacity < subject.ExpectedCapacity.Value)
+                int? resolved = null;
+                int? expected = null;
+                if (entry.TeachingGroupId is int tgId && teachingGroups.TryGetValue(tgId, out var tg))
                 {
-                    warnings.Add(Warn("ROOM_CAPACITY", $"Room capacity ({room.Capacity}) is below expected subject capacity ({subject.ExpectedCapacity}).", entry, dismissals));
+                    if (resolvedCounts.TryGetValue(tgId, out var count))
+                        resolved = count;
+                    expected = tg.ExpectedStudentCount;
+
+                    if (tg.MaxTeachingCapacity is int maxCap && maxCap > 0
+                        && resolvedCounts.TryGetValue(tgId, out var resolvedForTg)
+                        && resolvedForTg > maxCap)
+                    {
+                        warnings.Add(_presentation.CreateTeachingGroupCapacitySoftWarning(
+                            entry, tg, resolvedForTg, maxCap, dismissals));
+                    }
+                }
+
+                int? subjectCap = subjects.TryGetValue(entry.SubjectId, out var subject)
+                    ? subject.ExpectedCapacity
+                    : null;
+                var placement = _placementSizeResolver.Resolve(resolved, expected, subjectCap);
+                var roomEval = _roomCapacityEvaluator.Evaluate(
+                    room.Capacity,
+                    thresholds.RoomCapacityMarginPercent,
+                    placement);
+                if (roomEval.IsExceeded)
+                {
+                    warnings.Add(_presentation.CreateRoomCapacitySoftWarning(entry, roomEval, dismissals));
                 }
 
                 if (allocation.PreferredRoomId.HasValue && allocation.PreferredRoomId.Value != entry.RoomId)
                 {
-                    warnings.Add(Warn("PREFERRED_ROOM_MISSING", "Entry room differs from allocation preferred room.", entry, dismissals));
+                    warnings.Add(_presentation.CreateGenericSoftWarning(
+                        "PREFERRED_ROOM_MISSING",
+                        "Entry room differs from allocation preferred room.",
+                        entry,
+                        dismissals));
                 }
 
                 if (allocation.LabRequired && !LabRoomTypes.Contains(room.RoomType))
                 {
-                    warnings.Add(Warn("LAB_RECOMMENDED", "Lab is recommended for this subject but assigned room is not a lab.", entry, dismissals));
+                    warnings.Add(_presentation.CreateGenericSoftWarning(
+                        "LAB_RECOMMENDED",
+                        "Lab is recommended for this subject but assigned room is not a lab.",
+                        entry,
+                        dismissals));
                 }
             }
 
             if (workingDays.TryGetValue(entry.DayOfWeek, out var workingDay) && !workingDay.IsWorking)
             {
-                warnings.Add(Warn("NON_WORKING_DAY", "Entry is placed on a non-working day.", entry, dismissals));
+                warnings.Add(_presentation.CreateGenericSoftWarning(
+                    "NON_WORKING_DAY",
+                    "Entry is placed on a non-working day.",
+                    entry,
+                    dismissals));
             }
         }
 
@@ -109,7 +189,11 @@ public sealed class TimetableSoftValidationService : ITimetableSoftValidationSer
             warnings.Add(new SoftWarningDto
             {
                 Code = "HOLIDAY_RESCHEDULE",
+                Severity = "Warning",
+                Title = "Holiday reschedule",
                 Message = "Holiday calendar has RequiresRescheduling holidays in this academic year.",
+                Why = "One or more holidays require rescheduling in this academic year.",
+                SuggestedAction = "Review the holiday calendar and reschedule affected sessions.",
                 Dismissed = dismissals.Any(d => d.WarningCode == "HOLIDAY_RESCHEDULE" && d.EntryId == null)
             });
         }
@@ -118,17 +202,25 @@ public sealed class TimetableSoftValidationService : ITimetableSoftValidationSer
         foreach (var group in staffDupes)
         {
             foreach (var entry in group)
-                warnings.Add(Warn("DUPLICATE_FACULTY_SESSION", "Duplicate faculty session on same day and time slot.", entry, dismissals));
+                warnings.Add(_presentation.CreateGenericSoftWarning(
+                    "DUPLICATE_FACULTY_SESSION",
+                    "Duplicate faculty session on same day and time slot.",
+                    entry,
+                    dismissals));
         }
 
         var roomDupes = entries.GroupBy(e => new { e.RoomId, e.DayOfWeek, e.TimeSlotId }).Where(g => g.Count() > 1);
         foreach (var group in roomDupes)
         {
             foreach (var entry in group)
-                warnings.Add(Warn("DUPLICATE_ROOM_SESSION", "Duplicate room session on same day and time slot.", entry, dismissals));
+                warnings.Add(_presentation.CreateGenericSoftWarning(
+                    "DUPLICATE_ROOM_SESSION",
+                    "Duplicate room session on same day and time slot.",
+                    entry,
+                    dismissals));
         }
 
-        return warnings;
+        return _presentation.OrderDeterministically(warnings);
     }
 
     public async Task DismissWarningAsync(int timetableId, DismissSoftWarningRequest request, CancellationToken cancellationToken = default)
@@ -152,22 +244,4 @@ public sealed class TimetableSoftValidationService : ITimetableSoftValidationSer
         }, cancellationToken);
         await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
     }
-
-    private static SoftWarningDto Warn(string code, string message, Domain.Entities.Scheduling.TimetableEntry entry, IReadOnlyList<Domain.Entities.Scheduling.TimetableWarningDismissal> dismissals) => new()
-    {
-        Code = code,
-        Message = message,
-        EntryId = entry.Id,
-        StaffId = entry.StaffId,
-        RoomId = entry.RoomId,
-        DayOfWeek = entry.DayOfWeek,
-        TimeSlotId = entry.TimeSlotId,
-        Dismissed = dismissals.Any(d =>
-            d.WarningCode == code
-            && d.EntryId == entry.Id
-            && d.StaffId == entry.StaffId
-            && d.RoomId == entry.RoomId
-            && d.DayOfWeek == entry.DayOfWeek
-            && d.TimeSlotId == entry.TimeSlotId)
-    };
 }

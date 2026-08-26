@@ -9,6 +9,7 @@ public static class ApiProblemTypes
     public const string NotFound = "https://abhyanvaya.dev/problems/not-found";
     public const string Unauthorized = "https://abhyanvaya.dev/problems/unauthorized";
     public const string DomainRule = "https://abhyanvaya.dev/problems/domain-rule";
+    public const string PublishNotReady = "https://abhyanvaya.dev/problems/publish-not-ready";
     public const string ConcurrencyConflict = "https://abhyanvaya.dev/problems/concurrency-conflict";
     public const string Database = "https://abhyanvaya.dev/problems/database";
     public const string Internal = "https://abhyanvaya.dev/problems/internal";
@@ -23,6 +24,7 @@ public static class ApiErrorCodes
     public const string NotFound = "NotFound";
     public const string Unauthorized = "Unauthorized";
     public const string DomainRuleViolation = "DomainRuleViolation";
+    public const string PublishNotReady = "PublishNotReady";
     public const string ConcurrencyConflict = "ConcurrencyConflict";
     public const string DatabaseError = "DatabaseError";
     public const string InternalError = "InternalError";
@@ -38,4 +40,5 @@ public static class ApiProblemExtensions
     public const string ReloadRequired = "reloadRequired";
     public const string ValidationErrors = "validationErrors";
     public const string Details = "details";
+    public const string PublishReadiness = "publishReadiness";
 }

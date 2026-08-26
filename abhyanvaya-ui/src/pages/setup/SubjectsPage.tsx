@@ -34,6 +34,7 @@ import {
   listTenantSubjects,
   createTenantSubject,
   updateSubject,
+  filterSemestersForScope,
   type CourseRow,
   type ElectiveGroupRow,
   type GroupRow,
@@ -151,15 +152,9 @@ const SubjectsPage = () => {
     const gid = Number(groupId);
     const sid = Number(semesterId);
 
-    const forCourse = semesters.filter((s) => Number(s.courseId) === cid);
-
-    const scoped = forCourse.filter((s) => {
-      if (s.groupId == null) return true;
-      return Number(s.groupId) === gid;
-    });
-
-    // Prefer semesters scoped to this group; if none exist in master data, show all semesters for the course.
-    let list = scoped.length > 0 ? scoped : forCourse;
+    // Align with AcademicUiContext / Allocation: Group-specific Semesters only.
+    // Do not fall back to another Group's semesters.
+    let list = filterSemestersForScope(semesters, cid, gid);
 
     if (sid > 0) {
       const current = semesters.find((s) => Number(s.id) === sid);
@@ -210,8 +205,7 @@ const SubjectsPage = () => {
     setCourseId(c0);
     const g0 = groups.find((x) => x.courseId === c0)?.id ?? 0;
     setGroupId(g0);
-    const s0 =
-      semesters.find((x) => x.courseId === c0 && (x.groupId == null || x.groupId === g0))?.id ?? 0;
+    const s0 = filterSemestersForScope(semesters, c0, g0)[0]?.id ?? 0;
     setSemesterId(s0);
     setIsElective(false);
     setElectiveGroupId(0);
@@ -487,11 +481,7 @@ const SubjectsPage = () => {
                 setEditSemesterFallback(null);
                 const g = groups.find((x) => Number(x.courseId) === cid);
                 setGroupId(g?.id ?? 0);
-                const sem = semesters.find(
-                  (s) =>
-                    Number(s.courseId) === cid &&
-                    (s.groupId == null || Number(s.groupId) === Number(g?.id)),
-                );
+                const sem = filterSemestersForScope(semesters, cid, Number(g?.id ?? 0))[0];
                 setSemesterId(sem?.id ?? 0);
               }}
               fullWidth
@@ -511,11 +501,7 @@ const SubjectsPage = () => {
                 const gid = Number(e.target.value);
                 setGroupId(gid);
                 setEditSemesterFallback(null);
-                const sem = semesters.find(
-                  (s) =>
-                    Number(s.courseId) === Number(courseId) &&
-                    (s.groupId == null || Number(s.groupId) === gid),
-                );
+                const sem = filterSemestersForScope(semesters, Number(courseId), gid)[0];
                 setSemesterId(sem?.id ?? 0);
               }}
               fullWidth

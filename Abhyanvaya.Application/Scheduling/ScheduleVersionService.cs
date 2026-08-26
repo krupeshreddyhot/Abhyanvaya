@@ -215,6 +215,11 @@ public sealed class ScheduleVersionService : IScheduleVersionService
 
             var entries = await _timetableRepository.ListEntriesAsync(TenantId, sourceTimetable.Id, cancellationToken);
             var clonedEntries = entries.Select(e => TimetableService.CloneEntry(e, clone.Id)).ToList();
+            foreach (var clonedEntry in clonedEntries)
+            {
+                await TimetableService.RealignDepartmentFromCourseAsync(_context, TenantId, clonedEntry, cancellationToken);
+                await TimetableService.EnsureProposedTeachingGroupCompatibleAsync(_context, clonedEntry, cancellationToken);
+            }
             if (clonedEntries.Count > 0)
                 await _timetableRepository.AddEntriesAsync(clonedEntries, cancellationToken);
         }

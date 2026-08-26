@@ -1,4 +1,5 @@
 ﻿using Abhyanvaya.API.Common;
+using Abhyanvaya.Application.Academic;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.DTOs;
 using Abhyanvaya.Domain.Common;
@@ -75,6 +76,21 @@ namespace Abhyanvaya.API.Controllers
                 .ConfigureAwait(false))
                 return Forbid();
 
+            // AI29.1D.15A Prompt 3 — optional section scope (subject C/G/S is authoritative; UI not trusted).
+            var (scopeSectionIds, scopeError) = await AttendanceSaveScope.ValidateWriteSectionScopeAsync(
+                    _context,
+                    _currentUser.TenantId,
+                    subject.CourseId,
+                    subject.GroupId,
+                    subject.SemesterId,
+                    request.SectionId,
+                    request.SectionIds,
+                    _logger,
+                    HttpContext.RequestAborted)
+                .ConfigureAwait(false);
+            if (scopeError != null)
+                return BadRequest(scopeError);
+
             var firstNumber = request.Students.FirstOrDefault()?.StudentNumber;
             if (string.IsNullOrEmpty(firstNumber))
                 return BadRequest("Students list is required");
@@ -125,6 +141,8 @@ namespace Abhyanvaya.API.Controllers
 
             var studentNumbers = request.Students
                 .Select(x => x.StudentNumber)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Distinct(StringComparer.Ordinal)
                 .ToList();
 
             var locked = await _context.Attendances
@@ -140,24 +158,71 @@ namespace Abhyanvaya.API.Controllers
                 return BadRequest("Attendance is locked. Cannot modify.");
             }
 
-            var query = _context.Students
-                .Where(x =>
-                    studentNumbers.Contains(x.StudentNumber) &&
-                    x.TenantId == _currentUser.TenantId);
-
-            if (_currentUser.Role.Equals("Faculty", StringComparison.OrdinalIgnoreCase)
-                && _currentUser.StaffId <= 0)
+            List<Student> students;
+            if (scopeSectionIds.Count > 0)
             {
-                query = query.Where(x =>
-                    x.CourseId == _currentUser.CourseId &&
-                    x.GroupId == _currentUser.GroupId);
+                // AI29.1D.15A Prompt 4 — every submitted student must have current StudentSection
+                // in the validated section scope (A, or A OR B for combined). UI list is untrusted.
+                var (authorizedStudents, studentScopeError) =
+                    await AttendanceSaveScope.ValidateEverySubmittedStudentInSectionScopeAsync(
+                            _context,
+                            _currentUser.TenantId,
+                            subject.CourseId,
+                            subject.GroupId,
+                            subject.SemesterId,
+                            scopeSectionIds,
+                            studentNumbers,
+                            requireCourseGroupSemesterMatch: !subject.IsElective,
+                            HttpContext.RequestAborted)
+                        .ConfigureAwait(false);
+                if (studentScopeError != null)
+                    return BadRequest(studentScopeError);
+
+                var languageMatched = authorizedStudents
+                    .Where(s => StudentMatchesLanguageSubject(subject, s))
+                    .ToList();
+                var languageError = AttendanceSaveScope.EnsureAllSubmittedStudentsAuthorized(
+                    studentNumbers,
+                    languageMatched.Select(s => s.StudentNumber));
+                if (languageError != null)
+                    return BadRequest(languageError);
+
+                if (subject.IsElective)
+                {
+                    var authorizedIds = languageMatched.Select(s => s.Id).ToList();
+                    var mappedIds = await _context.StudentSubjects.AsNoTracking()
+                        .Where(x => x.SubjectId == subject.Id && authorizedIds.Contains(x.StudentId))
+                        .Select(x => x.StudentId)
+                        .Distinct()
+                        .ToListAsync();
+                    if (mappedIds.Count != authorizedIds.Count)
+                        return BadRequest(AttendanceSaveScope.UnauthorizedStudentsMessage);
+                }
+
+                students = languageMatched;
+            }
+            else
+            {
+                var query = _context.Students
+                    .Where(x =>
+                        studentNumbers.Contains(x.StudentNumber) &&
+                        x.TenantId == _currentUser.TenantId);
+
+                if (_currentUser.Role.Equals("Faculty", StringComparison.OrdinalIgnoreCase)
+                    && _currentUser.StaffId <= 0)
+                {
+                    query = query.Where(x =>
+                        x.CourseId == _currentUser.CourseId &&
+                        x.GroupId == _currentUser.GroupId);
+                }
+
+                query = ApplyLanguageSubjectFilter(query, subject);
+                students = await query.ToListAsync();
             }
 
-            query = ApplyLanguageSubjectFilter(query, subject);
-
-            var students = await query.ToListAsync();
-
-            var map = request.Students.ToDictionary(x => x.StudentNumber);
+            var map = request.Students
+                .GroupBy(x => x.StudentNumber, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.Last(), StringComparer.Ordinal);
 
             // fetch existing once
             var existingRecords = await _context.Attendances
@@ -171,28 +236,64 @@ namespace Abhyanvaya.API.Controllers
 
             var existingSet = existingRecords.ToHashSet();
 
-            var attendanceList = new List<Attendance>();
-
-            foreach (var stu in students)
+            List<Attendance> attendanceList;
+            if (scopeSectionIds.Count > 0)
             {
-                if (!map.TryGetValue(stu.StudentNumber, out var dto))
-                    continue;
+                // Atomic section-scoped write: all submitted students or none. Never silently drop.
+                var (planned, planError) = AttendanceSaveScope.BuildAtomicMarkRows(
+                    studentNumbers,
+                    students,
+                    stu =>
+                    {
+                        if (!map.TryGetValue(stu.StudentNumber, out var dto))
+                            return null;
+                        if (existingSet.Contains(stu.Id))
+                            return null;
+                        return new Attendance
+                        {
+                            StudentId = stu.Id,
+                            SubjectId = request.SubjectId,
+                            Date = dayStartUtc,
+                            Status = dto.Status,
+                            TenantId = _currentUser.TenantId
+                        };
+                    });
+                if (planError != null)
+                    return BadRequest(planError);
 
-                if (existingSet.Contains(stu.Id))
-                    continue;
-
-                attendanceList.Add(new Attendance
+                attendanceList = planned.ToList();
+            }
+            else
+            {
+                // Legacy no-Section path — preserve existing Course/Group/Semester cohort behavior.
+                attendanceList = new List<Attendance>();
+                foreach (var stu in students)
                 {
-                    StudentId = stu.Id,
-                    SubjectId = request.SubjectId,
-                    Date = dayStartUtc,
-                    Status = dto.Status,
-                    TenantId = _currentUser.TenantId
-                });
+                    if (!map.TryGetValue(stu.StudentNumber, out var dto))
+                        continue;
+
+                    if (existingSet.Contains(stu.Id))
+                        continue;
+
+                    attendanceList.Add(new Attendance
+                    {
+                        StudentId = stu.Id,
+                        SubjectId = request.SubjectId,
+                        Date = dayStartUtc,
+                        Status = dto.Status,
+                        TenantId = _currentUser.TenantId
+                    });
+                }
             }
 
-            _context.AddAttendances(attendanceList);
-            await _context.SaveChangesAsync(CancellationToken.None);
+            await _context.ExecuteInTransactionAsync(
+                    async ct =>
+                    {
+                        _context.AddAttendances(attendanceList);
+                        await _context.SaveChangesAsync(ct).ConfigureAwait(false);
+                    },
+                    HttpContext.RequestAborted)
+                .ConfigureAwait(false);
 
             if (attendanceList.Count > 0)
             {
@@ -325,23 +426,32 @@ namespace Abhyanvaya.API.Controllers
                     x.GroupId == _currentUser.GroupId);
             }
 
-            // AI29 optional section filter — omitted = all students (exact legacy behavior).
-            var filterSectionIds = (sectionIds ?? Array.Empty<int>())
-                .Where(id => id > 0)
-                .Distinct()
-                .ToList();
-            if (sectionId is > 0 && !filterSectionIds.Contains(sectionId.Value))
-                filterSectionIds.Add(sectionId.Value);
-
-            if (filterSectionIds.Count > 0)
+            // AI29.1D Prompt 11A/11B/13 — optional section filter (omit = legacy full cohort; AY not required).
+            // When section ids are supplied: require exactly one current Academic Year + Tenant/AY/C/G/S match.
+            // Combined classes use TimetableSections/SectionGroup ids from the existing session contract.
+            var requestedSectionIds = AttendanceSectionScope.NormalizeRequestedIds(sectionId, sectionIds);
+            IReadOnlyList<int> participatingSectionIds = Array.Empty<int>();
+            if (requestedSectionIds.Count > 0)
             {
-                var allocatedStudentIds = _context.StudentSections.AsNoTracking()
-                    .Where(ss =>
-                        ss.TenantId == _currentUser.TenantId
-                        && ss.IsCurrent
-                        && filterSectionIds.Contains(ss.SectionId))
-                    .Select(ss => ss.StudentId);
-                query = query.Where(x => allocatedStudentIds.Contains(x.Id));
+                var (scopeSectionIds, scopeError) = await AttendanceSectionScope.ValidateSectionIdsAsync(
+                        _context,
+                        _currentUser.TenantId,
+                        courseId,
+                        groupId,
+                        semesterId,
+                        requestedSectionIds,
+                        _logger,
+                        HttpContext.RequestAborted)
+                    .ConfigureAwait(false);
+                if (scopeError != null)
+                    return BadRequest(scopeError);
+
+                participatingSectionIds = scopeSectionIds;
+                query = AttendanceSectionScope.ApplyStudentSectionFilter(
+                    query,
+                    _context,
+                    _currentUser.TenantId,
+                    scopeSectionIds);
             }
 
             query = ApplyLanguageSubjectFilter(query, subject);
@@ -387,6 +497,50 @@ namespace Abhyanvaya.API.Controllers
                 })
                 .ToListAsync();
 
+            // Prompt 13 — retain underlying Section identity for reporting (additive; does not change mark/edit).
+            var pageStudentIds = students.Select(s => s.Id).ToList();
+            var membershipRows = await (
+                    from ss in _context.StudentSections.AsNoTracking()
+                    join sec in _context.Sections.AsNoTracking() on ss.SectionId equals sec.Id
+                    where ss.TenantId == tenantId
+                          && ss.IsCurrent
+                          && pageStudentIds.Contains(ss.StudentId)
+                    orderby sec.DisplayOrder, sec.SectionCode
+                    select new { ss.StudentId, SectionId = sec.Id, sec.SectionCode }
+                ).ToListAsync();
+
+            var membershipByStudent = membershipRows
+                .GroupBy(m => m.StudentId)
+                .ToDictionary(
+                    g => g.Key,
+                    g =>
+                    {
+                        if (participatingSectionIds.Count > 0)
+                        {
+                            var inScope = g.FirstOrDefault(m => participatingSectionIds.Contains(m.SectionId));
+                            if (inScope != null)
+                                return inScope;
+                        }
+                        return g.First();
+                    });
+
+            List<string> participatingSectionCodes;
+            if (participatingSectionIds.Count == 0)
+            {
+                participatingSectionCodes = [];
+            }
+            else
+            {
+                participatingSectionCodes = await _context.Sections.AsNoTracking()
+                    .Where(s =>
+                        s.TenantId == tenantId
+                        && participatingSectionIds.Contains(s.Id))
+                    .OrderBy(s => s.DisplayOrder)
+                    .ThenBy(s => s.SectionCode)
+                    .Select(s => s.SectionCode)
+                    .ToListAsync();
+            }
+
             var existing = await _context.Attendances
                 .Where(x =>
                     x.TenantId == _currentUser.TenantId &&
@@ -413,20 +567,31 @@ namespace Abhyanvaya.API.Controllers
             var isLocked = existing.Any(x => x.IsLocked);
 
             var result = students
-                .Select((x, index) => new
+                .Select((x, index) =>
                 {
-                    SlNo = ((pageNumber - 1) * pageSize) + index + 1,
-                    x.StudentNumber,
-                    x.Batch,
-                    x.Name,
-                    x.MobileNumber,
-                    x.AlternateMobileNumber,
-                    Mobile = string.Join(" / ", new[] { x.MobileNumber, x.AlternateMobileNumber }
-                        .Where(v => !string.IsNullOrWhiteSpace(v))),
-                    x.Email,
-                    Status = existingByStudent.TryGetValue(x.Id, out var st) ? st : AttendanceStatus.Absent
+                    membershipByStudent.TryGetValue(x.Id, out var membership);
+                    return new
+                    {
+                        SlNo = ((pageNumber - 1) * pageSize) + index + 1,
+                        x.StudentNumber,
+                        x.Batch,
+                        x.Name,
+                        x.MobileNumber,
+                        x.AlternateMobileNumber,
+                        Mobile = string.Join(" / ", new[] { x.MobileNumber, x.AlternateMobileNumber }
+                            .Where(v => !string.IsNullOrWhiteSpace(v))),
+                        x.Email,
+                        Status = existingByStudent.TryGetValue(x.Id, out var st) ? st : AttendanceStatus.Absent,
+                        SectionId = membership?.SectionId,
+                        SectionCode = membership?.SectionCode
+                    };
                 })
                 .ToList();
+
+            var isCombinedClass = participatingSectionIds.Count > 1;
+            var operationalClassLabel = participatingSectionCodes.Count == 0
+                ? null
+                : string.Join(" + ", participatingSectionCodes);
 
             return Ok(new
             {
@@ -435,6 +600,11 @@ namespace Abhyanvaya.API.Controllers
                 TotalCount = totalCount,
                 PageNumber = pageNumber,
                 PageSize = pageSize,
+                // Prompt 13 additive operational-class metadata (TimetableSections / multi-select).
+                IsCombinedClass = isCombinedClass,
+                ParticipatingSectionIds = participatingSectionIds,
+                ParticipatingSectionCodes = participatingSectionCodes,
+                OperationalClassLabel = operationalClassLabel,
                 Students = result
             });
         }
@@ -500,6 +670,9 @@ namespace Abhyanvaya.API.Controllers
         [HttpPut("edit")]
         public async Task<IActionResult> EditAttendance(EditAttendanceRequest request)
         {
+            if (request?.Students == null || !request.Students.Any())
+                return BadRequest("Students list is required");
+
             var (dayStartUtc, dayEndUtc) = ToRange(_attendanceCalendar.GetAttendanceDay(request.Date));
 
             var subject = await _context.Subjects
@@ -518,6 +691,52 @@ namespace Abhyanvaya.API.Controllers
                     HttpContext.RequestAborted)
                 .ConfigureAwait(false))
                 return Forbid();
+
+            // AI29.1D.15A Prompt 3 — optional section scope (subject C/G/S is authoritative; UI not trusted).
+            var (scopeSectionIds, scopeError) = await AttendanceSaveScope.ValidateWriteSectionScopeAsync(
+                    _context,
+                    _currentUser.TenantId,
+                    subject.CourseId,
+                    subject.GroupId,
+                    subject.SemesterId,
+                    request.SectionId,
+                    request.SectionIds,
+                    _logger,
+                    HttpContext.RequestAborted)
+                .ConfigureAwait(false);
+            if (scopeError != null)
+                return BadRequest(scopeError);
+
+            if (scopeSectionIds.Count > 0)
+            {
+                // AI29.1D.15A Prompt 4 — reject entire edit before any mutation if any student is out of section scope.
+                var studentNumbers = AttendanceSaveScope.NormalizeStudentNumbers(
+                    request.Students.Select(x => x.StudentNumber));
+
+                var (authorizedStudents, studentScopeError) =
+                    await AttendanceSaveScope.ValidateEverySubmittedStudentInSectionScopeAsync(
+                            _context,
+                            _currentUser.TenantId,
+                            subject.CourseId,
+                            subject.GroupId,
+                            subject.SemesterId,
+                            scopeSectionIds,
+                            studentNumbers,
+                            requireCourseGroupSemesterMatch: !subject.IsElective,
+                            HttpContext.RequestAborted)
+                        .ConfigureAwait(false);
+                if (studentScopeError != null)
+                    return BadRequest(studentScopeError);
+
+                var languageMatched = authorizedStudents
+                    .Where(s => StudentMatchesLanguageSubject(subject, s))
+                    .ToList();
+                var languageError = AttendanceSaveScope.EnsureAllSubmittedStudentsAuthorized(
+                    studentNumbers,
+                    languageMatched.Select(s => s.StudentNumber));
+                if (languageError != null)
+                    return BadRequest(languageError);
+            }
 
             var recordsQuery = _context.Attendances
                 .Where(x =>
@@ -543,24 +762,32 @@ namespace Abhyanvaya.API.Controllers
                 }
             }
 
-            var map = request.Students.ToDictionary(x => x.StudentNumber);
+            var map = request.Students
+                .GroupBy(x => x.StudentNumber, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.Last(), StringComparer.Ordinal);
 
-            foreach (var record in records)
-            {
-                var student = await _context.Students
-                    .FirstOrDefaultAsync(x => x.Id == record.StudentId);
+            await _context.ExecuteInTransactionAsync(
+                    async ct =>
+                    {
+                        foreach (var record in records)
+                        {
+                            var student = await _context.Students
+                                .FirstOrDefaultAsync(x => x.Id == record.StudentId, ct);
 
-                if (student == null) continue;
+                            if (student == null) continue;
 
-                if (!map.TryGetValue(student.StudentNumber, out var dto))
-                    continue;
+                            if (!map.TryGetValue(student.StudentNumber, out var dto))
+                                continue;
 
-                record.Status = dto.Status;
-                record.UpdatedDate = DateTime.UtcNow;
-                record.UpdatedBy = _currentUser.UserId;
-            }
+                            record.Status = dto.Status;
+                            record.UpdatedDate = DateTime.UtcNow;
+                            record.UpdatedBy = _currentUser.UserId;
+                        }
 
-            await _context.SaveChangesAsync();
+                        await _context.SaveChangesAsync(ct).ConfigureAwait(false);
+                    },
+                    HttpContext.RequestAborted)
+                .ConfigureAwait(false);
 
             return Ok("Attendance updated");
         }

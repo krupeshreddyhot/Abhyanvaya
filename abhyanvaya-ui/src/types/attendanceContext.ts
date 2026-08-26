@@ -12,4 +12,10 @@ export interface AttendanceContext {
   groupName?: string;
   semesterName?: string;
   subjectName?: string;
+  /** AI29.1D — optional; empty = full Course/Group/Semester cohort. */
+  sectionIds?: number[];
+  sectionCodes?: string[];
+  roomName?: string;
+  /** Timetable = resolver prefilled; Manual = no timetable assignment required. */
+  scopeMode?: "Timetable" | "Manual";
 }

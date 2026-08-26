@@ -42,6 +42,8 @@ public sealed class TimetableEntryDto
     public TimeSpan? StartTime { get; init; }
     public TimeSpan? EndTime { get; init; }
     public int SubjectAllocationId { get; init; }
+    /// <summary>AI-SCHED-TG.4 — Explicit TeachingGroup reference when assigned; null = not assigned.</summary>
+    public int? TeachingGroupId { get; init; }
     public int StaffId { get; init; }
     public string? StaffName { get; init; }
     public int RoomId { get; init; }
@@ -97,6 +99,34 @@ public sealed class UpdateTimetableEntryRequest
     public int SubjectAllocationId { get; init; }
     public int? RoomId { get; init; }
     public string? Remarks { get; init; }
+}
+
+public sealed class AssignTeachingGroupToTimetableEntryRequest
+{
+    public int TeachingGroupId { get; init; }
+}
+
+/// <summary>
+/// AI-SCHED-TG.6 Prompt 4 / Prompt 2A — Selector option for TimetableEntry Teaching Group assignment.
+/// Read-only projection; no membership internals.
+/// </summary>
+public sealed class CompatibleTeachingGroupOptionDto
+{
+    public int Id { get; init; }
+    public string? Code { get; init; }
+    public string Name { get; init; } = null!;
+    public TeachingGroupType Type { get; init; }
+    public TeachingGroupStatus Status { get; init; }
+    public int ResolvedStudentCount { get; init; }
+    public int? ExpectedStudentCount { get; init; }
+    public int? MaxTeachingCapacity { get; init; }
+    /// <summary>True when this option equals <see cref="TimetableEntryDto.TeachingGroupId"/>.</summary>
+    public bool IsAssignedToEntry { get; init; }
+    /// <summary>
+    /// AI-SCHED-CAP Prompt 4 — server-authored TG capacity flag (Resolved &gt; Max when Max positive).
+    /// UI must not recalculate; room capacity is separate.
+    /// </summary>
+    public bool IsOverMaxTeachingCapacity { get; init; }
 }
 
 public sealed class UpsertTimetableEntryRequest

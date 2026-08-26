@@ -97,6 +97,13 @@ public sealed class AcademicCatalogService : IAcademicCatalogService
     {
         await _createValidator.ValidateAndThrowAsync(request, cancellationToken);
         var collegeId = await ResolveCollegeIdAsync(cancellationToken);
+        var cfg = await EnsureConfigurationAsync(cancellationToken);
+        await EnsureValidDepartmentAssociationAsync(
+            cfg.EnablePrograms,
+            request.DepartmentId,
+            collegeId,
+            cancellationToken);
+
         var code = request.ProgramCode.Trim().ToUpperInvariant();
 
         var exists = await _db.Programs.AnyAsync(p =>
@@ -106,6 +113,7 @@ public sealed class AcademicCatalogService : IAcademicCatalogService
         var entity = new Program
         {
             CollegeId = collegeId,
+            DepartmentId = request.DepartmentId,
             ProgramCode = code,
             ProgramName = request.ProgramName.Trim(),
             Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
@@ -133,12 +141,20 @@ public sealed class AcademicCatalogService : IAcademicCatalogService
         var entity = await _db.Programs.FirstOrDefaultAsync(p => p.Id == id && p.TenantId == _currentUser.TenantId, cancellationToken)
             ?? throw new KeyNotFoundException("Program not found.");
 
+        var cfg = await EnsureConfigurationAsync(cancellationToken);
+        await EnsureValidDepartmentAssociationAsync(
+            cfg.EnablePrograms,
+            request.DepartmentId,
+            entity.CollegeId,
+            cancellationToken);
+
         var code = request.ProgramCode.Trim().ToUpperInvariant();
         var dup = await _db.Programs.AnyAsync(p =>
             p.TenantId == _currentUser.TenantId && p.Id != id && p.ProgramCode == code, cancellationToken);
         if (dup) throw new ValidationException("Program code already exists.");
 
         var status = string.IsNullOrWhiteSpace(request.Status) ? entity.Status : request.Status.Trim();
+        entity.DepartmentId = request.DepartmentId;
         entity.ProgramCode = code;
         entity.ProgramName = request.ProgramName.Trim();
         entity.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
@@ -158,6 +174,24 @@ public sealed class AcademicCatalogService : IAcademicCatalogService
         await DomainEventPublisher.DispatchAndClearAsync(entity, _domainEvents, cancellationToken);
         await InvalidateCachesAsync(cancellationToken);
         return (await GetProgramAsync(id, cancellationToken))!;
+    }
+
+    public async Task<IReadOnlyList<ProgramDepartmentOptionDto>> GetProgramDepartmentOptionsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var collegeId = await ResolveCollegeIdAsync(cancellationToken);
+        return await _db.Departments.AsNoTracking()
+            .Where(d => d.TenantId == _currentUser.TenantId && d.CollegeId == collegeId && !d.IsDeleted)
+            .OrderBy(d => d.SortOrder).ThenBy(d => d.Name)
+            .Select(d => new ProgramDepartmentOptionDto
+            {
+                Id = d.Id,
+                CollegeId = d.CollegeId,
+                Name = d.Name,
+                Code = d.Code,
+                IsActive = d.IsActive,
+            })
+            .ToListAsync(cancellationToken);
     }
 
     public async Task ArchiveProgramAsync(int id, CancellationToken cancellationToken = default)
@@ -188,7 +222,9 @@ public sealed class AcademicCatalogService : IAcademicCatalogService
         await InvalidateCachesAsync(cancellationToken);
     }
 
-    public async Task AssignCourseToProgramAsync(AssignCourseProgramRequest request, CancellationToken cancellationToken = default)
+    public async Task<CourseProgramAssignmentOutcome> AssignCourseToProgramAsync(
+        AssignCourseProgramRequest request,
+        CancellationToken cancellationToken = default)
     {
         await _assignValidator.ValidateAndThrowAsync(request, cancellationToken);
         var cfg = await EnsureConfigurationAsync(cancellationToken);
@@ -197,42 +233,83 @@ public sealed class AcademicCatalogService : IAcademicCatalogService
             ?? throw new KeyNotFoundException("Course not found.");
 
         var previousProgramId = course.ProgramId;
+        CourseProgramAssignmentRules.Decision decision;
 
         if (!cfg.EnablePrograms)
         {
-            course.ProgramId = null;
-            course.UpdatedDate = DateTime.UtcNow;
-            await _db.SaveChangesAsync(cancellationToken);
-            if (previousProgramId is not null)
+            decision = CourseProgramAssignmentRules.EvaluateDisabled(previousProgramId);
+        }
+        else
+        {
+            CourseProgramAssignmentRules.ProgramSnapshot? target = null;
+            var nextId = CourseProgramAssignmentRules.NormalizeProgramId(request.ProgramId);
+            if (nextId is > 0)
             {
-                // Course entity implements BaseEntity domain events
-                course.AddDomainEvent(new CourseRemoved(course.Id, previousProgramId, _currentUser.TenantId, DateTime.UtcNow));
-                await DomainEventPublisher.DispatchAndClearAsync(course, _domainEvents, cancellationToken);
+                // Tenant filter is fail-closed: a Program from another tenant is not visible ⇒ Invalid Program.
+                var program = await _db.Programs.AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.Id == nextId && p.TenantId == _currentUser.TenantId, cancellationToken);
+                if (program is not null)
+                {
+                    target = new CourseProgramAssignmentRules.ProgramSnapshot(
+                        program.Id, program.TenantId, program.IsActive, program.Status);
+                }
             }
-            await InvalidateCachesAsync(cancellationToken);
-            return;
+
+            decision = CourseProgramAssignmentRules.EvaluateEnabled(previousProgramId, request.ProgramId, target);
         }
 
-        if (request.ProgramId is > 0)
+        if (decision.Error is not null)
+            throw new ValidationException(decision.Error);
+
+        // Idempotent: Commerce → Commerce (or already unlinked) — no SaveChanges, no event, no cache churn.
+        if (decision.IsNoOp)
+            return CourseProgramAssignmentOutcome.NoOp(previousProgramId);
+
+        if (decision.NextProgramId is > 0)
         {
             var program = await _db.Programs.AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == request.ProgramId && p.TenantId == _currentUser.TenantId, cancellationToken)
+                .FirstOrDefaultAsync(p => p.Id == decision.NextProgramId && p.TenantId == _currentUser.TenantId, cancellationToken)
                 ?? throw new ValidationException("Invalid Program.");
-            if (program.Status == "Archived" || !program.IsActive)
-                throw new ValidationException("Archived or inactive Programs cannot receive new Courses.");
+
+            // When Program is linked, Course.DepartmentId must equal Program.DepartmentId (Option A).
+            course.DepartmentId = program.DepartmentId;
         }
 
-        course.ProgramId = request.ProgramId is > 0 ? request.ProgramId : null;
+        course.ProgramId = decision.NextProgramId;
         course.UpdatedDate = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
 
-        if (course.ProgramId is null && previousProgramId is not null)
+        var eventsDispatched = 0;
+        if (decision.PublishRemoved && previousProgramId is not null)
+        {
             course.AddDomainEvent(new CourseRemoved(course.Id, previousProgramId, _currentUser.TenantId, DateTime.UtcNow));
-        else
-            course.AddDomainEvent(new CourseAssigned(course.Id, course.ProgramId, _currentUser.TenantId, DateTime.UtcNow));
+            eventsDispatched = 1;
+        }
+        else if (decision.PublishAssigned && decision.NextProgramId is not null)
+        {
+            course.AddDomainEvent(new CourseAssigned(course.Id, decision.NextProgramId, _currentUser.TenantId, DateTime.UtcNow));
+            eventsDispatched = 1;
+        }
 
         await DomainEventPublisher.DispatchAndClearAsync(course, _domainEvents, cancellationToken);
-        await InvalidateCachesAsync(cancellationToken);
+
+        var hierarchyInvalidations = 0;
+        var statisticsInvalidations = 0;
+        if (decision.InvalidateCaches)
+        {
+            await InvalidateCachesAsync(cancellationToken);
+            hierarchyInvalidations = 1;
+            statisticsInvalidations = 1;
+        }
+
+        return new CourseProgramAssignmentOutcome(
+            IsNoOp: false,
+            ProgramIdChanged: true,
+            PreviousProgramId: previousProgramId,
+            NewProgramId: decision.NextProgramId,
+            DomainEventsDispatched: eventsDispatched,
+            HierarchyCacheInvalidations: hierarchyInvalidations,
+            StatisticsCacheInvalidations: statisticsInvalidations);
     }
 
     public async Task<IReadOnlyList<Course>> GetCoursesAsync(CancellationToken cancellationToken = default)
@@ -419,6 +496,39 @@ public sealed class AcademicCatalogService : IAcademicCatalogService
         await _statisticsCache.InvalidateAsync(cancellationToken);
     }
 
+    private async Task EnsureValidDepartmentAssociationAsync(
+        bool enablePrograms,
+        int departmentId,
+        int programCollegeId,
+        CancellationToken ct)
+    {
+        ProgramDepartmentAssociationRules.DepartmentSnapshot? snapshot = null;
+        if (departmentId > 0)
+        {
+            // Fail-closed: other tenants are invisible ⇒ Department not found (no cross-tenant leak).
+            var dept = await _db.Departments.AsNoTracking()
+                .FirstOrDefaultAsync(d => d.Id == departmentId && d.TenantId == _currentUser.TenantId, ct);
+            if (dept is not null)
+            {
+                snapshot = new ProgramDepartmentAssociationRules.DepartmentSnapshot(
+                    dept.Id,
+                    dept.TenantId,
+                    dept.CollegeId,
+                    dept.IsDeleted,
+                    dept.IsActive);
+            }
+        }
+
+        var decision = ProgramDepartmentAssociationRules.Evaluate(
+            enablePrograms,
+            departmentId,
+            snapshot,
+            _currentUser.TenantId,
+            programCollegeId);
+        if (!decision.Accepted)
+            throw new ValidationException(decision.Error ?? "Invalid Department for Program.");
+    }
+
     private static string? NormalizeOptional(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
@@ -426,6 +536,11 @@ public sealed class AcademicCatalogService : IAcademicCatalogService
     {
         if (rows.Count == 0) return [];
         var ids = rows.Select(r => r.Id).ToList();
+        var deptIds = rows.Select(r => r.DepartmentId).Distinct().ToList();
+        var departments = await _db.Departments.AsNoTracking()
+            .Where(d => d.TenantId == _currentUser.TenantId && deptIds.Contains(d.Id))
+            .ToDictionaryAsync(d => d.Id, ct);
+
         var courseCounts = await _db.Courses.AsNoTracking()
             .Where(c => c.TenantId == _currentUser.TenantId && c.ProgramId != null && ids.Contains(c.ProgramId.Value))
             .GroupBy(c => c.ProgramId!.Value)
@@ -459,10 +574,14 @@ public sealed class AcademicCatalogService : IAcademicCatalogService
                 }
             }
 
+            departments.TryGetValue(p.DepartmentId, out var dept);
             result.Add(new ProgramDto
             {
                 Id = p.Id,
                 CollegeId = p.CollegeId,
+                DepartmentId = p.DepartmentId,
+                DepartmentCode = dept?.Code,
+                DepartmentName = dept?.Name,
                 ProgramCode = p.ProgramCode,
                 ProgramName = p.ProgramName,
                 Description = p.Description,

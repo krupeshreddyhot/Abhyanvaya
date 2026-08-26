@@ -268,7 +268,11 @@ public sealed class Phase2B5ConflictIntelligenceTests
             AcademicYear = ctx.AcademicYear,
             StaffNames = ctx.StaffNames,
             RoomFeatureAssignments = ctx.RoomFeatureAssignments,
-            DeliveryTypes = ctx.DeliveryTypes
+            DeliveryTypes = ctx.DeliveryTypes,
+            TeachingGroups = ctx.TeachingGroups,
+            ResolvedStudentCountsByTeachingGroupId = ctx.ResolvedStudentCountsByTeachingGroupId,
+            PlacementSizeResolver = ctx.PlacementSizeResolver,
+            RoomCapacityEvaluator = ctx.RoomCapacityEvaluator
         };
 
     private static ConflictAnalysisContext BuildContext(

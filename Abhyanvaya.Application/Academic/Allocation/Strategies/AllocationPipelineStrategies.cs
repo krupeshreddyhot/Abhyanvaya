@@ -30,11 +30,12 @@ public sealed class CapacityAllocationStrategy : IAllocationPipelineStrategy
     {
         if (state.Errors.Count > 0) return Task.CompletedTask;
 
-        var sections = state.Context.Sections
-            .Where(s => s.Lifecycle is not ("Merged" or "Split" or "Archived" or "Closed"))
-            .OrderBy(s => s.SectionCode, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(s => s.SectionId)
-            .ToList();
+        // AI29.1D.24B.4 — RollNumberBands is an alternative placement policy; do not double-place.
+        if (state.Config.EnabledStrategies.TryGetValue(AllocationStrategyCodes.RollNumberBands, out var rollBands)
+            && rollBands)
+            return Task.CompletedTask;
+
+        var sections = AllocationPlacementSupport.OrderTargetSections(state.Context.Sections);
         if (sections.Count == 0)
         {
             state.Errors.Add("No eligible sections for capacity allocation.");
@@ -53,39 +54,50 @@ public sealed class CapacityAllocationStrategy : IAllocationPipelineStrategy
                 return hard;
             });
 
-        // Seed already-assigned students (respect current section when capacity allows).
-        foreach (var st in state.Context.Students.OrderBy(s => s.StudentId))
+        void AddExpl(int studentId, string text)
         {
-            if (st.CurrentSectionId is int sid && remaining.ContainsKey(sid) && remaining[sid] > 0)
+            if (!state.Explanations.TryGetValue(studentId, out var list))
             {
-                state.Assignments[st.StudentId] = sid;
-                remaining[sid]--;
-                Add(state, st.StudentId, $"✓ Kept in section (capacity available)");
+                list = [];
+                state.Explanations[studentId] = list;
             }
+            list.Add(text);
         }
+
+        var skipped = AllocationPlacementSupport.SeedExistingAssignments(state, remaining, AddExpl);
+        var studentsById = state.Context.Students.ToDictionary(s => s.StudentId);
 
         foreach (var studentId in state.OrderedStudentIds)
         {
             if (state.Assignments.ContainsKey(studentId)) continue;
+            if (skipped.Contains(studentId)) continue;
 
             var target = remaining
                 .Where(kv => kv.Value > 0)
-                .OrderBy(kv => OccupancyRatio(kv.Key, remaining, caps, sections.Count))
-                .ThenBy(kv => SectionCode(kv.Key, sections), StringComparer.OrdinalIgnoreCase)
+                .OrderBy(kv => OccupancyRatio(kv.Key, remaining, caps))
+                .ThenBy(kv => sections.FindIndex(s => s.SectionId == kv.Key))
                 .ThenBy(kv => kv.Key)
                 .Select(kv => (int?)kv.Key)
                 .FirstOrDefault();
 
             if (target is null)
             {
-                state.Warnings.Add($"Student {studentId} could not be placed — capacity exhausted.");
+                state.Warnings.Add(AllocationBusinessExplanations.UnallocatedCapacity());
+                AddExpl(studentId, AllocationBusinessExplanations.UnallocatedCapacity());
                 continue;
             }
 
+            var toCode = sections.FirstOrDefault(s => s.SectionId == target.Value)?.SectionCode ?? "";
+            studentsById.TryGetValue(studentId, out var st);
             state.Assignments[studentId] = target.Value;
             remaining[target.Value]--;
-            Add(state, studentId, "✓ Capacity available");
-            Add(state, studentId, "✓ Occupancy balance improved");
+            var reason = AllocationBusinessExplanations.CapacityBalanceReason();
+            if (st?.CurrentSectionId is int from && from != target.Value)
+                AddExpl(studentId, AllocationBusinessExplanations.Reassigned(st.CurrentSectionCode, toCode, reason));
+            else if (st?.CurrentSectionId is null)
+                AddExpl(studentId, AllocationBusinessExplanations.NewAssignment(toCode, reason));
+            else
+                AddExpl(studentId, AllocationBusinessExplanations.NewAssignment(toCode, reason));
         }
 
         return Task.CompletedTask;
@@ -94,8 +106,7 @@ public sealed class CapacityAllocationStrategy : IAllocationPipelineStrategy
     private static double OccupancyRatio(
         int sectionId,
         Dictionary<int, int> remaining,
-        Dictionary<int, AllocationCapacityProjection> caps,
-        int _)
+        Dictionary<int, AllocationCapacityProjection> caps)
     {
         caps.TryGetValue(sectionId, out var c);
         var max = c?.MaximumCapacity ?? 0;
@@ -105,18 +116,107 @@ public sealed class CapacityAllocationStrategy : IAllocationPipelineStrategy
         var assigned = hard - remaining[sectionId];
         return assigned / (double)hard;
     }
+}
 
-    private static string SectionCode(int sectionId, List<AllocationSectionProjection> sections)
-        => sections.FirstOrDefault(s => s.SectionId == sectionId)?.SectionCode ?? "";
+/// <summary>
+/// AI29.1D.24B.4 — Configurable roll-number band placement.
+/// Maps last-three-digit bands onto ordered target sections using band size from config or section capacity.
+/// Does not rewrite <c>LastThreeDigits</c> grouping (ordering remains separate).
+/// </summary>
+public sealed class RollNumberBandsAllocationStrategy : IAllocationPipelineStrategy
+{
+    public string StrategyCode => AllocationStrategyCodes.RollNumberBands;
+    public string DisplayName => "Roll Number Bands";
+    public int Order => 19;
 
-    private static void Add(AllocationWorkingState state, int studentId, string explanation)
+    public Task ApplyAsync(AllocationWorkingState state, CancellationToken cancellationToken = default)
     {
-        if (!state.Explanations.TryGetValue(studentId, out var list))
+        if (state.Errors.Count > 0) return Task.CompletedTask;
+        if (!state.Config.IsStrategyEnabled(AllocationStrategyCodes.RollNumberBands))
+            return Task.CompletedTask;
+
+        var sections = AllocationPlacementSupport.OrderTargetSections(state.Context.Sections);
+        if (sections.Count == 0)
         {
-            list = [];
-            state.Explanations[studentId] = list;
+            state.Errors.Add("No eligible sections for roll-number band allocation.");
+            return Task.CompletedTask;
         }
-        list.Add(explanation);
+
+        var caps = state.Context.Capacities.ToDictionary(c => c.SectionId);
+        var remaining = AllocationPlacementSupport.BuildRemainingSeats(sections, caps);
+
+        var bandSize = state.Config.RollNumberBandSize;
+        if (bandSize is null or <= 0)
+        {
+            caps.TryGetValue(sections[0].SectionId, out var firstCap);
+            bandSize = firstCap?.MaximumCapacity ?? 0;
+        }
+
+        if (bandSize is null or <= 0)
+        {
+            state.Errors.Add(
+                "RollNumberBands requires a positive RollNumberBandSize or a first target section MaximumCapacity.");
+            return Task.CompletedTask;
+        }
+
+        var resolvedBandSize = bandSize.Value;
+        AllocationPlacementSupport.WarnIfBandExceedsCapacity(state, resolvedBandSize, sections, caps);
+
+        void AddExpl(int studentId, string text)
+        {
+            if (!state.Explanations.TryGetValue(studentId, out var list))
+            {
+                list = [];
+                state.Explanations[studentId] = list;
+            }
+            list.Add(text);
+        }
+
+        var skipped = AllocationPlacementSupport.SeedExistingAssignments(state, remaining, AddExpl);
+        var studentsById = state.Context.Students.ToDictionary(s => s.StudentId);
+
+        foreach (var studentId in state.OrderedStudentIds)
+        {
+            if (state.Assignments.ContainsKey(studentId)) continue;
+            if (skipped.Contains(studentId)) continue;
+            if (!studentsById.TryGetValue(studentId, out var student))
+                continue;
+
+            if (!LastThreeDigitsSemantics.TryExtractLastThree(student.StudentNumber, out var last3))
+            {
+                state.Warnings.Add(AllocationBusinessExplanations.UnallocatedNoLast3());
+                AddExpl(studentId, AllocationBusinessExplanations.UnallocatedNoLast3());
+                continue;
+            }
+
+            var bandIndex = LastThreeDigitsSemantics.BandIndex(last3, resolvedBandSize);
+            if (bandIndex >= sections.Count)
+            {
+                var msg = AllocationBusinessExplanations.UnallocatedBandExceedsSections(bandIndex, sections.Count);
+                state.Warnings.Add(msg);
+                AddExpl(studentId, msg);
+                continue;
+            }
+
+            var target = sections[bandIndex];
+            if (!remaining.TryGetValue(target.SectionId, out var seats) || seats <= 0)
+            {
+                var msg = AllocationBusinessExplanations.UnallocatedBandOverflow(target.SectionCode);
+                state.Warnings.Add(msg);
+                AddExpl(studentId, msg);
+                continue;
+            }
+
+            state.Assignments[studentId] = target.SectionId;
+            remaining[target.SectionId]--;
+            var reason = AllocationBusinessExplanations.RollBandReason(bandIndex, target.SectionCode, resolvedBandSize);
+            if (student.CurrentSectionId is int from && from != target.SectionId)
+                AddExpl(studentId, AllocationBusinessExplanations.Reassigned(student.CurrentSectionCode, target.SectionCode, reason));
+            else
+                AddExpl(studentId, AllocationBusinessExplanations.NewAssignment(target.SectionCode, reason));
+        }
+
+        return Task.CompletedTask;
     }
 }
 
@@ -334,7 +434,9 @@ internal static class AllocationScenarioFactory
             }).ToList();
 
         var summaries = state.Context.Sections
-            .OrderBy(s => s.SectionCode, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(s => s.DisplayOrder)
+            .ThenBy(s => s.SectionCode, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(s => s.SectionId)
             .Select(s =>
             {
                 caps.TryGetValue(s.SectionId, out var c);
@@ -368,6 +470,8 @@ internal static class AllocationScenarioFactory
                 ["GroupingMode"] = state.Config.GroupingMode,
                 ["Engine"] = "AI29.1C",
                 ["Deterministic"] = "true",
+                ["PopulationMode"] = state.Config.PopulationSelection?.Mode ?? AllocationPopulationModes.AllEligible,
+                ["TargetSectionMode"] = state.Config.TargetSectionIds is { Count: > 0 } ? "Explicit" : "AllEligible",
             },
         };
     }

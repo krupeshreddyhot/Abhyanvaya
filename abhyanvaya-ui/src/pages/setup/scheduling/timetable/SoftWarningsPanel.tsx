@@ -20,13 +20,27 @@ export type SoftWarningsPanelProps = {
   onDismiss: (warning: SoftWarningDto) => void;
 };
 
+const severityColor = (
+  severity: string | undefined,
+): "default" | "info" | "warning" | "error" => {
+  switch (severity) {
+    case "Critical":
+    case "Error":
+      return "error";
+    case "Information":
+      return "info";
+    default:
+      return "warning";
+  }
+};
+
 const SoftWarningsPanel = ({ warnings, canDismiss, onDismiss }: SoftWarningsPanelProps) => {
   const active = warnings.filter((w) => !w.dismissed);
 
   return (
     <Box
       sx={{
-        width: { xs: "100%", lg: 280 },
+        width: { xs: "100%", lg: 300 },
         flexShrink: 0,
         border: 1,
         borderColor: "divider",
@@ -70,18 +84,58 @@ const SoftWarningsPanel = ({ warnings, canDismiss, onDismiss }: SoftWarningsPane
             >
               <ListItemText
                 primary={
-                  <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
-                    <Chip label={w.code} size="small" color="warning" variant="outlined" />
-                    {w.severity !== "Warning" && (
-                      <Typography variant="caption" color="text.secondary">
-                        {w.severity}
+                  <Stack spacing={0.5}>
+                    <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                      <Chip
+                        label={w.code}
+                        size="small"
+                        color={severityColor(w.severity)}
+                        variant="outlined"
+                      />
+                      {w.severity && (
+                        <Typography variant="caption" color="text.secondary">
+                          {w.severity}
+                        </Typography>
+                      )}
+                    </Stack>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {w.title ?? w.message}
+                    </Typography>
+                  </Stack>
+                }
+                secondary={
+                  <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                    {w.why && (
+                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "normal" }}>
+                        Why: {w.why}
+                      </Typography>
+                    )}
+                    {!w.why && (
+                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "normal" }}>
+                        {w.message}
+                      </Typography>
+                    )}
+                    {w.suggestedAction && (
+                      <Typography variant="caption" color="text.primary" sx={{ whiteSpace: "normal" }}>
+                        Action: {w.suggestedAction}
+                      </Typography>
+                    )}
+                    {(w.placementSize != null ||
+                      w.effectiveRoomCapacity != null ||
+                      w.resolvedStudentCount != null) && (
+                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "normal" }}>
+                        {w.placementSize != null && `Placement: ${w.placementSize}. `}
+                        {w.effectiveRoomCapacity != null &&
+                          `Effective room: ${w.effectiveRoomCapacity}. `}
+                        {w.resolvedStudentCount != null &&
+                          `Resolved students: ${w.resolvedStudentCount}. `}
+                        {w.maxTeachingCapacity != null && `TG max: ${w.maxTeachingCapacity}.`}
                       </Typography>
                     )}
                   </Stack>
                 }
-                secondary={w.message}
                 slotProps={{
-                  secondary: { sx: { fontSize: "0.75rem", whiteSpace: "normal" } },
+                  secondary: { component: "div" },
                 }}
               />
             </ListItem>

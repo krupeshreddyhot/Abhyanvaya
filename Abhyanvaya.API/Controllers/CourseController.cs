@@ -1,29 +1,40 @@
-﻿using Abhyanvaya.Application.Common.Interfaces;
+﻿using Abhyanvaya.Application.Academic;
 using Abhyanvaya.API.Common;
+using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.DTOs.Course;
-using Abhyanvaya.Domain.Entities;
+using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace Abhyanvaya.API.Controllers
 {
+    /// <summary>
+    /// Course Master CRUD. When EnablePrograms, ProgramId is applied via
+    /// <see cref="IAcademicStructureService.AssignCourseToProgramAsync"/> (authoritative assign-course command)
+    /// inside <see cref="ICourseMasterWriteService"/> transaction orchestration — UI must not also call assign-course.
+    /// </summary>
     [ApiController]
     [Route("api/course")]
     [Authorize(Policy = AuthorizationPolicies.CanManageCourses)]
     public class CourseController : ControllerBase
     {
         private readonly IApplicationDbContext _context;
-        private readonly ICacheService _cache;
         private readonly ICurrentUserService _currentUser;
+        private readonly ICourseMasterWriteService _writeService;
+        private readonly IAuthorizationService _authorization;
 
-        public CourseController(IApplicationDbContext context, ICacheService cache, ICurrentUserService currentUser)
+        public CourseController(
+            IApplicationDbContext context,
+            ICurrentUserService currentUser,
+            ICourseMasterWriteService writeService,
+            IAuthorizationService authorization)
         {
             _context = context;
-            _cache = cache;
             _currentUser = currentUser;
+            _writeService = writeService;
+            _authorization = authorization;
         }
-        private static string CoursesCacheKey(int tenantId) => $"tenant:{tenantId}:master:courses";
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
@@ -31,117 +42,85 @@ namespace Abhyanvaya.API.Controllers
             var data = await _context.Courses
                 .AsNoTracking()
                 .OrderBy(x => x.Name)
-                .Select(x => new { x.Id, x.Code, x.Name, x.ProgramId })
+                .Select(x => new { x.Id, x.Code, x.Name, x.DepartmentId, x.ProgramId })
                 .ToListAsync();
 
             return Ok(data);
         }
 
-        // ADD
         [HttpPost]
-        public async Task<IActionResult> Create(CreateCourseRequest request)
+        public async Task<IActionResult> Create(CreateCourseRequest request, CancellationToken cancellationToken)
         {
-            var code = (request.Code ?? "").Trim().ToUpperInvariant();
-            var name = (request.Name ?? "").Trim();
-            if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name))
-                return BadRequest("Course code and name are required.");
-
-            var exists = await _context.Courses
-                .AnyAsync(x =>
-                    x.TenantId == _currentUser.TenantId &&
-                    (x.Name.ToLower() == name.ToLower() || x.Code.ToLower() == code.ToLower()));
-
-            if (exists)
-                return BadRequest("Course code or name already exists.");
+            var forbid = await EnsureProgramAssignAuthorizedAsync(request.ProgramIdSpecified && request.ProgramId is > 0, cancellationToken);
+            if (forbid is not null)
+                return forbid;
 
             try
             {
-                var programId = await ResolveProgramIdAsync(request.ProgramId);
-                var course = new Course
-                {
-                    Code = code,
-                    Name = name,
-                    ProgramId = programId,
-                    CreatedDate = DateTime.UtcNow
-                };
-
-                await _context.AddAsync(course);
-                await _context.SaveChangesAsync();
-
-                await _cache.RemoveAsync(CoursesCacheKey(course.TenantId));
-                return Ok(course);
+                var row = await _writeService.CreateAsync(request, cancellationToken);
+                return Ok(row);
             }
-            catch (InvalidOperationException ex)
+            catch (KeyNotFoundException)
+            {
+                return NotFound("Course not found.");
+            }
+            catch (ValidationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            // Unexpected exceptions (incl. assignment failures) are not swallowed — global pipeline returns failure.
+        }
+
+        [HttpPut]
+        public async Task<IActionResult> Update(UpdateCourseRequest request, CancellationToken cancellationToken)
+        {
+            // Explicit programId (incl. null unlink) requires assign authorization; omitted ⇒ leave Program alone.
+            var needsAssignAuth = request.ProgramIdSpecified;
+            var forbid = await EnsureProgramAssignAuthorizedAsync(needsAssignAuth, cancellationToken);
+            if (forbid is not null)
+                return forbid;
+
+            try
+            {
+                var row = await _writeService.UpdateAsync(request, cancellationToken);
+                return Ok(row);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (ValidationException ex)
             {
                 return BadRequest(ex.Message);
             }
         }
 
-        // UPDATE
-        [HttpPut]
-        public async Task<IActionResult> Update(UpdateCourseRequest request)
+        /// <summary>
+        /// When Program assignment will run, enforce CanAssignCourseToProgram before any Course mutation.
+        /// </summary>
+        private async Task<IActionResult?> EnsureProgramAssignAuthorizedAsync(
+            bool assignmentRequested,
+            CancellationToken cancellationToken)
         {
-            var code = (request.Code ?? "").Trim().ToUpperInvariant();
-            var name = (request.Name ?? "").Trim();
-            if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name))
-                return BadRequest("Course code and name are required.");
-
-            var course = await _context.Courses.FirstOrDefaultAsync(x => x.Id == request.Id);
-
-            if (course == null)
-                return NotFound();
-
-            var dup = await _context.Courses.AnyAsync(x =>
-                x.Id != request.Id &&
-                x.TenantId == _currentUser.TenantId &&
-                (x.Name.ToLower() == name.ToLower() || x.Code.ToLower() == code.ToLower()));
-
-            if (dup)
-                return BadRequest("Another course already uses this code or name.");
-
-            course.Code = code;
-            course.Name = name;
-            // Additive: only update ProgramId when explicitly provided (existing Course CRUD unchanged).
-            if (request.ProgramId.HasValue)
-            {
-                try { course.ProgramId = await ResolveProgramIdAsync(request.ProgramId); }
-                catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
-            }
-            course.UpdatedDate = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-
-            await _cache.RemoveAsync(CoursesCacheKey(course.TenantId));
-
-            return Ok(course);
-        }
-
-        /// <summary>AI29.1A — when Programs disabled, always null; when enabled, validate Active program.</summary>
-        private async Task<int?> ResolveProgramIdAsync(int? programId)
-        {
-            if (!await ProgramsEnabledAsync())
-                return null;
-            if (programId is null or <= 0)
+            if (!assignmentRequested)
                 return null;
 
-            var program = await _context.Programs.AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == programId && p.TenantId == _currentUser.TenantId);
-            if (program is null)
-                throw new InvalidOperationException("Invalid Program.");
-            if (!program.IsActive || program.Status == "Archived")
-                throw new InvalidOperationException("Archived Programs cannot receive new Courses.");
-            return program.Id;
+            if (!await ProgramsEnabledAsync(cancellationToken))
+                return null;
+
+            var auth = await _authorization.AuthorizeAsync(User, AuthorizationPolicies.CanAssignCourseToProgram);
+            if (!auth.Succeeded)
+                return Forbid();
+
+            return null;
         }
 
-        private async Task<bool> ProgramsEnabledAsync()
+        private async Task<bool> ProgramsEnabledAsync(CancellationToken cancellationToken)
         {
             return await _context.TenantAcademicConfigurations.AsNoTracking()
                 .Where(c => c.TenantId == _currentUser.TenantId)
                 .Select(c => c.EnablePrograms)
-                .FirstOrDefaultAsync();
+                .FirstOrDefaultAsync(cancellationToken);
         }
     }
 }
-
-
-

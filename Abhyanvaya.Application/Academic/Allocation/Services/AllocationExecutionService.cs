@@ -67,6 +67,10 @@ public sealed class AllocationExecutionService : IAllocationExecutionService
         CancellationToken ct)
     {
         var context = await _builder.BuildAsync(scope, ct);
+        var normalizedConfig = config.Normalize();
+        // Fail closed before persistence when population/target selection is invalid for this context.
+        AllocationScopeSelectionValidator.ValidateOrThrow(context, normalizedConfig);
+
         var sessionId = Guid.NewGuid();
         var progress = new Progress<AllocationProgress>(p =>
         {
@@ -78,13 +82,13 @@ public sealed class AllocationExecutionService : IAllocationExecutionService
             {
                 SessionId = sessionId,
                 Context = context,
-                Config = config,
+                Config = normalizedConfig,
                 StartedAt = DateTime.UtcNow,
             },
             progress,
             ct);
 
-        await PersistAsync(scope, config, result, ct);
+        await PersistAsync(scope, normalizedConfig, result, ct);
         await _progress.PublishCompletedAsync(_currentUser.TenantId, result, ct);
         return result;
     }

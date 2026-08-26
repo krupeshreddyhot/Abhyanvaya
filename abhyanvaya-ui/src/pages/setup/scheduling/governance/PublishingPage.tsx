@@ -22,7 +22,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ArchiveIcon from "@mui/icons-material/Archive";
 import PublishIcon from "@mui/icons-material/Publish";
@@ -51,12 +51,20 @@ import {
   type ArchiveReasonDto,
   type TimetableChangeHistoryDto,
   type TimetableDto,
+  type TimetablePublishReadinessResultDto,
 } from "../../../../services/schedulingService";
 import { errMsg, parseOptionalSelectNumber } from "../schedulingFormUtils";
+import {
+  getTimetablePublishReadiness,
+  normalizePublishReadiness,
+  parsePublishFailure,
+} from "../publishReadiness";
+import PublishReadinessPanel from "../PublishReadinessPanel";
 import { TIMETABLE_STATUS_COLORS, TIMETABLE_STATUS_LABELS } from "../timetable/timetableUtils";
 import { CHANGE_OPERATION_LABELS } from "./governanceEnumLabels";
 
 const PublishingPage = () => {
+  const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const canPublish = hasPermission(PermissionKeys.SchedulingPublish);
   const canArchive = hasPermission(PermissionKeys.SchedulingArchive) || hasPermission(PermissionKeys.SchedulingArchiveManage);
@@ -70,6 +78,10 @@ const PublishingPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [publishReadiness, setPublishReadiness] =
+    useState<TimetablePublishReadinessResultDto | null>(null);
+  const [publishReadinessLoading, setPublishReadinessLoading] = useState(false);
+  const [publishReadinessError, setPublishReadinessError] = useState<string | null>(null);
 
   const [selected, setSelected] = useState<TimetableDto | null>(null);
   const [timeline, setTimeline] = useState<TimetableChangeHistoryDto[]>([]);
@@ -117,6 +129,8 @@ const PublishingPage = () => {
   const loadTimeline = async (t: TimetableDto) => {
     setSelected(t);
     setTimelineLoading(true);
+    setPublishReadiness(null);
+    setPublishReadinessError(null);
     try {
       const res = await getTimetableChangeHistory(t.id, {
         operation: undefined,
@@ -127,10 +141,34 @@ const PublishingPage = () => {
           h.operation === TimetableChangeOperation.Archive,
       );
       setTimeline(lifecycle);
+      // UX preflight — POST publish remains authoritative.
+      setPublishReadinessLoading(true);
+      try {
+        const readinessRes = await getTimetablePublishReadiness(t.id);
+        setPublishReadiness(normalizePublishReadiness(readinessRes.data) ?? readinessRes.data);
+      } catch (e) {
+        setPublishReadinessError(errMsg(e));
+      } finally {
+        setPublishReadinessLoading(false);
+      }
     } catch (e) {
       setError(errMsg(e));
     } finally {
       setTimelineLoading(false);
+    }
+  };
+
+  const refreshSelectedPublishReadiness = async () => {
+    if (!selected) return;
+    setPublishReadinessLoading(true);
+    setPublishReadinessError(null);
+    try {
+      const readinessRes = await getTimetablePublishReadiness(selected.id);
+      setPublishReadiness(normalizePublishReadiness(readinessRes.data) ?? readinessRes.data);
+    } catch (e) {
+      setPublishReadinessError(errMsg(e));
+    } finally {
+      setPublishReadinessLoading(false);
     }
   };
 
@@ -149,6 +187,8 @@ const PublishingPage = () => {
     try {
       if (actionType === "publish") {
         await publishTimetable(selected.id, { reason: reason.trim() || null });
+        setPublishReadiness(null);
+        setPublishReadinessError(null);
         setMessage("Timetable published.");
       } else if (actionType === "archive") {
         await archiveTimetable(selected.id, {
@@ -170,7 +210,19 @@ const PublishingPage = () => {
       await load();
       await loadTimeline(selected);
     } catch (e) {
-      setError(errMsg(e));
+      if (actionType === "publish") {
+        const failure = parsePublishFailure(e);
+        if (failure.readiness) {
+          setPublishReadiness(failure.readiness);
+          setPublishReadinessError(null);
+        } else {
+          setPublishReadinessError(failure.message);
+        }
+        setError(failure.message);
+      } else {
+        setPublishReadinessError(null);
+        setError(errMsg(e));
+      }
     } finally {
       setActing(false);
     }
@@ -187,8 +239,30 @@ const PublishingPage = () => {
         </Typography>
       </Box>
 
-      {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
+      {error && (
+        <Alert
+          severity="error"
+          onClose={() => {
+            setError(null);
+          }}
+        >
+          {error}
+        </Alert>
+      )}
       {message && <Alert severity="success" onClose={() => setMessage(null)}>{message}</Alert>}
+
+      {selected && (
+        <PublishReadinessPanel
+          readiness={publishReadiness}
+          loading={publishReadinessLoading}
+          error={publishReadinessError}
+          onRecheck={() => void refreshSelectedPublishReadiness()}
+          recheckBusy={publishReadinessLoading}
+          onViewEntry={(entryId) => {
+            navigate(`/setup/scheduling/timetables/${selected.id}?entryId=${entryId}`);
+          }}
+        />
+      )}
 
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
         <FormControl size="small" sx={{ minWidth: 200 }}>

@@ -16,6 +16,7 @@ public class AI29_1A_ProgramManagementTests
         var p = new Program
         {
             CollegeId = 1,
+            DepartmentId = 1,
             ProgramCode = "COM",
             ProgramName = "Commerce",
             IsActive = true,
@@ -32,7 +33,7 @@ public class AI29_1A_ProgramManagementTests
     [Fact]
     public void Course_ProgramId_Is_Nullable_Additive()
     {
-        var course = new Course { Code = "BCOM", Name = "B.Com", ProgramId = null };
+        var course = new Course { Code = "BCOM", Name = "B.Com", DepartmentId = 1, ProgramId = null };
         Assert.Null(course.ProgramId);
         course.ProgramId = 5;
         Assert.Equal(5, course.ProgramId);
@@ -49,7 +50,7 @@ public class AI29_1A_ProgramManagementTests
     public void CreateProgram_Validator_Requires_Code_And_Name()
     {
         var v = new CreateProgramRequestValidator();
-        var bad = v.TestValidate(new CreateProgramRequest { ProgramCode = "", ProgramName = "" });
+        var bad = v.TestValidate(new CreateProgramRequest { DepartmentId = 1, ProgramCode = "", ProgramName = "" });
         bad.ShouldHaveValidationErrorFor(x => x.ProgramCode);
         bad.ShouldHaveValidationErrorFor(x => x.ProgramName);
     }
@@ -60,6 +61,7 @@ public class AI29_1A_ProgramManagementTests
         var v = new UpdateProgramRequestValidator();
         var bad = v.TestValidate(new UpdateProgramRequest
         {
+            DepartmentId = 1,
             ProgramCode = "COM",
             ProgramName = "Commerce",
             Status = "Weird",
@@ -68,6 +70,7 @@ public class AI29_1A_ProgramManagementTests
 
         var inactive = v.TestValidate(new UpdateProgramRequest
         {
+            DepartmentId = 1,
             ProgramCode = "COM",
             ProgramName = "Commerce",
             Status = "Inactive",

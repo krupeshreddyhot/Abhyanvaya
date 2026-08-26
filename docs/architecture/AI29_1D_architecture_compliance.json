@@ -1,0 +1,47 @@
+{
+  "GeneratedUtc": "2026-08-23T07:10:04.7258179Z",
+  "RequiredLayering": "UI \u2192 API / Application Contracts \u2192 Domain Services",
+  "Passed": true,
+  "Status": "FULLY_VERIFIED",
+  "ComplianceStatus": 0,
+  "FullyVerified": true,
+  "UiScanExecuted": true,
+  "BackendChecksPassed": true,
+  "PlatformBoundaryPassed": true,
+  "ViolationCount": 0,
+  "Checks": [
+    "Required layering: UI \u2192 API / Application Contracts \u2192 Domain Services",
+    "Domain assembly/project must not reference Application / API / UI",
+    "Application Academic types must not reference UI (fields/properties/methods/generics/attributes)",
+    "UI must not access EF Core / DbContext / database tables",
+    "UI must not access allocation / scheduling / attendance database entities",
+    "UI must not calculate authoritative capacity / allocation scores",
+    "UI must not implement AttendanceSessionResolver / eligibility / SectionGroup / lifecycle / governance",
+    "Existing backend services remain authoritative",
+    "Compliance status: FULLY_VERIFIED | PARTIALLY_VERIFIED | FAILED",
+    "Backend authority: AllocationEngine",
+    "Backend authority: AttendanceSessionResolver",
+    "Backend authority: AllocationScenarioLifecycleService",
+    "Backend authority: IAllocationGovernanceService",
+    "Backend authority: ISectionCapacityEngine"
+  ],
+  "Violations": [],
+  "Notes": [
+    "UI source scanned at d:\\Resheta\\AttendenceProject\\Abhyanvaya\\abhyanvaya-ui\\src"
+  ],
+  "UiScan": {
+    "Executed": true,
+    "UiRoot": "d:\\Resheta\\AttendenceProject\\Abhyanvaya\\abhyanvaya-ui\\src",
+    "FilesScanned": 451,
+    "ForbiddenDataAccessHits": 0,
+    "ForbiddenAuthorityHits": 0
+  },
+  "BackendAuthority": {
+    "AllocationEnginePresent": true,
+    "AttendanceSessionResolverPresent": true,
+    "AllocationLifecycleServicePresent": true,
+    "AllocationGovernanceServicePresent": true,
+    "SectionCapacityEnginePresent": true,
+    "ExistingPlatformGuardPassed": true
+  }
+}

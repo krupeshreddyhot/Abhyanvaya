@@ -1,4 +1,11 @@
-import { SlotKind, TimetableStatus, type TimeSlotDto, type TimetableEntryDto } from "../../../../services/schedulingService";
+import {
+  SlotKind,
+  TimetableStatus,
+  type SoftWarningDto,
+  type TimeSlotDto,
+  type TimetableEntryDto,
+} from "../../../../services/schedulingService";
+import { TeachingGroupStatus } from "../../../../services/teachingGroupService";
 import { formatTimeSpan } from "../schedulingFormUtils";
 
 export const TIMETABLE_STATUS_LABELS: Record<number, string> = {
@@ -13,6 +20,17 @@ export const TIMETABLE_STATUS_COLORS: Record<number, "default" | "warning" | "su
   [TimetableStatus.Locked]: "success",
   [TimetableStatus.Published]: "info",
   [TimetableStatus.Archived]: "default",
+};
+
+/** Display-only hint for grid TG state (not a compatibility resolver). */
+export type TeachingGroupGridHint = {
+  id: number;
+  name: string;
+  code?: string | null;
+  status: number;
+  resolvedStudentCount?: number;
+  expectedStudentCount?: number | null;
+  maxTeachingCapacity?: number | null;
 };
 
 export const periodTimeSlots = (slots: TimeSlotDto[]): TimeSlotDto[] =>
@@ -30,6 +48,53 @@ export const formatEntryCompact = (entry: TimetableEntryDto, mode: "academic" | 
   if (mode === "faculty") return `${subject} · ${entry.roomName ?? "—"}`;
   if (mode === "room") return `${subject} · ${entry.staffName ?? "—"}`;
   return `${subject} · ${entry.staffName ?? "—"} · ${entry.roomName ?? "—"}`;
+};
+
+/**
+ * Informational grid line for Teaching Group state.
+ * Uses TeachingGroupId + optional display hint — never infers from SubjectAllocation.
+ */
+export const formatEntryTeachingGroupLine = (
+  entry: TimetableEntryDto,
+  hint?: TeachingGroupGridHint | null,
+): string => {
+  if (entry.teachingGroupId == null) return "Teaching Group: None";
+  if (!hint) return `Teaching Group: #${entry.teachingGroupId}`;
+  const label = hint.code?.trim() ? `${hint.code} — ${hint.name}` : hint.name;
+  const archived = hint.status === TeachingGroupStatus.Archived ? " · Archived" : "";
+  return `Teaching Group: ${label}${archived}`;
+};
+
+/**
+ * Server soft-warning capacity feedback for a timetable entry (AI-SCHED-CAP Prompt 4).
+ * UI must not recalculate PlacementSize / EffectiveRoomCapacity / TG capacity.
+ */
+export const entryCapacityFeedbackFromSoftWarnings = (
+  entryId: number,
+  warnings: SoftWarningDto[] | undefined | null,
+): SoftWarningDto[] => {
+  if (!warnings?.length) return [];
+  return warnings.filter(
+    (w) =>
+      !w.dismissed &&
+      w.entryId === entryId &&
+      (w.code === "ROOM_CAPACITY" || w.code === "TEACHING_GROUP_CAPACITY_EXCEEDED"),
+  );
+};
+
+/**
+ * Prefer server soft-warning title/message for grid caption.
+ * Falls back to null — does not recalculate capacity on the client.
+ */
+export const entryTeachingGroupCapacityWarning = (
+  hint?: TeachingGroupGridHint | null,
+  softWarningsForEntry?: SoftWarningDto[] | null,
+): string | null => {
+  const fromServer = softWarningsForEntry?.find((w) => w.code === "TEACHING_GROUP_CAPACITY_EXCEEDED");
+  if (fromServer) return fromServer.title ?? fromServer.message;
+  // Display-only archived label remains via formatEntryTeachingGroupLine; no client capacity math.
+  void hint;
+  return null;
 };
 
 export const downloadBlob = (blob: Blob, filename: string): void => {

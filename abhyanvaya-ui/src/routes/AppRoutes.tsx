@@ -17,6 +17,7 @@ import DashboardPreferencesPage from "../pages/dashboards/DashboardPreferencesPa
 import AttendanceRecoveryDashboardPage from "../pages/setup/AttendanceRecoveryDashboardPage";
 import AttendanceRecognitionReviewPage from "../pages/AttendanceRecognitionReviewPage";
 import ContextAwareLayout from "../layouts/ContextAwareLayout";
+import AttendancePageErrorBoundary from "../components/attendance/AttendancePageErrorBoundary";
 import StudentsPage from "../pages/StudentsPage";
 import ReportsPage from "../pages/ReportsPage";
 import SetupHub from "../pages/setup/SetupHub";
@@ -49,6 +50,7 @@ import RoomsPage from "../pages/setup/scheduling/RoomsPage";
 import TimeSlotsPage from "../pages/setup/scheduling/TimeSlotsPage";
 import FacultyWorkloadPage from "../pages/setup/scheduling/FacultyWorkloadPage";
 import SubjectAllocationPage from "../pages/setup/scheduling/SubjectAllocationPage";
+import TeachingGroupsPage from "../pages/setup/scheduling/TeachingGroupsPage";
 import RoomRulesPage from "../pages/setup/scheduling/RoomRulesPage";
 import FacultyAvailabilityPage from "../pages/setup/scheduling/FacultyAvailabilityPage";
 import RoomAvailabilityPage from "../pages/setup/scheduling/RoomAvailabilityPage";
@@ -97,9 +99,11 @@ const ReportsPageWithContext = () => (
 );
 
 const AttendancePageWithContext = () => (
-  <ContextAwareLayout breadcrumbItems={[{ label: "Attendance" }]}>
-    <AttendanceMarking />
-  </ContextAwareLayout>
+  <AttendancePageErrorBoundary>
+    <ContextAwareLayout breadcrumbItems={[{ label: "Attendance" }]}>
+      <AttendanceMarking />
+    </ContextAwareLayout>
+  </AttendancePageErrorBoundary>
 );
 
 const schedulingHubPermissions = [
@@ -121,6 +125,8 @@ const schedulingHubPermissions = [
   PermissionKeys.SchedulingHolidayTypesManage,
   PermissionKeys.SchedulingTimetableView,
   PermissionKeys.SchedulingTimetableManage,
+  PermissionKeys.SchedulingTeachingGroupView,
+  PermissionKeys.SchedulingTeachingGroupManage,
   PermissionKeys.SchedulingVersionView,
   PermissionKeys.SchedulingVersionManage,
   PermissionKeys.SchedulingReview,
@@ -327,8 +333,16 @@ const AppRoutes = () => {
                   PermissionKeys.SectionView,
                   PermissionKeys.SectionCreate,
                   PermissionKeys.SectionEdit,
+                  PermissionKeys.SectionDelete,
                   PermissionKeys.SectionAssignStudents,
                   PermissionKeys.SectionAssignFaculty,
+                  PermissionKeys.SectionLifecycleView,
+                  PermissionKeys.SectionLifecycleEdit,
+                  PermissionKeys.SectionCapacity,
+                  PermissionKeys.SectionMerge,
+                  PermissionKeys.SectionSplit,
+                  PermissionKeys.SectionReadiness,
+                  PermissionKeys.AllocationOperationsView,
                 ]}
               >
                 <SectionsPage />
@@ -338,7 +352,14 @@ const AppRoutes = () => {
           <Route
             path="setup/academic/allocation-context"
             element={
-              <ProtectedRoute anyPermission={[PermissionKeys.SectionView]}>
+              <ProtectedRoute
+                anyPermission={[
+                  PermissionKeys.SectionView,
+                  PermissionKeys.AllocationOperationsView,
+                  PermissionKeys.AllocationRun,
+                  PermissionKeys.AllocationScenarioView,
+                ]}
+              >
                 <AllocationContextPage />
               </ProtectedRoute>
             }
@@ -347,7 +368,12 @@ const AppRoutes = () => {
             path="setup/academic/allocation/operations"
             element={
               <ProtectedRoute
-                anyPermission={[PermissionKeys.AllocationOperationsView, PermissionKeys.SectionView]}
+                anyPermission={[
+                  PermissionKeys.AllocationOperationsView,
+                  PermissionKeys.SectionView,
+                  PermissionKeys.AllocationScenarioView,
+                  PermissionKeys.AllocationRun,
+                ]}
               >
                 <AllocationOperationsPage />
               </ProtectedRoute>
@@ -518,6 +544,24 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute anyPermission={[PermissionKeys.SchedulingView, PermissionKeys.SchedulingManage]}>
                 <SubjectAllocationPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="setup/scheduling/teaching-groups"
+            element={
+              <ProtectedRoute
+                anyPermission={[
+                  // Align with API CanViewSchedulingTeachingGroup (Program.cs AddSchedulingViewPolicy):
+                  // dedicated TG keys OR Scheduling.View/Manage. Prior TG-only guard sent
+                  // Scheduling-capable users to /dashboard via ProtectedRoute.
+                  PermissionKeys.SchedulingTeachingGroupView,
+                  PermissionKeys.SchedulingTeachingGroupManage,
+                  PermissionKeys.SchedulingView,
+                  PermissionKeys.SchedulingManage,
+                ]}
+              >
+                <TeachingGroupsPage />
               </ProtectedRoute>
             }
           />

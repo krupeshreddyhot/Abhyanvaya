@@ -56,15 +56,29 @@ public sealed class TimetablePublishingUniquenessTests
         Assert.Equal(TimetableStatus.Published, entity.Status);
     }
 
-    private TimetableLifecycleService CreateService() => new(
-        _repository.Object,
-        _versionRepository.Object,
-        _archiveReasonRepository.Object,
-        _context.Object,
-        _unitOfWork.Object,
-        _currentUser.Object,
-        _historyService.Object,
-        _timetableService.Object,
-        Mock.Of<FluentValidation.IValidator<FreezeTimetableRequest>>(),
-        Mock.Of<FluentValidation.IValidator<UnlockFrozenTimetableRequest>>());
+    private TimetableLifecycleService CreateService()
+    {
+        var readiness = new Mock<ITimetablePublishReadinessService>();
+        readiness.Setup(r => r.EvaluatePublishReadinessAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => new TimetablePublishReadinessResultDto
+            {
+                TimetableId = id,
+                IsReady = true,
+                LifecycleState = TimetableStatus.Locked,
+                Findings = []
+            });
+
+        return new TimetableLifecycleService(
+            _repository.Object,
+            _versionRepository.Object,
+            _archiveReasonRepository.Object,
+            _context.Object,
+            _unitOfWork.Object,
+            _currentUser.Object,
+            _historyService.Object,
+            _timetableService.Object,
+            readiness.Object,
+            Mock.Of<FluentValidation.IValidator<FreezeTimetableRequest>>(),
+            Mock.Of<FluentValidation.IValidator<UnlockFrozenTimetableRequest>>());
+    }
 }

@@ -112,6 +112,8 @@ const MainLayoutChrome = () => {
     PermissionKeys.SchedulingHolidayTypesManage,
     PermissionKeys.SchedulingTimetableView,
     PermissionKeys.SchedulingTimetableManage,
+    PermissionKeys.SchedulingTeachingGroupView,
+    PermissionKeys.SchedulingTeachingGroupManage,
     PermissionKeys.SchedulingVersionView,
     PermissionKeys.SchedulingVersionManage,
     PermissionKeys.SchedulingReview,

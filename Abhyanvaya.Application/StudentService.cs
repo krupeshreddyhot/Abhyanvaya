@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using Abhyanvaya.Application.Academic;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.DTOs.Student;
 using Abhyanvaya.Domain.Entities;
@@ -157,6 +158,24 @@ namespace Abhyanvaya.Application
 
                 if (!TryParseRequiredInt(row, headers, excelRow, out var semesterId, result, "SemesterId", "semester_id"))
                 {
+                    result.Skipped++;
+                    continue;
+                }
+
+                var groupRow = await _context.Groups.AsNoTracking()
+                    .Where(g => g.Id == groupId && g.TenantId == tenantId && !g.IsDeleted)
+                    .Select(g => new StudentSemesterOwnershipRules.GroupSnapshot(g.Id, g.TenantId, g.CourseId, g.IsDeleted))
+                    .FirstOrDefaultAsync(cancellationToken);
+                var semesterRow = await _context.Semesters.AsNoTracking()
+                    .Where(s => s.Id == semesterId && s.TenantId == tenantId && !s.IsDeleted)
+                    .Select(s => new StudentSemesterOwnershipRules.SemesterSnapshot(
+                        s.Id, s.TenantId, s.CourseId, s.GroupId, s.IsDeleted, s.IsHistoricalArchive))
+                    .FirstOrDefaultAsync(cancellationToken);
+                var ownership = StudentSemesterOwnershipRules.EvaluateWrite(
+                    tenantId, courseId, groupId, semesterId, groupRow, semesterRow);
+                if (!ownership.Accepted)
+                {
+                    result.Errors.Add($"Row {excelRow}: {ownership.Error}");
                     result.Skipped++;
                     continue;
                 }

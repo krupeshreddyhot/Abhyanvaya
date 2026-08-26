@@ -35,6 +35,8 @@ export const PermissionKeys = {
   SchedulingHolidayTypesManage: "Scheduling.HolidayTypes.Manage",
   SchedulingTimetableView: "Scheduling.Timetable.View",
   SchedulingTimetableManage: "Scheduling.Timetable.Manage",
+  SchedulingTeachingGroupView: "Scheduling.TeachingGroup.View",
+  SchedulingTeachingGroupManage: "Scheduling.TeachingGroup.Manage",
   SchedulingVersionView: "Scheduling.Version.View",
   SchedulingVersionManage: "Scheduling.Version.Manage",
   SchedulingReview: "Scheduling.Review",

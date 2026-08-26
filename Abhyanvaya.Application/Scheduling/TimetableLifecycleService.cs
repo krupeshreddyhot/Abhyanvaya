@@ -1,6 +1,7 @@
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Common.Interfaces.Scheduling;
 using Abhyanvaya.Application.DTOs.Scheduling;
+using Abhyanvaya.Application.Exceptions;
 using Abhyanvaya.Application.Internal;
 using Abhyanvaya.Domain.Enums.Scheduling;
 using Abhyanvaya.Domain.Exceptions;
@@ -19,6 +20,7 @@ public sealed class TimetableLifecycleService : ITimetableLifecycleService
     private readonly ICurrentUserService _currentUser;
     private readonly ITimetableChangeHistoryService _historyService;
     private readonly ITimetableService _timetableService;
+    private readonly ITimetablePublishReadinessService _publishReadinessService;
     private readonly IValidator<FreezeTimetableRequest> _freezeValidator;
     private readonly IValidator<UnlockFrozenTimetableRequest> _unlockValidator;
 
@@ -31,6 +33,7 @@ public sealed class TimetableLifecycleService : ITimetableLifecycleService
         ICurrentUserService currentUser,
         ITimetableChangeHistoryService historyService,
         ITimetableService timetableService,
+        ITimetablePublishReadinessService publishReadinessService,
         IValidator<FreezeTimetableRequest> freezeValidator,
         IValidator<UnlockFrozenTimetableRequest> unlockValidator)
     {
@@ -42,6 +45,7 @@ public sealed class TimetableLifecycleService : ITimetableLifecycleService
         _currentUser = currentUser;
         _historyService = historyService;
         _timetableService = timetableService;
+        _publishReadinessService = publishReadinessService;
         _freezeValidator = freezeValidator;
         _unlockValidator = unlockValidator;
     }
@@ -74,6 +78,12 @@ public sealed class TimetableLifecycleService : ITimetableLifecycleService
             && !x.IsFrozen, cancellationToken);
         if (conflict)
             throw new DomainException("Another published timetable already exists for this academic year and department scope.");
+
+        // AI-SCHED-CAP Prompt 7 — authoritative readiness gate BEFORE any publish mutation / SaveChanges.
+        // Readiness evaluation is observational (no UoW). Blocked result ⇒ zero publish side effects.
+        var readiness = await _publishReadinessService.EvaluatePublishReadinessAsync(timetableId, cancellationToken);
+        if (!readiness.IsReady)
+            throw new PublishNotReadyException(readiness);
 
         var oldStatus = entity.Status;
         entity.Status = TimetableStatus.Published;

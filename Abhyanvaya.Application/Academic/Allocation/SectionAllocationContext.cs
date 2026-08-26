@@ -71,6 +71,8 @@ public sealed class AllocationSectionProjection
     public string Lifecycle { get; init; } = "";
     public string Health { get; init; } = "";
     public string Readiness { get; init; } = "";
+    /// <summary>AI29.1D.24B.4A — Authoritative academic sort key from Section.DisplayOrder.</summary>
+    public int DisplayOrder { get; init; }
 }
 
 /// <summary>Immutable read model — no business logic.</summary>
@@ -96,6 +98,18 @@ public sealed class AllocationStudentProjection
     public string? StudentName { get; init; }
     public int? CurrentSectionId { get; init; }
     public string? CurrentSectionCode { get; init; }
+
+    /// <summary>AI29.1D population filter facets (read-only; may be null when not in domain).</summary>
+    public int? GenderId { get; init; }
+    public string? Gender { get; init; }
+    public int? LanguageId { get; init; }
+    public string? Language { get; init; }
+    public string? ScholarshipCategory { get; init; }
+    public string? MinorSubject { get; init; }
+    public string? TransportRoute { get; init; }
+    public string? Hostel { get; init; }
+    public string? ElectiveCombination { get; init; }
+    public string? Merit { get; init; }
 }
 
 /// <summary>Immutable read model — no business logic.</summary>

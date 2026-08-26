@@ -9,7 +9,7 @@ namespace Abhyanvaya.API.Controllers;
 
 [ApiController]
 [Route("api/programs")]
-[Authorize(Policy = AuthorizationPolicies.CanViewPrograms)]
+[Authorize(Policy = AuthorizationPolicies.CanViewProgramCatalog)]
 public sealed class ProgramsController : ControllerBase
 {
     private readonly IAcademicStructureService _service;
@@ -21,6 +21,11 @@ public sealed class ProgramsController : ControllerBase
         [FromQuery] bool includeInactive = false,
         CancellationToken cancellationToken = default)
         => Ok(await _service.GetProgramsAsync(includeInactive, cancellationToken));
+
+    [HttpGet("department-options")]
+    public async Task<ActionResult<IReadOnlyList<ProgramDepartmentOptionDto>>> DepartmentOptions(
+        CancellationToken cancellationToken = default)
+        => Ok(await _service.GetProgramDepartmentOptionsAsync(cancellationToken));
 
     [HttpGet("{id:int}")]
     public async Task<ActionResult<ProgramDto>> Get(int id, CancellationToken cancellationToken)
@@ -151,7 +156,7 @@ public sealed class ProgramsController : ControllerBase
         => Ok(await _service.GetProgramCourseCountAsync(id, cancellationToken));
 
     [HttpPost("assign-course")]
-    [Authorize(Policy = AuthorizationPolicies.CanManagePrograms)]
+    [Authorize(Policy = AuthorizationPolicies.CanAssignCourseToProgram)]
     public async Task<IActionResult> AssignCourse([FromBody] AssignCourseProgramRequest request, CancellationToken cancellationToken)
     {
         try
@@ -166,7 +171,7 @@ public sealed class ProgramsController : ControllerBase
 
 [ApiController]
 [Route("api/academic-structure")]
-[Authorize(Policy = AuthorizationPolicies.CanViewPrograms)]
+[Authorize(Policy = AuthorizationPolicies.CanViewProgramCatalog)]
 public sealed class AcademicStructureController : ControllerBase
 {
     private readonly IAcademicStructureService _service;

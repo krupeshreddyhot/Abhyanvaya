@@ -2,7 +2,12 @@ import api from "../api/axios";
 
 export type IdName = { id: number; name: string };
 
-export type CourseRow = IdName & { code: string };
+/** Master/setup course row. `departmentId` required (P1-3); `programId` optional when Programs enabled. */
+export type CourseRow = IdName & {
+  code: string;
+  departmentId: number;
+  programId?: number | null;
+};
 
 export type GroupRow = { id: number; code: string; name: string; courseId: number; courseName: string };
 
@@ -14,12 +19,15 @@ export type SemesterRow = {
   courseName: string;
   groupId: number | null;
   groupName: string | null;
+  /** P1-4 Prompt 3J-A — explicit historical archive (excluded from operational selection). */
+  isHistoricalArchive?: boolean;
 };
 
 /**
- * Semesters for a course/group scope.
- * Prefers course-wide (null group) + group-specific rows; if the selected group has none,
- * falls back to all semesters for the course (common when older data was saved under one group).
+ * Semesters for a course/group scope (aligned with AcademicTreeService).
+ * P1-4 Prompt 3L / 3I1 — operational resolution is Group-specific only.
+ * Legacy NULL-group (historical) Semesters are excluded; no course-wide wildcard fallback.
+ * P1-4 Prompt 3J-A — explicitly archived historical Semesters are also excluded.
  */
 export const filterSemestersForScope = (
   semesters: SemesterRow[],
@@ -29,11 +37,15 @@ export const filterSemestersForScope = (
   if (!courseId) return semesters;
   const cid = Number(courseId);
   const gid = Number(groupId);
-  const forCourse = semesters.filter((s) => Number(s.courseId) === cid);
-  if (!gid) return forCourse;
+  const forCourse = semesters.filter(
+    (s) => Number(s.courseId) === cid && !s.isHistoricalArchive,
+  );
+  if (!gid) {
+    // Without a Group, return only Group-specific rows for the course (never NULL-group wildcards).
+    return forCourse.filter((s) => s.groupId != null);
+  }
 
-  const scoped = forCourse.filter((s) => s.groupId == null || Number(s.groupId) === gid);
-  return scoped.length > 0 ? scoped : forCourse;
+  return forCourse.filter((s) => s.groupId != null && Number(s.groupId) === gid);
 };
 
 export type ElectiveGroupRow = {
@@ -79,8 +91,24 @@ export type TenantSubjectRow = {
 export const listCourses = () => api.get<CourseRow[]>("/course");
 /** Tenant-scoped read via Master API — use on setup pages where the user may lack `Setup.Courses.Manage`. */
 export const listMasterCourses = () => api.get<CourseRow[]>("/master/courses");
-export const createCourse = (payload: { code: string; name: string }) => api.post<CourseRow>("/course", payload);
-export const updateCourse = (payload: { id: number; code: string; name: string }) => api.put<CourseRow>("/course", payload);
+/** AI-SCHED-CATALOG/TIMETABLE P1-3 — required `departmentId`; optional `programId` when EnablePrograms. */
+export const createCourse = (payload: {
+  code: string;
+  name: string;
+  departmentId: number;
+  programId?: number | null;
+}) => api.post<CourseRow>("/course", payload);
+export const updateCourse = (payload: {
+  id: number;
+  code: string;
+  name: string;
+  departmentId: number;
+  /**
+   * Prompt 4B.4 — when EnablePrograms: send number to assign, null to unlink.
+   * Omit to leave the existing Program unchanged (legacy clients).
+   */
+  programId?: number | null;
+}) => api.put<CourseRow>("/course", payload);
 
 export const listGroups = () => api.get<GroupRow[]>("/group");
 /** Tenant-scoped read via Master API — includes `courseName`; use when the user may lack `Setup.Groups.Manage`. */
@@ -95,14 +123,14 @@ export const createSemester = (payload: {
   number: number;
   name: string;
   courseId: number;
-  groupId: number | null;
+  groupId: number;
 }) => api.post("/semester", payload);
 export const updateSemester = (payload: {
   id: number;
   number: number;
   name: string;
   courseId: number;
-  groupId: number | null;
+  groupId: number;
 }) => api.put("/semester", payload);
 
 export const listSubjectCatalog = () => api.get<SubjectCatalogRow[]>("/subject/catalog");
@@ -295,8 +323,14 @@ export type StaffDetail = {
   subjectIds: number[];
 };
 
-export const listStaff = (params?: { collegeId?: number; search?: string; page?: number; pageSize?: number }) =>
-  api.get<{ total: number; page: number; pageSize: number; items: StaffListItem[] }>("/staff", { params });
+export const listStaff = (
+  params?: { collegeId?: number; search?: string; page?: number; pageSize?: number },
+  config?: { signal?: AbortSignal },
+) =>
+  api.get<{ total: number; page: number; pageSize: number; items: StaffListItem[] }>("/staff", {
+    params,
+    signal: config?.signal,
+  });
 
 export const getStaff = (id: number) => api.get<StaffDetail>(`/staff/${id}`);
 

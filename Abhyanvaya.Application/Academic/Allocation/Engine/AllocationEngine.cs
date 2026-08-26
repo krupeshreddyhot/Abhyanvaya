@@ -31,8 +31,15 @@ public sealed class AllocationEngine : IAllocationEngine
     {
         var sw = Stopwatch.StartNew();
         var sessionId = execution.SessionId == Guid.Empty ? Guid.NewGuid() : execution.SessionId;
-        var context = execution.Context ?? throw new ArgumentNullException(nameof(execution.Context));
-        var config = execution.Config ?? AllocationPipelineConfig.Default;
+        var sourceContext = execution.Context ?? throw new ArgumentNullException(nameof(execution.Context));
+        var config = (execution.Config ?? AllocationPipelineConfig.Default).Normalize();
+
+        // AI29.1D — Validate + resolve population/target sections against Allocation Context only.
+        var scopeSelection = AllocationScopeSelectionValidator.Validate(sourceContext, config);
+        if (!scopeSelection.IsValid)
+            throw new ArgumentException(string.Join(" ", scopeSelection.Errors));
+
+        var context = AllocationContextScopeApplier.Apply(sourceContext, scopeSelection);
 
         var ordered = _grouping.OrderStudents(context, config.GroupingMode);
         var state = new AllocationWorkingState(context, config, ordered);
@@ -44,13 +51,21 @@ public sealed class AllocationEngine : IAllocationEngine
             ProgressPercent = 5,
             StudentsProcessed = 0,
             TotalStudents = ordered.Count,
-            Message = $"Ordered {ordered.Count} students via {config.GroupingMode}",
+            Message = $"Ordered {ordered.Count} students via {config.GroupingMode} ({scopeSelection.PopulationSummary}; {scopeSelection.TargetSectionsSummary})",
         });
 
         await _pipeline.RunAsync(state, progress, sessionId, cancellationToken);
 
         var scenarioId = Guid.NewGuid();
         var scenario = AllocationScenarioFactory.FromWorkingState(state, sessionId, scenarioId);
+        var metadata = new Dictionary<string, string>(scenario.Metadata, StringComparer.OrdinalIgnoreCase)
+        {
+            ["PopulationMode"] = config.PopulationSelection?.Mode ?? AllocationPopulationModes.AllEligible,
+            ["PopulationSummary"] = scopeSelection.PopulationSummary,
+            ["TargetSectionsSummary"] = scopeSelection.TargetSectionsSummary,
+            ["TargetSectionCount"] = scopeSelection.ResolvedSectionIds.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["ScopedStudentCount"] = scopeSelection.ResolvedStudentIds.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        };
         scenario = new AllocationScenario
         {
             ScenarioId = scenario.ScenarioId,
@@ -63,7 +78,7 @@ public sealed class AllocationEngine : IAllocationEngine
             SectionSummaries = scenario.SectionSummaries,
             Constraints = state.ConstraintEvals,
             Score = state.CurrentScore.TotalScore > 0 ? state.CurrentScore : _scorer.Score(context, scenario),
-            Metadata = scenario.Metadata,
+            Metadata = metadata,
         };
 
         var mandatoryFail = scenario.Constraints.Any(c =>

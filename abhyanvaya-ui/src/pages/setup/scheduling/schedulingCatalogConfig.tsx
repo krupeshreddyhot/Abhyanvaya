@@ -10,6 +10,7 @@ import MeetingRoomIcon from "@mui/icons-material/MeetingRoom";
 import ScheduleIcon from "@mui/icons-material/Schedule";
 import PersonIcon from "@mui/icons-material/Person";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
+import GroupsIcon from "@mui/icons-material/Groups";
 import RuleIcon from "@mui/icons-material/Rule";
 import TodayIcon from "@mui/icons-material/Today";
 import TuneIcon from "@mui/icons-material/Tune";
@@ -203,6 +204,14 @@ export const schedulingHubGroups: SchedulingHubGroup[] = [
         description: "Staff–subject assignments with weekly hours (Catalog departments)",
         icon: <MenuBookIcon />,
         helpDocPath: "/docs/scheduling/modules/subject-allocations.md",
+      },
+      {
+        key: "teaching-groups",
+        to: "/setup/scheduling/teaching-groups",
+        title: "Teaching Groups",
+        description: "Operational teaching cohorts under a Subject Allocation (lecture, lab, elective)",
+        icon: <GroupsIcon />,
+        helpDocPath: "/docs/scheduling/modules/teaching-groups.md",
       },
     ],
   },

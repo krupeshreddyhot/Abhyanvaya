@@ -70,16 +70,39 @@ namespace Abhyanvaya.Infrastructure.Services
                     .ConfigureAwait(false);
             }
 
-            var fromAssignedRoles = await _db.UserApplicationRoles
-                .AsNoTracking()
-                .Where(u => u.UserId == user.Id)
-                .SelectMany(u => u.ApplicationRole.ApplicationRolePermissions.Select(arp => arp.Permission.Key))
+            // IgnoreQueryFilters() bypasses the global filter only for the ApplicationRole lookup during
+            // authentication; the role IDs remain constrained by the authenticated user's
+            // UserApplicationRoles relationship AND by role.TenantId == user.TenantId.
+            // During login, ambient CurrentUser.TenantId is often 0/unset, which would otherwise hide
+            // tenant-scoped ApplicationRole rows and silently fall back to LegacyFacultySet
+            // (dropping assigned permissions such as Section.View).
+            var roleIds = await (
+                    from uar in _db.UserApplicationRoles.AsNoTracking()
+                    join role in _db.ApplicationRoles.AsNoTracking().IgnoreQueryFilters()
+                        on uar.ApplicationRoleId equals role.Id
+                    where uar.UserId == user.Id
+                          && !role.IsDeleted
+                          && role.TenantId == user.TenantId
+                    select role.Id)
                 .Distinct()
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
 
-            if (fromAssignedRoles.Count > 0)
-                return fromAssignedRoles.OrderBy(k => k).ToList();
+            if (roleIds.Count > 0)
+            {
+                // Permissions are loaded only for the user's assigned, same-tenant role ids — never
+                // by scanning all ApplicationRolePermission rows across tenants.
+                var fromAssignedRoles = await _db.ApplicationRolePermissions
+                    .AsNoTracking()
+                    .Where(arp => roleIds.Contains(arp.ApplicationRoleId))
+                    .Select(arp => arp.Permission.Key)
+                    .Distinct()
+                    .ToListAsync(cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (fromAssignedRoles.Count > 0)
+                    return fromAssignedRoles.OrderBy(k => k).ToList();
+            }
 
             return user.Role switch
             {

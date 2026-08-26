@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
   Button,
-  CircularProgress,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -22,21 +22,27 @@ import {
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { AcademicPermissionAccess } from "../../auth/academicPermissionAccess";
 import { PermissionKeys } from "../../auth/permissionKeys";
 import { useAuth } from "../../context/AuthContext";
-import { listAcademicYears, type AcademicYearDto } from "../../services/schedulingService";
+import { useAcademicUi } from "../../context/AcademicUiContext";
 import {
-  filterSemestersForScope,
-  listGroups,
-  listMasterCourses,
-  listSemesters,
-  type CourseRow,
-  type GroupRow,
-  type SemesterRow,
-} from "../../services/setupService";
+  AcademicConfirmDialog,
+  AcademicContextBreadcrumb,
+  AcademicDataPanel,
+  AcademicOperationalPageShell,
+  AcademicScopeSelector,
+  AcademicScopeToolbar,
+  AcademicStatusChip,
+  academicTouchButtonSx,
+} from "../../components/academic";
+import { EnterpriseAllocationWorkspace } from "../../components/allocation";
+import PermissionAwareButton from "../../components/common/PermissionAwareButton";
+import PermissionDeniedAlert from "../../components/common/PermissionDeniedAlert";
+import { FacultySectionAllocationPanel } from "../../components/sections/FacultySectionAllocationPanel";
+import { isAcademicScopeReady } from "../../utils/academicSelectorFieldState";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 import {
-  assignFacultySection,
-  assignStudentSection,
   autoAllocateSections,
   commitMerge,
   commitSplit,
@@ -46,62 +52,92 @@ import {
   getCapacitySummary,
   getLifecycleHistory,
   getMergeHistory,
-  getSectionHealth,
   getSectionOccupancy,
   getSplitHistory,
-  listFacultySections,
   listLifecycleStates,
+  listSectionReadiness,
   listSections,
-  listStudentSections,
   previewMerge,
   previewSplit,
   transferStudentSection,
   transitionSectionLifecycle,
   updateSection,
-  type FacultySectionDto,
+  getSectionStatistics,
   type SectionCapacitySnapshotDto,
   type SectionDto,
+  type SectionMergeHistoryDto,
   type SectionMergePreviewDto,
   type SectionReadinessDto,
+  type SectionSplitHistoryDto,
   type SectionSplitPreviewDto,
-  type StudentSectionDto,
+  type SectionStatisticsDto,
 } from "../../services/sectionService";
 
-const errMsg = (e: unknown): string => {
-  const d = (e as { response?: { data?: unknown } }).response?.data;
-  if (typeof d === "string") return d;
-  return "Request failed.";
+const errMsg = (e: unknown): string => getApiErrorMessage(e, "Request failed.");
+
+const formatDate = (value?: string | null) => {
+  if (!value) return "—";
+  return value.length >= 10 ? value.slice(0, 10) : value;
 };
 
+const readinessColor = (status?: string): "default" | "success" | "warning" | "error" | "info" => {
+  const s = (status ?? "").toLowerCase();
+  if (s.includes("ready") || s.includes("healthy")) return "success";
+  if (s.includes("warn")) return "warning";
+  if (s.includes("block") || s.includes("critical")) return "error";
+  return "default";
+};
+
+const TAB = {
+  List: 0,
+  Students: 1,
+  Faculty: 2,
+  Transfer: 3,
+  Lifecycle: 4,
+  Capacity: 5,
+  Merge: 6,
+  Split: 7,
+  Readiness: 8,
+  History: 9,
+} as const;
+
+/**
+ * AI29.1D — Sections operational UI.
+ * Consumes existing Section / lifecycle / capacity APIs via AcademicScopeSelector.
+ * No new section business logic in React.
+ */
 const SectionsPage = () => {
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasAnyPermission } = useAuth();
+  const canView = hasAnyPermission([...AcademicPermissionAccess.sections.routeAny]);
   const canCreate = hasPermission(PermissionKeys.SectionCreate);
   const canEdit = hasPermission(PermissionKeys.SectionEdit);
   const canDelete = hasPermission(PermissionKeys.SectionDelete);
   const canAssignStudents = hasPermission(PermissionKeys.SectionAssignStudents);
   const canAssignFaculty = hasPermission(PermissionKeys.SectionAssignFaculty);
+  const canLifecycleView = hasPermission(PermissionKeys.SectionLifecycleView);
   const canLifecycleEdit = hasPermission(PermissionKeys.SectionLifecycleEdit);
   const canCapacity = hasPermission(PermissionKeys.SectionCapacity);
   const canMerge = hasPermission(PermissionKeys.SectionMerge);
   const canSplit = hasPermission(PermissionKeys.SectionSplit);
   const canReadiness = hasPermission(PermissionKeys.SectionReadiness);
 
+  const { selection, catalogs } = useAcademicUi();
+  const yearId = selection.academicYearId ?? 0;
+  const courseId = selection.courseId ?? 0;
+  const groupId = selection.groupId ?? 0;
+  const semesterId = selection.semesterId ?? 0;
+  const scopeReady = isAcademicScopeReady(selection);
+
   const [tab, setTab] = useState(0);
-  const [years, setYears] = useState<AcademicYearDto[]>([]);
-  const [courses, setCourses] = useState<CourseRow[]>([]);
-  const [groups, setGroups] = useState<GroupRow[]>([]);
-  const [semesters, setSemesters] = useState<SemesterRow[]>([]);
   const [rows, setRows] = useState<SectionDto[]>([]);
-  const [studentRows, setStudentRows] = useState<StudentSectionDto[]>([]);
-  const [facultyRows, setFacultyRows] = useState<FacultySectionDto[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [statsBySection, setStatsBySection] = useState<Record<number, SectionStatisticsDto>>({});
+  const [readinessBySection, setReadinessBySection] = useState<Record<number, SectionReadinessDto>>({});
+  const [effectiveBySection, setEffectiveBySection] = useState<Record<number, string>>({});
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-
-  const [yearId, setYearId] = useState(0);
-  const [courseId, setCourseId] = useState(0);
-  const [groupId, setGroupId] = useState(0);
-  const [semesterId, setSemesterId] = useState(0);
+  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -110,58 +146,41 @@ const SectionsPage = () => {
   const [name, setName] = useState("");
   const [maxStrength, setMaxStrength] = useState(60);
   const [displayOrder, setDisplayOrder] = useState(0);
+  const [sectionTypeCode, setSectionTypeCode] = useState("Regular");
 
-  const [assignStudentId, setAssignStudentId] = useState("");
-  const [assignSectionId, setAssignSectionId] = useState(0);
   const [transferStudentId, setTransferStudentId] = useState("");
   const [transferSectionId, setTransferSectionId] = useState(0);
   const [transferReason, setTransferReason] = useState("");
-  const [facultyId, setFacultyId] = useState("");
-  const [facultySectionId, setFacultySectionId] = useState(0);
-  const [facultyRole, setFacultyRole] = useState("Primary");
   const [strategy, setStrategy] = useState("Alphabetical");
 
-  // AI29.1B
   const [lifecycleStates, setLifecycleStates] = useState<string[]>([]);
   const [lifecycleSectionId, setLifecycleSectionId] = useState(0);
   const [lifecycleTarget, setLifecycleTarget] = useState("Active");
   const [lifecycleReason, setLifecycleReason] = useState("");
-  const [lifecycleHistory, setLifecycleHistory] = useState<{ fromStatus: string; toStatus: string; reason?: string; transitionedUtc: string }[]>([]);
+  const [lifecycleHistory, setLifecycleHistory] = useState<
+    { fromStatus: string; toStatus: string; reason?: string; transitionedUtc: string }[]
+  >([]);
   const [occupancy, setOccupancy] = useState<SectionCapacitySnapshotDto[]>([]);
-  const [capacitySummary, setCapacitySummary] = useState<string>("");
+  const [capacitySummary, setCapacitySummary] = useState("");
   const [health, setHealth] = useState<SectionReadinessDto[]>([]);
-  const [mergeSources, setMergeSources] = useState("");
+  const [mergeSourceIds, setMergeSourceIds] = useState<number[]>([]);
   const [mergeTarget, setMergeTarget] = useState(0);
   const [mergePreview, setMergePreview] = useState<SectionMergePreviewDto | null>(null);
   const [splitSource, setSplitSource] = useState(0);
   const [splitPreview, setSplitPreview] = useState<SectionSplitPreviewDto | null>(null);
-  const [mergeHistory, setMergeHistory] = useState<string>("");
-  const [splitHistory, setSplitHistory] = useState<string>("");
+  const [mergeHistory, setMergeHistory] = useState<SectionMergeHistoryDto[]>([]);
+  const [splitHistory, setSplitHistory] = useState<SectionSplitHistoryDto[]>([]);
 
-  const filteredGroups = useMemo(() => groups.filter((g) => !courseId || g.courseId === courseId), [groups, courseId]);
-  const filteredSemesters = useMemo(
-    () => filterSemestersForScope(semesters, courseId, groupId),
-    [semesters, courseId, groupId],
-  );
+  const yearStartDate = useMemo(() => {
+    const y = catalogs.academicYears.find((a) => a.id === yearId);
+    return y?.startDate ? formatDate(y.startDate) : null;
+  }, [catalogs.academicYears, yearId]);
 
-  useEffect(() => {
-    if (semesterId > 0 && !filteredSemesters.some((s) => s.id === semesterId)) {
-      setSemesterId(0);
+  const loadSections = useCallback(async () => {
+    if (!yearId) {
+      setRows([]);
+      return;
     }
-  }, [filteredSemesters, semesterId]);
-
-  const loadMasters = async () => {
-    const [y, c, g, s] = await Promise.all([listAcademicYears(), listMasterCourses(), listGroups(), listSemesters()]);
-    setYears(y.data);
-    setCourses(c.data);
-    setGroups(g.data);
-    setSemesters(s.data);
-    const current = y.data.find((x) => x.isCurrent) ?? y.data[0];
-    if (current) setYearId(current.id);
-    if (c.data[0]) setCourseId(c.data[0].id);
-  };
-
-  const loadSections = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -171,47 +190,89 @@ const SectionsPage = () => {
         groupId: groupId || undefined,
         semesterId: semesterId || undefined,
       });
-      setRows(res.data);
-      if (res.data[0] && !assignSectionId) setAssignSectionId(res.data[0].id);
-      if (res.data[0] && !facultySectionId) setFacultySectionId(res.data[0].id);
-      if (res.data[0] && !transferSectionId) setTransferSectionId(res.data[0].id);
+      const sections = res.data ?? [];
+      setRows(sections);
+      if (sections[0]) {
+        setTransferSectionId((prev) => prev || sections[0]!.id);
+        setLifecycleSectionId((prev) => prev || sections[0]!.id);
+        setMergeTarget((prev) => prev || sections[0]!.id);
+        setSplitSource((prev) => prev || sections[0]!.id);
+      }
+
+      const [statsRes, readinessRes] = await Promise.all([
+        getSectionStatistics({
+          academicYearId: yearId || undefined,
+          semesterId: semesterId || undefined,
+        }).catch(() => null),
+        canReadiness
+          ? listSectionReadiness({
+              academicYearId: yearId || undefined,
+              semesterId: semesterId || undefined,
+            }).catch(() => null)
+          : Promise.resolve(null),
+      ]);
+
+      const statsMap: Record<number, SectionStatisticsDto> = {};
+      for (const s of statsRes?.data ?? []) statsMap[s.sectionId] = s;
+      setStatsBySection(statsMap);
+
+      const readyMap: Record<number, SectionReadinessDto> = {};
+      for (const h of readinessRes?.data ?? []) readyMap[h.sectionId] = h;
+      setReadinessBySection(readyMap);
+      if (readinessRes?.data) setHealth(readinessRes.data);
+
+      // Prompt 19 — avoid N+1 getSectionVersions per row. Year start is the list default;
+      // version history remains available via lifecycle/ops actions for a selected section.
+      const effectiveMap: Record<number, string> = {};
+      if (yearStartDate) {
+        for (const s of sections) effectiveMap[s.id] = yearStartDate;
+      }
+      setEffectiveBySection(effectiveMap);
     } catch (e) {
       setError(errMsg(e));
     } finally {
       setLoading(false);
     }
-  };
+  }, [yearId, courseId, groupId, semesterId, canReadiness, yearStartDate]);
 
-  const loadAllocations = async () => {
+  const loadOps = useCallback(async () => {
     try {
-      const [st, fa] = await Promise.all([
-        listStudentSections({ sectionId: assignSectionId || undefined, currentOnly: true }),
-        listFacultySections({ sectionId: facultySectionId || undefined, currentOnly: true }),
-      ]);
-      setStudentRows(st.data);
-      setFacultyRows(fa.data);
+      if (canCapacity) {
+        const [occ, sum] = await Promise.all([
+          getSectionOccupancy({ academicYearId: yearId || undefined, semesterId: semesterId || undefined }),
+          getCapacitySummary({ academicYearId: yearId || undefined, semesterId: semesterId || undefined }),
+        ]);
+        setOccupancy(occ.data ?? []);
+        setCapacitySummary(
+          `${sum.data.sectionCount} sections · avg occupancy ${sum.data.averageOccupancyPercent}% · over ${sum.data.overCapacityCount} · under ${sum.data.underCapacityCount}`,
+        );
+      }
+      if (canReadiness) {
+        const h = await listSectionReadiness({
+          academicYearId: yearId || undefined,
+          semesterId: semesterId || undefined,
+        });
+        setHealth(h.data ?? []);
+        const readyMap: Record<number, SectionReadinessDto> = {};
+        for (const row of h.data ?? []) readyMap[row.sectionId] = row;
+        setReadinessBySection(readyMap);
+      }
+      if (canLifecycleView || canLifecycleEdit) {
+        const states = await listLifecycleStates();
+        setLifecycleStates(states.data ?? []);
+      }
     } catch (e) {
       setError(errMsg(e));
     }
-  };
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        await loadMasters();
-      } catch (e) {
-        setError(errMsg(e));
-      }
-    })();
-  }, []);
+  }, [canCapacity, canReadiness, canLifecycleView, canLifecycleEdit, yearId, semesterId]);
 
   useEffect(() => {
     void loadSections();
-  }, [yearId, courseId, groupId, semesterId]);
+  }, [loadSections]);
 
   useEffect(() => {
-    if (tab === 1 || tab === 2 || tab === 3) void loadAllocations();
-  }, [tab, assignSectionId, facultySectionId]);
+    if (tab >= TAB.Lifecycle) void loadOps();
+  }, [tab, loadOps]);
 
   const openAdd = () => {
     setEditingId(0);
@@ -219,6 +280,7 @@ const SectionsPage = () => {
     setName("");
     setMaxStrength(60);
     setDisplayOrder(rows.length);
+    setSectionTypeCode("Regular");
     setDialogOpen(true);
   };
 
@@ -228,10 +290,15 @@ const SectionsPage = () => {
     setName(r.sectionName);
     setMaxStrength(r.maximumStrength);
     setDisplayOrder(r.displayOrder);
+    setSectionTypeCode(r.sectionTypeCode || "Regular");
     setDialogOpen(true);
   };
 
   const save = async () => {
+    if (!scopeReady) {
+      setError("Select Academic Year, Course, Group, and Semester before creating a section.");
+      return;
+    }
     setSaving(true);
     setError(null);
     setMessage(null);
@@ -243,6 +310,7 @@ const SectionsPage = () => {
           displayOrder,
           maximumStrength: maxStrength,
           status: "Active",
+          sectionTypeCode,
         });
         setMessage("Section updated.");
       } else {
@@ -256,6 +324,7 @@ const SectionsPage = () => {
           displayOrder,
           maximumStrength: maxStrength,
           status: "Active",
+          sectionTypeCode,
         });
         setMessage("Section created.");
       }
@@ -269,24 +338,16 @@ const SectionsPage = () => {
   };
 
   const remove = async (id: number) => {
-    if (!window.confirm("Soft-delete this section?")) return;
+    setDeleting(true);
     try {
       await deleteSection(id);
       setMessage("Section deleted.");
+      setDeleteTargetId(null);
       await loadSections();
     } catch (e) {
       setError(errMsg(e));
-    }
-  };
-
-  const doAssignStudent = async () => {
-    try {
-      await assignStudentSection({ studentId: Number(assignStudentId), sectionId: assignSectionId });
-      setMessage("Student assigned.");
-      await loadAllocations();
-      await loadSections();
-    } catch (e) {
-      setError(errMsg(e));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -298,29 +359,14 @@ const SectionsPage = () => {
         reason: transferReason || undefined,
       });
       setMessage("Student transferred (history preserved).");
-      await loadAllocations();
       await loadSections();
     } catch (e) {
       setError(errMsg(e));
     }
   };
 
-  const doAssignFaculty = async () => {
-    try {
-      await assignFacultySection({
-        facultyId: Number(facultyId),
-        sectionId: facultySectionId,
-        academicYearId: yearId,
-        role: facultyRole,
-      });
-      setMessage("Faculty assigned.");
-      await loadAllocations();
-    } catch (e) {
-      setError(errMsg(e));
-    }
-  };
-
   const doAutoAllocate = async () => {
+    if (!scopeReady) return;
     try {
       const res = await autoAllocateSections({
         academicYearId: yearId,
@@ -329,48 +375,22 @@ const SectionsPage = () => {
         semesterId,
         strategy,
       });
-      setMessage(res.data.messages.join(" "));
+      setMessage((res.data.messages ?? []).join(" ") || `Assigned ${res.data.assignedCount}, skipped ${res.data.skippedCount}.`);
       await loadSections();
-      await loadAllocations();
     } catch (e) {
       setError(errMsg(e));
     }
   };
-
-  const loadOps = async () => {
-    try {
-      if (canCapacity) {
-        const [occ, sum] = await Promise.all([
-          getSectionOccupancy({ academicYearId: yearId || undefined, semesterId: semesterId || undefined }),
-          getCapacitySummary({ academicYearId: yearId || undefined, semesterId: semesterId || undefined }),
-        ]);
-        setOccupancy(occ.data);
-        setCapacitySummary(
-          `${sum.data.sectionCount} sections · avg occupancy ${sum.data.averageOccupancyPercent}% · over ${sum.data.overCapacityCount} · under ${sum.data.underCapacityCount}`,
-        );
-      }
-      if (canReadiness) {
-        const h = await getSectionHealth();
-        setHealth(h.data);
-      }
-      const states = await listLifecycleStates();
-      setLifecycleStates(states.data);
-    } catch (e) {
-      setError(errMsg(e));
-    }
-  };
-
-  useEffect(() => {
-    if (tab >= 4) void loadOps();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, yearId, semesterId]);
 
   const doTransition = async () => {
     try {
-      await transitionSectionLifecycle(lifecycleSectionId, { targetStatus: lifecycleTarget, reason: lifecycleReason || undefined });
+      await transitionSectionLifecycle(lifecycleSectionId, {
+        targetStatus: lifecycleTarget,
+        reason: lifecycleReason || undefined,
+      });
       setMessage("Lifecycle transition applied.");
       const hist = await getLifecycleHistory(lifecycleSectionId);
-      setLifecycleHistory(hist.data);
+      setLifecycleHistory(hist.data ?? []);
       await loadSections();
     } catch (e) {
       setError(errMsg(e));
@@ -379,11 +399,7 @@ const SectionsPage = () => {
 
   const doMergePreview = async () => {
     try {
-      const ids = mergeSources
-        .split(/[,\s]+/)
-        .map((x) => Number(x))
-        .filter((n) => n > 0);
-      const res = await previewMerge({ sourceSectionIds: ids, targetSectionId: mergeTarget });
+      const res = await previewMerge({ sourceSectionIds: mergeSourceIds, targetSectionId: mergeTarget });
       setMergePreview(res.data);
     } catch (e) {
       setError(errMsg(e));
@@ -392,19 +408,15 @@ const SectionsPage = () => {
 
   const doMergeCommit = async () => {
     try {
-      const ids = mergeSources
-        .split(/[,\s]+/)
-        .map((x) => Number(x))
-        .filter((n) => n > 0);
       await commitMerge({
-        sourceSectionIds: ids,
+        sourceSectionIds: mergeSourceIds,
         targetSectionId: mergeTarget,
         effectiveDate: new Date().toISOString().slice(0, 10),
       });
       setMessage("Merge committed (sources preserved as Merged).");
       await loadSections();
       const hist = await getMergeHistory();
-      setMergeHistory(hist.data.map((h) => `${h.transactionId}: ${h.sourceSectionIds.join("+")}→${h.targetSectionId} (${h.status})`).join("\n"));
+      setMergeHistory(hist.data ?? []);
     } catch (e) {
       setError(errMsg(e));
     }
@@ -430,7 +442,7 @@ const SectionsPage = () => {
       setMessage("Split committed (source preserved as Split; children created).");
       await loadSections();
       const hist = await getSplitHistory();
-      setSplitHistory(hist.data.map((h) => `${h.transactionId}: ${h.sourceSectionId}→[${h.childSectionIds.join(",")}] (${h.status})`).join("\n"));
+      setSplitHistory(hist.data ?? []);
     } catch (e) {
       setError(errMsg(e));
     }
@@ -450,90 +462,90 @@ const SectionsPage = () => {
     }
   };
 
+  const loadHistoryTab = async () => {
+    try {
+      const [m, s] = await Promise.all([getMergeHistory(), getSplitHistory()]);
+      setMergeHistory(m.data ?? []);
+      setSplitHistory(s.data ?? []);
+      if (lifecycleSectionId) {
+        const hist = await getLifecycleHistory(lifecycleSectionId);
+        setLifecycleHistory(hist.data ?? []);
+      }
+    } catch (e) {
+      setError(errMsg(e));
+    }
+  };
+
+  if (!canView) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <PermissionDeniedAlert permissionKey={AcademicPermissionAccess.sections.view} />
+      </Box>
+    );
+  }
+
   return (
-    <Box sx={{ p: 2, maxWidth: 1200, mx: "auto" }}>
-      <Button component={RouterLink} to="/setup" startIcon={<ArrowBackIcon />} sx={{ mb: 1 }}>
-        Academic Setup
-      </Button>
-      <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.5 }}>
-        Sections
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        Operational sections under Course → Group → Semester. Subject curriculum is unchanged. Manual attendance remains
-        fully compatible when no section filter is applied.
-      </Typography>
-      <Button component={RouterLink} to="/setup/academic/allocation-context" size="small" sx={{ mb: 2 }}>
-        Allocation Context Explorer (read-only)
-      </Button>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 1.5 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
-      {message && (
-        <Alert severity="success" sx={{ mb: 1.5 }} onClose={() => setMessage(null)}>
-          {message}
-        </Alert>
-      )}
-
-      <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: "wrap", mb: 2 }}>
-        <TextField select size="small" label="Academic Year" value={yearId || ""} onChange={(e) => setYearId(Number(e.target.value))} sx={{ minWidth: 180 }}>
-          {years.map((y) => (
-            <MenuItem key={y.id} value={y.id}>
-              {y.name}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          select
-          size="small"
-          label="Course"
-          value={courseId || ""}
-          onChange={(e) => {
-            setCourseId(Number(e.target.value));
-            setGroupId(0);
-            setSemesterId(0);
-          }}
-          sx={{ minWidth: 160 }}
+    <AcademicOperationalPageShell
+      title="Sections"
+      ariaLabel="Sections management"
+      breadcrumb={<AcademicContextBreadcrumb />}
+      subtitle="Operational sections under Course → Group → Semester. Subject curriculum is unchanged. Manual attendance remains fully compatible when no section filter is applied."
+      headerActions={
+        <>
+          <Button component={RouterLink} to="/setup" startIcon={<ArrowBackIcon />} size="small" sx={academicTouchButtonSx}>
+            Academic Setup
+          </Button>
+          <Button component={RouterLink} to="/setup/academic/allocation-context" size="small" sx={academicTouchButtonSx}>
+            Allocation Context
+          </Button>
+          <Button component={RouterLink} to="/setup/academic/allocation/operations" size="small" sx={academicTouchButtonSx}>
+            Allocation Operations
+          </Button>
+        </>
+      }
+      error={error}
+      onClearError={() => setError(null)}
+      message={message}
+      onClearMessage={() => setMessage(null)}
+      toolbar={
+        <AcademicScopeToolbar
+          helpTitle="Academic scope"
+          helpBody="Select Academic Year, then Course → Group → Semester. Program appears only when Programs are enabled for the tenant."
+          actions={
+            tab === TAB.List ? (
+              <>
+                <PermissionAwareButton
+                  allowed={canCreate}
+                  permissionKey={AcademicPermissionAccess.sections.create}
+                  variant="contained"
+                  size="small"
+                  onClick={openAdd}
+                  disabled={!scopeReady}
+                  disabledTooltip="Select Academic Year / Course / Group / Semester first."
+                  sx={academicTouchButtonSx}
+                >
+                  Create Section
+                </PermissionAwareButton>
+                <Button variant="outlined" size="small" onClick={() => void loadSections()} sx={academicTouchButtonSx}>
+                  Refresh
+                </Button>
+              </>
+            ) : undefined
+          }
         >
-          {courses.map((c) => (
-            <MenuItem key={c.id} value={c.id}>
-              {c.name}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          select
-          size="small"
-          label="Group"
-          value={groupId || ""}
-          onChange={(e) => {
-            setGroupId(Number(e.target.value));
-            setSemesterId(0);
-          }}
-          sx={{ minWidth: 140 }}
-        >
-          <MenuItem value={0}>All</MenuItem>
-          {filteredGroups.map((g) => (
-            <MenuItem key={g.id} value={g.id}>
-              {g.name}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField select size="small" label="Semester" value={semesterId || ""} onChange={(e) => setSemesterId(Number(e.target.value))} sx={{ minWidth: 140 }}>
-          <MenuItem value={0}>All</MenuItem>
-          {filteredSemesters.map((s) => (
-            <MenuItem key={s.id} value={s.id}>
-              {s.name}
-            </MenuItem>
-          ))}
-        </TextField>
-      </Stack>
-
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }} variant="scrollable" scrollButtons="auto">
+          <AcademicScopeSelector
+            fields={["academicYear", "program", "course", "group", "semester"]}
+            groupOptional
+            semesterOptional
+            showCascadeHint
+            showError={false}
+          />
+        </AcademicScopeToolbar>
+      }
+    >
+      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 1.5 }} variant="scrollable" scrollButtons="auto">
         <Tab label="Section List" />
-        <Tab label="Student Allocation" />
+        <Tab label="Allocation Workspace" />
         <Tab label="Faculty Allocation" />
         <Tab label="Transfer / Auto-Allocate" />
         <Tab label="Lifecycle" />
@@ -544,174 +556,141 @@ const SectionsPage = () => {
         <Tab label="History" />
       </Tabs>
 
-      {tab === 0 && (
-        <>
-          <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
-            {canCreate && (
-              <Button variant="contained" onClick={openAdd} disabled={!yearId || !courseId || !groupId || !semesterId}>
-                Create Section
-              </Button>
-            )}
-            <Button variant="outlined" onClick={() => void loadSections()}>
-              Refresh
-            </Button>
-          </Stack>
-          {loading ? (
-            <CircularProgress />
-          ) : (
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Code</TableCell>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Strength</TableCell>
-                  <TableCell>Capacity</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {rows.map((r) => (
-                  <TableRow key={r.id}>
+      {tab === TAB.List && (
+        <AcademicDataPanel
+          title="Section list"
+          accent="academic"
+          loading={loading}
+          loadingLabel="Loading sections…"
+          empty={!loading && rows.length === 0}
+          emptyTitle={yearId ? "No sections for this scope" : "Select an Academic Year"}
+          emptyDescription={
+            yearId
+              ? "Create a section or widen Group/Semester filters."
+              : "Choose Academic Year (and Course/Group/Semester) to load sections."
+          }
+          emptyAction={
+            <PermissionAwareButton
+              allowed={canCreate}
+              permissionKey={AcademicPermissionAccess.sections.create}
+              variant="contained"
+              size="small"
+              onClick={openAdd}
+              disabled={!scopeReady}
+              disabledTooltip="Select Academic Year / Course / Group / Semester first."
+            >
+              Create Section
+            </PermissionAwareButton>
+          }
+          helpTitle="Section list"
+          helpBody="Section is operational student grouping. Capacity and readiness chips use existing section APIs."
+        >
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Code</TableCell>
+                <TableCell>Name</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>Status / Lifecycle</TableCell>
+                <TableCell>Capacity</TableCell>
+                <TableCell>Students</TableCell>
+                <TableCell>Available</TableCell>
+                <TableCell>Faculty</TableCell>
+                <TableCell>Health / Readiness</TableCell>
+                <TableCell>Effective Date</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rows.map((r) => {
+                const stats = statsBySection[r.id];
+                const ready = readinessBySection[r.id];
+                return (
+                  <TableRow key={r.id} hover>
                     <TableCell>{r.sectionCode}</TableCell>
                     <TableCell>{r.sectionName}</TableCell>
+                    <TableCell>{r.sectionTypeCode || "Regular"}</TableCell>
                     <TableCell>
-                      {r.currentStrength}/{r.maximumStrength}
-                      {r.occupancyPercent != null ? ` (${r.occupancyPercent}%)` : ""}
+                      <AcademicStatusChip label={r.status} status={r.status} variant="outlined" />
                     </TableCell>
+                    <TableCell>{r.maximumStrength}</TableCell>
+                    <TableCell>{stats?.studentCount ?? r.currentStrength}</TableCell>
                     <TableCell>
-                      {r.remainingCapacity}
+                      {stats?.remainingCapacity ?? r.remainingCapacity}
                       {r.capacityStatus ? ` · ${r.capacityStatus}` : ""}
                     </TableCell>
+                    <TableCell>{stats?.facultyCount ?? "—"}</TableCell>
                     <TableCell>
-                      {r.status}
-                      {r.sectionTypeCode ? ` · ${r.sectionTypeCode}` : ""}
+                      {ready ? (
+                        <AcademicStatusChip
+                          label={ready.overallStatus}
+                          status={ready.overallStatus}
+                          color={readinessColor(ready.overallStatus)}
+                        />
+                      ) : (
+                        "—"
+                      )}
                     </TableCell>
+                    <TableCell>{effectiveBySection[r.id] || yearStartDate || "—"}</TableCell>
                     <TableCell align="right">
-                      {canEdit && (
-                        <Button size="small" onClick={() => openEdit(r)}>
-                          Edit
-                        </Button>
-                      )}
-                      {canDelete && (
-                        <Button size="small" color="error" onClick={() => void remove(r.id)}>
-                          Delete
-                        </Button>
-                      )}
+                      <PermissionAwareButton
+                        allowed={canEdit}
+                        permissionKey={AcademicPermissionAccess.sections.edit}
+                        size="small"
+                        onClick={() => openEdit(r)}
+                        sx={academicTouchButtonSx}
+                      >
+                        Edit
+                      </PermissionAwareButton>
+                      <PermissionAwareButton
+                        allowed={canDelete}
+                        permissionKey={AcademicPermissionAccess.sections.delete}
+                        size="small"
+                        color="error"
+                        onClick={() => setDeleteTargetId(r.id)}
+                        sx={academicTouchButtonSx}
+                      >
+                        Delete
+                      </PermissionAwareButton>
                     </TableCell>
                   </TableRow>
-                ))}
-                {rows.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        No sections for this scope. Create Section A/B/C or ensure General.
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </>
-      )}
-
-      {tab === 1 && (
-        <Stack spacing={1.5}>
-          {canAssignStudents && (
-            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-              <TextField size="small" label="Student Id" value={assignStudentId} onChange={(e) => setAssignStudentId(e.target.value)} />
-              <TextField select size="small" label="Section" value={assignSectionId || ""} onChange={(e) => setAssignSectionId(Number(e.target.value))} sx={{ minWidth: 140 }}>
-                {rows.map((r) => (
-                  <MenuItem key={r.id} value={r.id}>
-                    {r.sectionCode} — {r.sectionName}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <Button variant="contained" onClick={() => void doAssignStudent()}>
-                Assign
-              </Button>
-            </Stack>
-          )}
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Student</TableCell>
-                <TableCell>Section</TableCell>
-                <TableCell>From</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {studentRows.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>
-                    {r.studentNumber} — {r.studentName}
-                  </TableCell>
-                  <TableCell>
-                    {r.sectionCode} {r.sectionName}
-                  </TableCell>
-                  <TableCell>{r.effectiveFrom}</TableCell>
-                </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
-        </Stack>
+        </AcademicDataPanel>
       )}
 
-      {tab === 2 && (
-        <Stack spacing={1.5}>
-          {canAssignFaculty && (
-            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-              <TextField size="small" label="Faculty (Staff) Id" value={facultyId} onChange={(e) => setFacultyId(e.target.value)} />
-              <TextField select size="small" label="Section" value={facultySectionId || ""} onChange={(e) => setFacultySectionId(Number(e.target.value))} sx={{ minWidth: 140 }}>
-                {rows.map((r) => (
-                  <MenuItem key={r.id} value={r.id}>
-                    {r.sectionCode}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField select size="small" label="Role" value={facultyRole} onChange={(e) => setFacultyRole(e.target.value)} sx={{ minWidth: 120 }}>
-                <MenuItem value="Primary">Primary</MenuItem>
-                <MenuItem value="Secondary">Secondary</MenuItem>
-              </TextField>
-              <Button variant="contained" onClick={() => void doAssignFaculty()}>
-                Assign
-              </Button>
-            </Stack>
-          )}
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Faculty</TableCell>
-                <TableCell>Section</TableCell>
-                <TableCell>Role</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {facultyRows.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>
-                    {r.facultyName} (#{r.facultyId})
-                  </TableCell>
-                  <TableCell>{r.sectionCode}</TableCell>
-                  <TableCell>{r.role}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Stack>
+      {tab === TAB.Students && <EnterpriseAllocationWorkspace />}
+
+      {tab === TAB.Faculty && (
+        <FacultySectionAllocationPanel
+          academicYearId={yearId}
+          courseId={courseId}
+          groupId={groupId}
+          semesterId={semesterId}
+          sections={rows}
+          canAssignFaculty={canAssignFaculty}
+        />
       )}
 
-      {tab === 3 && (
+      {tab === TAB.Transfer && (
         <Stack spacing={2}>
-          {canAssignStudents && (
+          {canAssignStudents ? (
             <>
               <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                 Transfer Student
               </Typography>
               <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                 <TextField size="small" label="Student Id" value={transferStudentId} onChange={(e) => setTransferStudentId(e.target.value)} />
-                <TextField select size="small" label="Target Section" value={transferSectionId || ""} onChange={(e) => setTransferSectionId(Number(e.target.value))} sx={{ minWidth: 140 }}>
+                <TextField
+                  select
+                  size="small"
+                  label="Target Section"
+                  value={transferSectionId || ""}
+                  onChange={(e) => setTransferSectionId(Number(e.target.value))}
+                  sx={{ minWidth: 140 }}
+                >
                   {rows.map((r) => (
                     <MenuItem key={r.id} value={r.id}>
                       {r.sectionCode}
@@ -734,83 +713,102 @@ const SectionsPage = () => {
                   <MenuItem value="Random">Random</MenuItem>
                   <MenuItem value="CapacityBased">Capacity Based</MenuItem>
                 </TextField>
-                <Button variant="outlined" onClick={() => void doAutoAllocate()} disabled={!yearId || !courseId || !groupId || !semesterId}>
+                <Button variant="outlined" onClick={() => void doAutoAllocate()} disabled={!scopeReady}>
                   Run Auto-Allocate
                 </Button>
               </Stack>
             </>
+          ) : (
+            <PermissionDeniedAlert permissionKey={AcademicPermissionAccess.sections.assignStudents} />
           )}
           <Alert severity="info">
-            Combined classes use Section Groups + Timetable → Sections mapping (one entry, many sections). Attendance history
-            is never rewritten on transfer. Readiness never auto-fixes operations.
+            Combined classes use Section Groups + Timetable → Sections mapping. Attendance history is never rewritten on
+            transfer. Readiness never auto-fixes operations. Draft allocation scenarios live under Allocation Context /
+            Operations (not live StudentSection writes).
           </Alert>
         </Stack>
       )}
 
-      {tab === 4 && (
+      {tab === TAB.Lifecycle && (
         <Stack spacing={1.5}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            Section Lifecycle (state machine)
-          </Typography>
-          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-            <TextField select size="small" label="Section" value={lifecycleSectionId || ""} onChange={(e) => setLifecycleSectionId(Number(e.target.value))} sx={{ minWidth: 160 }}>
-              {rows.map((r) => (
-                <MenuItem key={r.id} value={r.id}>
-                  {r.sectionCode} ({r.status})
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField select size="small" label="Target Status" value={lifecycleTarget} onChange={(e) => setLifecycleTarget(e.target.value)} sx={{ minWidth: 140 }}>
-              {(lifecycleStates.length ? lifecycleStates : ["Draft", "Planning", "Open", "Active", "Locked", "Closed", "Archived"]).map((s) => (
-                <MenuItem key={s} value={s}>
-                  {s}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField size="small" label="Reason" value={lifecycleReason} onChange={(e) => setLifecycleReason(e.target.value)} sx={{ minWidth: 200 }} />
-            {canLifecycleEdit && (
-              <Button variant="contained" onClick={() => void doTransition()} disabled={!lifecycleSectionId}>
-                Transition
-              </Button>
-            )}
-            <Button
-              variant="outlined"
-              onClick={async () => {
-                if (!lifecycleSectionId) return;
-                const hist = await getLifecycleHistory(lifecycleSectionId);
-                setLifecycleHistory(hist.data);
-              }}
-            >
-              Load History
-            </Button>
-          </Stack>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>From</TableCell>
-                <TableCell>To</TableCell>
-                <TableCell>When</TableCell>
-                <TableCell>Reason</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {lifecycleHistory.map((h, i) => (
-                <TableRow key={i}>
-                  <TableCell>{h.fromStatus}</TableCell>
-                  <TableCell>{h.toStatus}</TableCell>
-                  <TableCell>{h.transitionedUtc}</TableCell>
-                  <TableCell>{h.reason}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {!canLifecycleView && !canLifecycleEdit ? (
+            <PermissionDeniedAlert permissionKey={AcademicPermissionAccess.sectionLifecycle.view} />
+          ) : (
+            <>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                Section Lifecycle
+              </Typography>
+              <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+                <TextField
+                  select
+                  size="small"
+                  label="Section"
+                  value={lifecycleSectionId || ""}
+                  onChange={(e) => setLifecycleSectionId(Number(e.target.value))}
+                  sx={{ minWidth: 160 }}
+                >
+                  {rows.map((r) => (
+                    <MenuItem key={r.id} value={r.id}>
+                      {r.sectionCode} ({r.status})
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField select size="small" label="Target Status" value={lifecycleTarget} onChange={(e) => setLifecycleTarget(e.target.value)} sx={{ minWidth: 140 }}>
+                  {(lifecycleStates.length
+                    ? lifecycleStates
+                    : ["Draft", "Planning", "Open", "Active", "Locked", "Closed", "Archived"]
+                  ).map((s) => (
+                    <MenuItem key={s} value={s}>
+                      {s}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField size="small" label="Reason" value={lifecycleReason} onChange={(e) => setLifecycleReason(e.target.value)} sx={{ minWidth: 200 }} />
+                {canLifecycleEdit && (
+                  <Button variant="contained" onClick={() => void doTransition()} disabled={!lifecycleSectionId}>
+                    Transition
+                  </Button>
+                )}
+                <Button
+                  variant="outlined"
+                  onClick={async () => {
+                    if (!lifecycleSectionId) return;
+                    const hist = await getLifecycleHistory(lifecycleSectionId);
+                    setLifecycleHistory(hist.data ?? []);
+                  }}
+                >
+                  Load History
+                </Button>
+              </Stack>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>From</TableCell>
+                    <TableCell>To</TableCell>
+                    <TableCell>When</TableCell>
+                    <TableCell>Reason</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {lifecycleHistory.map((h, i) => (
+                    <TableRow key={i}>
+                      <TableCell>{h.fromStatus}</TableCell>
+                      <TableCell>{h.toStatus}</TableCell>
+                      <TableCell>{h.transitionedUtc}</TableCell>
+                      <TableCell>{h.reason}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </>
+          )}
         </Stack>
       )}
 
-      {tab === 5 && (
+      {tab === TAB.Capacity && (
         <Stack spacing={1.5}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            Capacity Engine
+            Capacity
           </Typography>
           {capacitySummary && <Alert severity="info">{capacitySummary}</Alert>}
           <Stack direction="row" spacing={1}>
@@ -829,6 +827,7 @@ const SectionsPage = () => {
               <TableHead>
                 <TableRow>
                   <TableCell>Section</TableCell>
+                  <TableCell>Lifecycle</TableCell>
                   <TableCell>Occupancy</TableCell>
                   <TableCell>Available</TableCell>
                   <TableCell>Status</TableCell>
@@ -841,6 +840,7 @@ const SectionsPage = () => {
                     <TableCell>
                       {r.sectionCode} — {r.sectionName}
                     </TableCell>
+                    <TableCell>{r.lifecycleStatus}</TableCell>
                     <TableCell>
                       {r.currentStrength}/{r.maximumCapacity} ({r.occupancyPercent}%)
                     </TableCell>
@@ -852,20 +852,47 @@ const SectionsPage = () => {
               </TableBody>
             </Table>
           ) : (
-            <Alert severity="warning">Section.Capacity permission required.</Alert>
+            <PermissionDeniedAlert permissionKey={AcademicPermissionAccess.sectionCapacity.manage} />
           )}
         </Stack>
       )}
 
-      {tab === 6 && (
+      {tab === TAB.Merge && (
         <Stack spacing={1.5}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            Merge Wizard
+            Merge
           </Typography>
           {canMerge ? (
             <>
               <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-                <TextField size="small" label="Source Section Ids (comma)" value={mergeSources} onChange={(e) => setMergeSources(e.target.value)} sx={{ minWidth: 220 }} />
+                <TextField
+                  select
+                  size="small"
+                  label="Source sections"
+                  value={mergeSourceIds}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setMergeSourceIds(
+                      typeof v === "string" ? v.split(",").map(Number).filter((n) => n > 0) : (v as number[]),
+                    );
+                  }}
+                  slotProps={{
+                    select: {
+                      multiple: true,
+                      renderValue: (selected) =>
+                        (selected as number[])
+                          .map((id) => rows.find((r) => r.id === id)?.sectionCode ?? id)
+                          .join(", "),
+                    },
+                  }}
+                  sx={{ minWidth: 240 }}
+                >
+                  {rows.map((r) => (
+                    <MenuItem key={r.id} value={r.id}>
+                      {r.sectionCode} — {r.sectionName}
+                    </MenuItem>
+                  ))}
+                </TextField>
                 <TextField select size="small" label="Target Section" value={mergeTarget || ""} onChange={(e) => setMergeTarget(Number(e.target.value))} sx={{ minWidth: 160 }}>
                   {rows.map((r) => (
                     <MenuItem key={r.id} value={r.id}>
@@ -873,7 +900,7 @@ const SectionsPage = () => {
                     </MenuItem>
                   ))}
                 </TextField>
-                <Button variant="outlined" onClick={() => void doMergePreview()}>
+                <Button variant="outlined" onClick={() => void doMergePreview()} disabled={!mergeSourceIds.length || !mergeTarget}>
                   Validate / Preview
                 </Button>
                 <Button variant="contained" onClick={() => void doMergeCommit()} disabled={!mergePreview?.isValid}>
@@ -882,22 +909,23 @@ const SectionsPage = () => {
               </Stack>
               {mergePreview && (
                 <Alert severity={mergePreview.isValid ? "success" : "error"}>
-                  Valid={String(mergePreview.isValid)} · students={mergePreview.combinedStudentCount} · faculty={mergePreview.combinedFacultyCount}
+                  Valid={String(mergePreview.isValid)} · students={mergePreview.combinedStudentCount} · faculty=
+                  {mergePreview.combinedFacultyCount}
                   {mergePreview.errors?.length ? ` · ${mergePreview.errors.join(" ")}` : ""}
                   {mergePreview.warnings?.length ? ` · ${mergePreview.warnings.join(" ")}` : ""}
                 </Alert>
               )}
             </>
           ) : (
-            <Alert severity="warning">Section.Merge permission required.</Alert>
+            <PermissionDeniedAlert permissionKey={AcademicPermissionAccess.sectionMergeSplit.merge} />
           )}
         </Stack>
       )}
 
-      {tab === 7 && (
+      {tab === TAB.Split && (
         <Stack spacing={1.5}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            Split Wizard
+            Split
           </Typography>
           {canSplit ? (
             <>
@@ -925,16 +953,19 @@ const SectionsPage = () => {
               )}
             </>
           ) : (
-            <Alert severity="warning">Section.Split permission required.</Alert>
+            <PermissionDeniedAlert permissionKey={AcademicPermissionAccess.sectionMergeSplit.split} />
           )}
         </Stack>
       )}
 
-      {tab === 8 && (
+      {tab === TAB.Readiness && (
         <Stack spacing={1.5}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
             Operational Readiness (advisory only)
           </Typography>
+          <Button variant="outlined" onClick={() => void loadOps()} sx={{ alignSelf: "flex-start" }}>
+            Refresh Readiness
+          </Button>
           {canReadiness ? (
             <Table size="small">
               <TableHead>
@@ -950,41 +981,34 @@ const SectionsPage = () => {
                     <TableCell>
                       {h.sectionCode} — {h.sectionName}
                     </TableCell>
-                    <TableCell>{h.overallStatus}</TableCell>
+                    <TableCell>
+                      <Chip size="small" color={readinessColor(h.overallStatus)} label={h.overallStatus} />
+                    </TableCell>
                     <TableCell>{h.checks.map((c) => `${c.area}:${c.status}`).join(" · ")}</TableCell>
                   </TableRow>
                 ))}
+                {health.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={3}>
+                      <Typography variant="body2" color="text.secondary">
+                        No readiness rows for this scope.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           ) : (
-            <Alert severity="warning">Section.Readiness permission required.</Alert>
+            <PermissionDeniedAlert permissionKey={PermissionKeys.SectionReadiness} />
           )}
         </Stack>
       )}
 
-      {tab === 9 && (
-        <Stack spacing={1.5}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            Merge / Split History
-          </Typography>
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              onClick={async () => {
-                const hist = await getMergeHistory();
-                setMergeHistory(hist.data.map((h) => `${h.transactionId}: ${h.sourceSectionIds.join("+")}→${h.targetSectionId} (${h.status})`).join("\n"));
-              }}
-            >
-              Load Merge History
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={async () => {
-                const hist = await getSplitHistory();
-                setSplitHistory(hist.data.map((h) => `${h.transactionId}: ${h.sourceSectionId}→[${h.childSectionIds.join(",")}] (${h.status})`).join("\n"));
-              }}
-            >
-              Load Split History
+      {tab === TAB.History && (
+        <Stack spacing={2}>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+            <Button variant="outlined" onClick={() => void loadHistoryTab()}>
+              Load History
             </Button>
             <Button variant="outlined" onClick={() => void doExport("merge-history", "csv")}>
               Export Merge CSV
@@ -992,13 +1016,130 @@ const SectionsPage = () => {
             <Button variant="outlined" onClick={() => void doExport("readiness", "csv")}>
               Export Readiness CSV
             </Button>
+            <TextField
+              select
+              size="small"
+              label="Lifecycle section"
+              value={lifecycleSectionId || ""}
+              onChange={(e) => setLifecycleSectionId(Number(e.target.value))}
+              sx={{ minWidth: 160 }}
+            >
+              {rows.map((r) => (
+                <MenuItem key={r.id} value={r.id}>
+                  {r.sectionCode}
+                </MenuItem>
+              ))}
+            </TextField>
           </Stack>
-          <Typography variant="body2" component="pre" sx={{ whiteSpace: "pre-wrap" }}>
-            {mergeHistory || "No merge history loaded."}
+
+          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+            Merge History
           </Typography>
-          <Typography variant="body2" component="pre" sx={{ whiteSpace: "pre-wrap" }}>
-            {splitHistory || "No split history loaded."}
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Transaction</TableCell>
+                <TableCell>Sources → Target</TableCell>
+                <TableCell>Effective Date</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Reversed</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {mergeHistory.map((h) => (
+                <TableRow key={h.transactionId}>
+                  <TableCell>{h.transactionId}</TableCell>
+                  <TableCell>
+                    {(h.sourceSectionIds ?? []).join("+")} → {h.targetSectionId}
+                  </TableCell>
+                  <TableCell>{formatDate(h.effectiveDate)}</TableCell>
+                  <TableCell>{h.status}</TableCell>
+                  <TableCell>{h.isReversed ? "Yes" : "No"}</TableCell>
+                </TableRow>
+              ))}
+              {mergeHistory.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5}>
+                    <Typography variant="body2" color="text.secondary">
+                      No merge history loaded.
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+
+          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+            Split History
           </Typography>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Transaction</TableCell>
+                <TableCell>Source → Children</TableCell>
+                <TableCell>Strategy</TableCell>
+                <TableCell>Effective Date</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Reversed</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {splitHistory.map((h) => (
+                <TableRow key={h.transactionId}>
+                  <TableCell>{h.transactionId}</TableCell>
+                  <TableCell>
+                    {h.sourceSectionId} → [{(h.childSectionIds ?? []).join(", ")}]
+                  </TableCell>
+                  <TableCell>{h.strategyCode}</TableCell>
+                  <TableCell>{formatDate(h.effectiveDate)}</TableCell>
+                  <TableCell>{h.status}</TableCell>
+                  <TableCell>{h.isReversed ? "Yes" : "No"}</TableCell>
+                </TableRow>
+              ))}
+              {splitHistory.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      No split history loaded.
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+
+          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+            Lifecycle Transitions
+          </Typography>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>From</TableCell>
+                <TableCell>To</TableCell>
+                <TableCell>When</TableCell>
+                <TableCell>Reason</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {lifecycleHistory.map((h, i) => (
+                <TableRow key={i}>
+                  <TableCell>{h.fromStatus}</TableCell>
+                  <TableCell>{h.toStatus}</TableCell>
+                  <TableCell>{h.transitionedUtc}</TableCell>
+                  <TableCell>{h.reason}</TableCell>
+                </TableRow>
+              ))}
+              {lifecycleHistory.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4}>
+                    <Typography variant="body2" color="text.secondary">
+                      Select a section and Load History.
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </Stack>
       )}
 
@@ -1009,23 +1150,50 @@ const SectionsPage = () => {
             <TextField label="Section Code" value={code} onChange={(e) => setCode(e.target.value)} helperText="e.g. A, B, C" />
             <TextField label="Section Name" value={name} onChange={(e) => setName(e.target.value)} helperText="e.g. Section A" />
             <TextField
+              select
+              label="Section Type"
+              value={sectionTypeCode}
+              onChange={(e) => setSectionTypeCode(e.target.value)}
+              helperText="Informational type code from AI29.1B (stored via create/update contracts)."
+            >
+              <MenuItem value="Regular">Regular</MenuItem>
+              <MenuItem value="Honours">Honours</MenuItem>
+              <MenuItem value="General">General</MenuItem>
+            </TextField>
+            <TextField
               type="number"
               label="Maximum Strength"
               value={maxStrength}
               onChange={(e) => setMaxStrength(Number(e.target.value))}
-              helperText="College-configurable capacity (no hardcoding)"
+              helperText="College-configurable capacity"
             />
             <TextField type="number" label="Display Order" value={displayOrder} onChange={(e) => setDisplayOrder(Number(e.target.value))} />
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" disabled={saving} onClick={() => void save()}>
+          <Button onClick={() => setDialogOpen(false)} sx={academicTouchButtonSx}>
+            Cancel
+          </Button>
+          <Button variant="contained" disabled={saving} onClick={() => void save()} sx={academicTouchButtonSx}>
             Save
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+
+      <AcademicConfirmDialog
+        open={deleteTargetId != null}
+        title="Delete section?"
+        description="This soft-deletes the section. Historical student membership is preserved."
+        confirmLabel="Delete"
+        confirming={deleting}
+        onCancel={() => {
+          if (!deleting) setDeleteTargetId(null);
+        }}
+        onConfirm={() => {
+          if (deleteTargetId != null) void remove(deleteTargetId);
+        }}
+      />
+    </AcademicOperationalPageShell>
   );
 };
 

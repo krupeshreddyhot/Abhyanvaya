@@ -3,13 +3,17 @@ using Abhyanvaya.Domain.Common;
 namespace Abhyanvaya.Domain.Entities.Academic;
 
 /// <summary>
-/// AI29.1A — Optional top-level academic grouping within a college (Commerce, Arts, Science, …).
-/// AI29.1A.5 — First concrete Academic Organizational Unit (AOU); Program is not renamed.
+/// AI29.1A — Optional academic grouping within a college (Commerce, Arts, Science, …).
+/// AI-SCHED-CATALOG/TIMETABLE P1-2 — Program belongs to exactly one Department (optional layer via EnablePrograms).
 /// Lifecycle remains simple master status: Active | Inactive | Archived.
 /// </summary>
 public class Program : BaseEntity
 {
     public int CollegeId { get; set; }
+
+    /// <summary>Owning department (same College/Tenant). Required for Program ownership.</summary>
+    public int DepartmentId { get; set; }
+
     public string ProgramCode { get; set; } = null!;
     public string ProgramName { get; set; } = null!;
     public string? Description { get; set; }
@@ -27,4 +31,6 @@ public class Program : BaseEntity
 
     /// <summary>AI29.1A.5 — nullable link for future Academic Calendar; no enforcement yet.</summary>
     public int? AcademicCalendarId { get; set; }
+
+    public Department? Department { get; set; }
 }

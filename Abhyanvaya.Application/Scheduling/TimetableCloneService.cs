@@ -112,6 +112,13 @@ public sealed class TimetableCloneService : ITimetableCloneService
                     clone.DayOfWeek = request.TargetDayOfWeek.Value;
                 return clone;
             }).ToList();
+
+            foreach (var clone in clones)
+            {
+                await TimetableService.RealignDepartmentFromCourseAsync(_context, TenantId, clone, cancellationToken);
+                await TimetableService.EnsureProposedTeachingGroupCompatibleAsync(_context, clone, cancellationToken);
+            }
+
             if (clones.Count > 0)
                 await _timetableRepository.AddEntriesAsync(clones, cancellationToken);
 

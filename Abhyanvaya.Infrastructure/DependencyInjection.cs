@@ -115,6 +115,8 @@ namespace Abhyanvaya.Infrastructure
                 .Bind(configuration.GetSection(Abhyanvaya.Application.AttendanceRecovery.AttendanceRecoveryOptions.SectionName));
             services.AddHostedService<AttendanceSessionExpirationCleanupService>();
             services.AddHostedService<AttendanceHealthMonitorHostedService>();
+            // AI29.1D.24B.3A — Allocation.* permission catalog only (no ADMIN role grants at startup).
+            services.AddHostedService<Abhyanvaya.Infrastructure.Authorization.AllocationPermissionCatalogReconciler>();
 
             services.AddOptions<RecognitionDiagnosticsOptions>()
                 .Bind(configuration.GetSection(RecognitionDiagnosticsOptions.SectionName));

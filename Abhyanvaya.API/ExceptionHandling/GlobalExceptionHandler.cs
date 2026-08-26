@@ -119,6 +119,10 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                     traceId,
                     ApiErrorCodes.DomainRuleViolation)),
 
+            PublishNotReadyException publishNotReady => (
+                StatusCodes.Status400BadRequest,
+                CreatePublishNotReadyProblem(publishNotReady, traceId)),
+
             InvalidOperationException invalid => (
                 StatusCodes.Status400BadRequest,
                 CreateProblem(
@@ -185,6 +189,20 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             ApiErrorCodes.ValidationFailed);
 
         problem.Extensions[ApiProblemExtensions.ValidationErrors] = exception.Errors;
+        return problem;
+    }
+
+    private static MvcProblemDetails CreatePublishNotReadyProblem(PublishNotReadyException exception, string traceId)
+    {
+        var problem = CreateProblem(
+            ApiProblemTypes.PublishNotReady,
+            "Timetable not ready to publish",
+            StatusCodes.Status400BadRequest,
+            exception.Message,
+            traceId,
+            ApiErrorCodes.PublishNotReady);
+
+        problem.Extensions[ApiProblemExtensions.PublishReadiness] = exception.Readiness;
         return problem;
     }
 }

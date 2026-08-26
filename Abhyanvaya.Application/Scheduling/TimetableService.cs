@@ -1,3 +1,4 @@
+using Abhyanvaya.Application.Academic;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Common.Interfaces.Scheduling;
 using Abhyanvaya.Application.DTOs.Scheduling;
@@ -261,11 +262,14 @@ public sealed class TimetableService : ITimetableService
         await EnsureTimeSlotInSetAsync(timetable.TimeSlotSetId, request.TimeSlotId, cancellationToken);
 
         var roomId = await ResolveRoomIdAsync(request.RoomId, allocation, cancellationToken);
+        var courseDepartmentId = await ResolveCourseDepartmentIdAsync(allocation.CourseId, cancellationToken);
         var entry = new TimetableEntry { TimetableId = timetableId };
-        ApplyAllocationDenormalization(entry, allocation, roomId);
+        ApplyAllocationDenormalization(entry, allocation, roomId, courseDepartmentId);
         entry.DayOfWeek = request.DayOfWeek;
         entry.TimeSlotId = request.TimeSlotId;
         entry.Remarks = request.Remarks?.Trim();
+
+        await EnsureProposedTeachingGroupCompatibleAsync(entry, cancellationToken);
 
         await _repository.AddEntryAsync(entry, cancellationToken);
         await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
@@ -286,10 +290,14 @@ public sealed class TimetableService : ITimetableService
         await EnsureTimeSlotInSetAsync(timetable.TimeSlotSetId, request.TimeSlotId, cancellationToken);
 
         var roomId = await ResolveRoomIdAsync(request.RoomId, allocation, cancellationToken);
-        ApplyAllocationDenormalization(entry, allocation, roomId);
+        var courseDepartmentId = await ResolveCourseDepartmentIdAsync(allocation.CourseId, cancellationToken);
+        ApplyAllocationDenormalization(entry, allocation, roomId, courseDepartmentId);
         entry.DayOfWeek = request.DayOfWeek;
         entry.TimeSlotId = request.TimeSlotId;
         entry.Remarks = request.Remarks?.Trim();
+
+        // AI-SCHED-TG.4 Prompt 4 — proposed state must remain TG-compatible (never silent clear/replace).
+        await EnsureProposedTeachingGroupCompatibleAsync(entry, cancellationToken);
 
         await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
         await RecordHistoryAsync(timetable.Id, TimetableChangeOperation.Update, entry.Id, null, new { entry.DayOfWeek, entry.TimeSlotId, entry.StaffId, entry.RoomId }, null, cancellationToken);
@@ -322,6 +330,8 @@ public sealed class TimetableService : ITimetableService
             entry.RoomId = request.RoomId.Value;
         }
 
+        await EnsureProposedTeachingGroupCompatibleAsync(entry, cancellationToken);
+
         await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
         await RecordHistoryAsync(timetable.Id, TimetableChangeOperation.Move, entry.Id, null, new { entry.DayOfWeek, entry.TimeSlotId, entry.RoomId }, null, cancellationToken);
         return (await MapEntriesAsync([entry], cancellationToken)).Single();
@@ -343,6 +353,9 @@ public sealed class TimetableService : ITimetableService
         copy.DayOfWeek = request.TargetDayOfWeek;
         copy.TimeSlotId = request.TargetTimeSlotId;
         copy.RoomId = roomId;
+        await RealignDepartmentFromCourseAsync(copy, cancellationToken);
+
+        await EnsureProposedTeachingGroupCompatibleAsync(copy, cancellationToken);
 
         await _repository.AddEntryAsync(copy, cancellationToken);
         await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
@@ -357,6 +370,8 @@ public sealed class TimetableService : ITimetableService
         EnsureDraft(timetable);
 
         var duplicate = CloneEntry(source, timetable.Id);
+        await RealignDepartmentFromCourseAsync(duplicate, cancellationToken);
+        await EnsureProposedTeachingGroupCompatibleAsync(duplicate, cancellationToken);
         await _repository.AddEntryAsync(duplicate, cancellationToken);
         await ConcurrencyExceptionHelper.SaveChangesAsync(_unitOfWork, cancellationToken);
         await RecordHistoryAsync(timetable.Id, TimetableChangeOperation.Copy, duplicate.Id, new { SourceEntryId = source.Id }, new { duplicate.DayOfWeek, duplicate.TimeSlotId }, null, cancellationToken);
@@ -376,24 +391,27 @@ public sealed class TimetableService : ITimetableService
             await EnsureTimeSlotInSetAsync(timetable.TimeSlotSetId, item.TimeSlotId, cancellationToken);
             var roomId = await ResolveRoomIdAsync(item.RoomId, allocation, cancellationToken);
 
+            var courseDepartmentId = await ResolveCourseDepartmentIdAsync(allocation.CourseId, cancellationToken);
             if (item.Id.HasValue)
             {
                 var existing = await RequireEntryAsync(item.Id.Value, cancellationToken);
                 if (existing.TimetableId != timetableId)
                     throw new DomainException("Entry does not belong to this timetable.");
-                ApplyAllocationDenormalization(existing, allocation, roomId);
+                ApplyAllocationDenormalization(existing, allocation, roomId, courseDepartmentId);
                 existing.DayOfWeek = item.DayOfWeek;
                 existing.TimeSlotId = item.TimeSlotId;
                 existing.Remarks = item.Remarks?.Trim();
+                await EnsureProposedTeachingGroupCompatibleAsync(existing, cancellationToken);
                 results.Add(existing);
             }
             else
             {
                 var entry = new TimetableEntry { TimetableId = timetableId };
-                ApplyAllocationDenormalization(entry, allocation, roomId);
+                ApplyAllocationDenormalization(entry, allocation, roomId, courseDepartmentId);
                 entry.DayOfWeek = item.DayOfWeek;
                 entry.TimeSlotId = item.TimeSlotId;
                 entry.Remarks = item.Remarks?.Trim();
+                await EnsureProposedTeachingGroupCompatibleAsync(entry, cancellationToken);
                 await _repository.AddEntryAsync(entry, cancellationToken);
                 results.Add(entry);
             }
@@ -419,24 +437,128 @@ public sealed class TimetableService : ITimetableService
             throw new DomainException("Archived timetables cannot be cloned.");
     }
 
-    public static void ApplyAllocationDenormalization(TimetableEntry entry, SubjectAllocation allocation, int roomId)
+    /// <summary>
+    /// AI-SCHED-CATALOG/TIMETABLE P1-3 Prompt 4 —
+    /// Copies scheduling denorm from SubjectAllocation; DepartmentId must be Course.DepartmentId (Catalog SSOT).
+    /// </summary>
+    public static void ApplyAllocationDenormalization(
+        TimetableEntry entry,
+        SubjectAllocation allocation,
+        int roomId,
+        int courseDepartmentId,
+        int? requestedEntryDepartmentId = null)
     {
+        var decision = TimetableEntryCourseDepartmentRules.Evaluate(
+            allocation.DepartmentId,
+            courseDepartmentId,
+            courseFound: courseDepartmentId > 0,
+            requestedEntryDepartmentId);
+
+        if (!decision.Accepted)
+            throw new DomainException(decision.Error ?? "Invalid Course Department for TimetableEntry.");
+
         entry.SubjectAllocationId = allocation.Id;
         entry.StaffId = allocation.StaffId;
         entry.SubjectId = allocation.SubjectId;
         entry.CourseId = allocation.CourseId;
         entry.GroupId = allocation.GroupId;
         entry.SemesterId = allocation.SemesterId;
-        entry.DepartmentId = allocation.DepartmentId;
+        entry.DepartmentId = decision.AlignedDepartmentId;
         entry.RoomId = roomId;
+    }
+
+    /// <summary>
+    /// Re-derives TimetableEntry.DepartmentId from Course via SubjectAllocation (clone/copy/version paths).
+    /// </summary>
+    public static async Task RealignDepartmentFromCourseAsync(
+        IApplicationDbContext db,
+        int tenantId,
+        TimetableEntry entry,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(entry);
+
+        var allocation = await db.SchedulingSubjectAllocations.AsNoTracking()
+            .FirstOrDefaultAsync(
+                x => x.Id == entry.SubjectAllocationId && x.TenantId == tenantId,
+                cancellationToken)
+            ?? throw new KeyNotFoundException($"Subject allocation {entry.SubjectAllocationId} not found.");
+
+        var courseDepartmentId = await db.Courses.AsNoTracking()
+            .Where(c => c.Id == allocation.CourseId && c.TenantId == tenantId)
+            .Select(c => (int?)c.DepartmentId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var decision = TimetableEntryCourseDepartmentRules.Evaluate(
+            allocation.DepartmentId,
+            courseDepartmentId,
+            courseFound: courseDepartmentId is > 0);
+
+        if (!decision.Accepted)
+            throw new DomainException(decision.Error ?? "Invalid Course Department for TimetableEntry.");
+
+        entry.DepartmentId = decision.AlignedDepartmentId;
+        entry.CourseId = allocation.CourseId;
+    }
+
+    private async Task RealignDepartmentFromCourseAsync(TimetableEntry entry, CancellationToken cancellationToken)
+        => await RealignDepartmentFromCourseAsync(_context, TenantId, entry, cancellationToken);
+
+    private async Task<int> ResolveCourseDepartmentIdAsync(int courseId, CancellationToken cancellationToken)
+    {
+        var courseDepartmentId = await _context.Courses.AsNoTracking()
+            .Where(c => c.Id == courseId && c.TenantId == TenantId)
+            .Select(c => (int?)c.DepartmentId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (courseDepartmentId is null or <= 0)
+            throw new DomainException("Course not found.");
+
+        return courseDepartmentId.Value;
+    }
+
+    /// <summary>
+    /// AI-SCHED-TG.4 Prompt 4 — Persist only if TeachingGroupId is null or compatible with the proposed entry state.
+    /// Never clears, replaces, or infers a TeachingGroup.
+    /// </summary>
+    public async Task EnsureProposedTeachingGroupCompatibleAsync(
+        TimetableEntry entry,
+        CancellationToken cancellationToken = default)
+        => await EnsureProposedTeachingGroupCompatibleAsync(_context, entry, cancellationToken);
+
+    /// <summary>
+    /// Shared invariant for TimetableService, clone, and schedule-version entry materialization.
+    /// </summary>
+    public static async Task EnsureProposedTeachingGroupCompatibleAsync(
+        IApplicationDbContext db,
+        TimetableEntry entry,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(entry);
+
+        if (entry.TeachingGroupId is not int teachingGroupId)
+            return;
+
+        var teachingGroup = await db.SchedulingTeachingGroups
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == teachingGroupId, cancellationToken);
+
+        if (teachingGroup is null)
+            throw new DomainException(TeachingGroupRules.TimetableEntryTeachingGroupIncompatibleMessage);
+
+        TeachingGroupRules.EnsureCompatibleWithTimetableEntry(teachingGroup, entry);
     }
 
     internal static TimetableEntry CloneEntry(TimetableEntry source, int timetableId) => new()
     {
+        TenantId = source.TenantId,
         TimetableId = timetableId,
         DayOfWeek = source.DayOfWeek,
         TimeSlotId = source.TimeSlotId,
         SubjectAllocationId = source.SubjectAllocationId,
+        TeachingGroupId = source.TeachingGroupId,
         StaffId = source.StaffId,
         RoomId = source.RoomId,
         DepartmentId = source.DepartmentId,
@@ -473,8 +595,17 @@ public sealed class TimetableService : ITimetableService
 
     private async Task<SubjectAllocation> RequireAllocationAsync(int allocationId, CancellationToken cancellationToken)
     {
-        var allocation = await _allocationRepository.GetByIdAsync(TenantId, allocationId, cancellationToken);
-        return allocation ?? throw new KeyNotFoundException($"Subject allocation {allocationId} not found.");
+        var allocation = await _allocationRepository.GetByIdAsync(TenantId, allocationId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Subject allocation {allocationId} not found.");
+
+        var historical = await _context.Semesters.AsNoTracking()
+            .Where(s => s.Id == allocation.SemesterId && s.TenantId == TenantId)
+            .Select(s => (bool?)s.IsHistoricalArchive)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (historical is true)
+            throw new DomainException(OperationalSemesterRules.HistoricalRejectedMessage);
+
+        return allocation;
     }
 
     private async Task<int> ResolveRoomIdAsync(int? requestedRoomId, SubjectAllocation allocation, CancellationToken cancellationToken)
@@ -597,6 +728,7 @@ public sealed class TimetableService : ITimetableService
                 StartTime = slot?.StartTime,
                 EndTime = slot?.EndTime,
                 SubjectAllocationId = e.SubjectAllocationId,
+                TeachingGroupId = e.TeachingGroupId,
                 StaffId = e.StaffId,
                 StaffName = staffNames.GetValueOrDefault(e.StaffId),
                 RoomId = e.RoomId,

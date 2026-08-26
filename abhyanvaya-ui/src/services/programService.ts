@@ -3,6 +3,9 @@ import api from "../api/axios";
 export type ProgramDto = {
   id: number;
   collegeId: number;
+  departmentId: number;
+  departmentCode?: string | null;
+  departmentName?: string | null;
   programCode: string;
   programName: string;
   description?: string | null;
@@ -15,6 +18,14 @@ export type ProgramDto = {
   courseCount: number;
   studentCount: number;
   facultyCount: number;
+};
+
+export type ProgramDepartmentOptionDto = {
+  id: number;
+  collegeId: number;
+  name: string;
+  code?: string | null;
+  isActive: boolean;
 };
 
 export type TenantAcademicConfigurationDto = {
@@ -42,7 +53,11 @@ export const listPrograms = (includeInactive = false) =>
 
 export const getProgram = (id: number) => api.get<ProgramDto>(`/programs/${id}`);
 
+export const listProgramDepartmentOptions = () =>
+  api.get<ProgramDepartmentOptionDto[]>("/programs/department-options");
+
 export const createProgram = (body: {
+  departmentId: number;
   programCode: string;
   programName: string;
   description?: string;
@@ -53,6 +68,7 @@ export const createProgram = (body: {
 export const updateProgram = (
   id: number,
   body: {
+    departmentId: number;
     programCode: string;
     programName: string;
     description?: string;
@@ -79,3 +95,18 @@ export const getAcademicHierarchy = (params?: {
 
 export const assignCourseToProgram = (courseId: number, programId: number | null) =>
   api.post("/programs/assign-course", { courseId, programId });
+
+/** Courses with Course.ProgramId == programId (authoritative relationship). */
+export type ProgramCourseRow = {
+  id: number;
+  code: string;
+  name: string;
+  programId?: number | null;
+  displayOrder?: number;
+};
+
+export const getProgramCourses = (programId: number) =>
+  api.get<ProgramCourseRow[]>(`/programs/${programId}/courses`);
+
+export const getProgramCourseCount = (programId: number) =>
+  api.get<number>(`/programs/${programId}/course-count`);

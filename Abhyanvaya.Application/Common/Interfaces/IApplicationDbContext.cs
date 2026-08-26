@@ -153,6 +153,9 @@ namespace Abhyanvaya.Application.Common.Interfaces
         IQueryable<FacultyDayPreference> SchedulingFacultyDayPreferences { get; }
         IQueryable<FacultyTimeSlotPreference> SchedulingFacultyTimeSlotPreferences { get; }
         IQueryable<SubjectAllocation> SchedulingSubjectAllocations { get; }
+        IQueryable<TeachingGroup> SchedulingTeachingGroups { get; }
+        IQueryable<TeachingGroupSection> SchedulingTeachingGroupSections { get; }
+        IQueryable<TeachingGroupMembership> SchedulingTeachingGroupMemberships { get; }
         IQueryable<RoomAllocationRule> SchedulingRoomAllocationRules { get; }
         IQueryable<FacultyAvailability> SchedulingFacultyAvailabilities { get; }
         IQueryable<RoomAvailability> SchedulingRoomAvailabilities { get; }
@@ -242,6 +245,9 @@ namespace Abhyanvaya.Application.Common.Interfaces
         IQueryable<Program> Programs { get; }
         IQueryable<TenantAcademicConfiguration> TenantAcademicConfigurations { get; }
 
+        // AI-SCHED-CATALOG/TIMETABLE P1-4 Prompt 3E — legacy disposition journal
+        IQueryable<LegacySemesterDispositionJournal> LegacySemesterDispositionJournals { get; }
+
         // AI29.1A.5 — Program policies (configuration only)
         IQueryable<ProgramPolicy> ProgramPolicies { get; }
 
@@ -254,6 +260,12 @@ namespace Abhyanvaya.Application.Common.Interfaces
         Task AddAsync<T>(T entity) where T : class;
 
         void Remove<T>(T entity) where T : class;
+
+        /// <summary>
+        /// Bypasses soft-delete/tenant query filters. Callers MUST re-apply TenantId scoping
+        /// and may only use this for Architect-approved administrative cleanup paths.
+        /// </summary>
+        IQueryable<T> QueryIgnoringFilters<T>() where T : class;
 
         void AddAttendances(IEnumerable<Attendance> attendances);
 

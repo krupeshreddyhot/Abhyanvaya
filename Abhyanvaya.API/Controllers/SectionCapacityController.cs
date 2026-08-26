@@ -28,12 +28,17 @@ public sealed class SectionCapacityController : ControllerBase
         CancellationToken cancellationToken)
         => Ok(await _capacity.GetCapacitySummaryAsync(academicYearId, semesterId, cancellationToken));
 
+    /// <summary>
+    /// Occupancy snapshots. Optional <paramref name="sectionIds"/> scopes to Allocation Context sections
+    /// (AI29.1D.24B.2 additive filter — engine already supported sectionIds; year/semester remain compatible).
+    /// </summary>
     [HttpGet("occupancy")]
     public async Task<ActionResult<IReadOnlyList<SectionCapacitySnapshotDto>>> GetSectionOccupancy(
         [FromQuery] int? academicYearId,
         [FromQuery] int? semesterId,
-        CancellationToken cancellationToken)
-        => Ok(await _capacity.GetOccupancyAsync(null, academicYearId, semesterId, cancellationToken));
+        [FromQuery] int[]? sectionIds = null,
+        CancellationToken cancellationToken = default)
+        => Ok(await _capacity.GetOccupancyAsync(sectionIds, academicYearId, semesterId, cancellationToken));
 
     [HttpGet("occupancy/{sectionId:int}")]
     public async Task<ActionResult<SectionCapacitySnapshotDto>> GetSectionOccupancyById(int sectionId, CancellationToken cancellationToken)

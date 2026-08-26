@@ -1,4 +1,5 @@
 ﻿import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { clearAttendanceMarkingPersistence } from "../utils/attendanceMarkingPersistence";
 
 type UserClaims = {
   userId: number;
@@ -83,7 +84,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
-    sessionStorage.removeItem("attendanceMarking.selection.v1");
+    // Attendance dropdowns were shared across users (unscoped sessionStorage + module caches).
+    clearAttendanceMarkingPersistence();
     setToken(null);
   };
 

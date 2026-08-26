@@ -3,6 +3,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -37,8 +38,6 @@ const errMsg = (e: unknown): string => {
   return "Request failed.";
 };
 
-const NONE_GROUP = 0;
-
 const SemestersPage = () => {
   const [courses, setCourses] = useState<CourseRow[]>([]);
   const [groups, setGroups] = useState<GroupRow[]>([]);
@@ -52,7 +51,8 @@ const SemestersPage = () => {
   const [numberStr, setNumberStr] = useState("1");
   const [name, setName] = useState("");
   const [courseId, setCourseId] = useState(0);
-  const [groupId, setGroupId] = useState(NONE_GROUP);
+  const [groupId, setGroupId] = useState(0);
+  const [editingLegacy, setEditingLegacy] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -84,21 +84,23 @@ const SemestersPage = () => {
 
   const openAdd = () => {
     setEditingId(0);
+    setEditingLegacy(false);
     setNumberStr("1");
     setName("");
     const c0 = courses[0]?.id ?? 0;
     setCourseId(c0);
-    // Default course-wide so all groups (e.g. Computer Applications + Finance) share the semester.
-    setGroupId(NONE_GROUP);
+    const g0 = groups.find((g) => g.courseId === c0)?.id ?? 0;
+    setGroupId(g0);
     setDialogOpen(true);
   };
 
   const openEdit = (r: SemesterRow) => {
     setEditingId(r.id);
+    setEditingLegacy(r.groupId == null);
     setNumberStr(String(r.number));
     setName(r.name);
     setCourseId(r.courseId);
-    setGroupId(r.groupId ?? NONE_GROUP);
+    setGroupId(r.groupId ?? 0);
     setDialogOpen(true);
   };
 
@@ -109,6 +111,10 @@ const SemestersPage = () => {
       setError("Valid number, name and course are required.");
       return;
     }
+    if (!groupId) {
+      setError("Group is required for a Semester.");
+      return;
+    }
     setSaving(true);
     setError(null);
     setMessage(null);
@@ -117,7 +123,7 @@ const SemestersPage = () => {
         number: num,
         name: n,
         courseId,
-        groupId: groupId === NONE_GROUP ? null : groupId,
+        groupId,
       };
       if (editingId) await updateSemester({ id: editingId, ...payloadBase });
       else await createSemester(payloadBase);
@@ -167,7 +173,13 @@ const SemestersPage = () => {
                 <TableCell>{r.number}</TableCell>
                 <TableCell>{r.name}</TableCell>
                 <TableCell>{r.courseName}</TableCell>
-                <TableCell>{r.groupName ?? "—"}</TableCell>
+                <TableCell>
+                  {r.groupId == null ? (
+                    <Chip size="small" label="Legacy / Historical" color="warning" variant="outlined" />
+                  ) : (
+                    r.groupName ?? r.groupId
+                  )}
+                </TableCell>
                 <TableCell align="right">
                   <Button size="small" onClick={() => openEdit(r)}>
                     Edit
@@ -182,13 +194,22 @@ const SemestersPage = () => {
         <DialogTitle>{editingId ? "Edit semester" : "Add semester"}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            {editingLegacy && (
+              <Alert severity="warning">
+                This is a legacy historical Semester (no Group). It is retained for audit only and is excluded
+                from operational academic-tree / scheduling selectors. Select a Group only to convert it
+                explicitly — it will not be auto-assigned as a course-wide wildcard.
+              </Alert>
+            )}
             <TextField
               select
               label="Course"
               value={courseId || ""}
               onChange={(e) => {
-                setCourseId(Number(e.target.value));
-                setGroupId(NONE_GROUP);
+                const next = Number(e.target.value);
+                setCourseId(next);
+                const g0 = groups.find((g) => g.courseId === next)?.id ?? 0;
+                setGroupId(g0);
               }}
               fullWidth
               required
@@ -201,13 +222,14 @@ const SemestersPage = () => {
             </TextField>
             <TextField
               select
-              label="Group (optional)"
-              value={groupId === NONE_GROUP ? "" : groupId}
-              onChange={(e) => setGroupId(e.target.value ? Number(e.target.value) : NONE_GROUP)}
+              label="Group"
+              value={groupId || ""}
+              onChange={(e) => setGroupId(Number(e.target.value))}
               fullWidth
-              helperText="Leave empty when the semester applies to the whole course."
+              required
+              helperText="Group is required. New Semesters cannot be course-wide."
+              disabled={!courseId || groupsForCourse.length === 0}
             >
-              <MenuItem value="">— None —</MenuItem>
               {groupsForCourse.map((g) => (
                 <MenuItem key={g.id} value={g.id}>
                   {g.name}
@@ -230,7 +252,7 @@ const SemestersPage = () => {
           <Button onClick={() => setDialogOpen(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button variant="contained" onClick={() => void save()} disabled={saving}>
+          <Button variant="contained" onClick={() => void save()} disabled={saving || !groupId}>
             {saving ? "Saving…" : "Save"}
           </Button>
         </DialogActions>

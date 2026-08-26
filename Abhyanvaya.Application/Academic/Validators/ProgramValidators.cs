@@ -7,6 +7,7 @@ public sealed class CreateProgramRequestValidator : AbstractValidator<CreateProg
 {
     public CreateProgramRequestValidator()
     {
+        RuleFor(x => x.DepartmentId).GreaterThan(0).WithMessage("Department is required.");
         RuleFor(x => x.ProgramCode).NotEmpty().MaximumLength(32);
         RuleFor(x => x.ProgramName).NotEmpty().MaximumLength(128);
         RuleFor(x => x.Description).MaximumLength(512);
@@ -27,6 +28,7 @@ public sealed class UpdateProgramRequestValidator : AbstractValidator<UpdateProg
 
     public UpdateProgramRequestValidator()
     {
+        RuleFor(x => x.DepartmentId).GreaterThan(0).WithMessage("Department is required.");
         RuleFor(x => x.ProgramCode).NotEmpty().MaximumLength(32);
         RuleFor(x => x.ProgramName).NotEmpty().MaximumLength(128);
         RuleFor(x => x.Description).MaximumLength(512);

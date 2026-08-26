@@ -969,6 +969,11 @@ export type TimetableEntryDto = {
   startTime: string | null;
   endTime: string | null;
   subjectAllocationId: number;
+  /**
+   * AI-SCHED-TG.4 / TG.6 — Explicit TeachingGroup when assigned; null/undefined = not assigned.
+   * Response field only. Do not send on Create/Update entry payloads.
+   */
+  teachingGroupId?: number | null;
   staffId: number;
   staffName: string | null;
   roomId: number;
@@ -986,6 +991,31 @@ export type TimetableEntryDto = {
   remarks: string | null;
 };
 
+/** Explicit assign — never inferred from SubjectAllocation. */
+export type AssignTeachingGroupToTimetableEntryRequest = {
+  teachingGroupId: number;
+};
+
+/**
+ * AI-SCHED-TG.6 Prompt 4 / Prompt 2 — Selector option from the server-authoritative
+ * compatible Teaching Group query. Do not invent rows client-side.
+ * Membership overlays / resolved roster details are intentionally omitted.
+ */
+export type CompatibleTeachingGroupOptionDto = {
+  id: number;
+  code?: string | null;
+  name: string;
+  type: number;
+  status: number;
+  resolvedStudentCount: number;
+  expectedStudentCount?: number | null;
+  maxTeachingCapacity?: number | null;
+  /** True when this option matches TimetableEntry.teachingGroupId. */
+  isAssignedToEntry: boolean;
+  /** Server-authored: ResolvedStudentCount > MaxTeachingCapacity (when Max positive). */
+  isOverMaxTeachingCapacity?: boolean;
+};
+
 export type CreateTimetableRequest = {
   name: string;
   code?: string | null;
@@ -997,6 +1027,7 @@ export type CreateTimetableRequest = {
 
 export type UpdateTimetableRequest = CreateTimetableRequest & { id: number };
 
+/** Intentionally omits teachingGroupId — assign/clear via dedicated endpoints only. */
 export type CreateTimetableEntryRequest = {
   dayOfWeek: number;
   timeSlotId: number;
@@ -1005,8 +1036,10 @@ export type CreateTimetableEntryRequest = {
   remarks?: string | null;
 };
 
+/** Intentionally omits teachingGroupId — ordinary edit must not clear TG. */
 export type UpdateTimetableEntryRequest = CreateTimetableEntryRequest & { id: number };
 
+/** Intentionally omits teachingGroupId — bulk upsert must not clear TG. */
 export type UpsertTimetableEntryRequest = {
   id?: number | null;
   dayOfWeek: number;
@@ -1117,6 +1150,27 @@ export const createTimetableEntry = (timetableId: number, payload: CreateTimetab
 
 export const updateTimetableEntry = (entryId: number, payload: UpdateTimetableEntryRequest) =>
   api.put<TimetableEntryDto>(`/scheduling/timetables/entries/${entryId}`, payload);
+
+/** AI-SCHED-TG.4 — Explicit TeachingGroup assignment (no SA→TG inference). */
+export const assignTeachingGroupToTimetableEntry = (
+  entryId: number,
+  payload: AssignTeachingGroupToTimetableEntryRequest,
+) =>
+  api.put<TimetableEntryDto>(`/scheduling/timetables/entries/${entryId}/teaching-group`, payload);
+
+/** AI-SCHED-TG.4 — Explicit clear; must not occur via ordinary entry update. */
+export const clearTeachingGroupFromTimetableEntry = (entryId: number) =>
+  api.delete<TimetableEntryDto>(`/scheduling/timetables/entries/${entryId}/teaching-group`);
+
+/**
+ * AI-SCHED-TG.6 Prompt 4 — Server-authoritative compatible Teaching Groups for an entry.
+ * UI must not load all TGs and filter locally. Zero, one, or many results are valid.
+ * Backend endpoint is the approved contract target (implement if missing).
+ */
+export const listCompatibleTeachingGroupsForTimetableEntry = (entryId: number) =>
+  api.get<CompatibleTeachingGroupOptionDto[]>(
+    `/scheduling/timetables/entries/${entryId}/compatible-teaching-groups`,
+  );
 
 export const deleteTimetableEntry = (entryId: number) =>
   api.delete(`/scheduling/timetables/entries/${entryId}`);
@@ -1462,12 +1516,67 @@ export type SoftWarningDto = {
   code: string;
   severity: string;
   message: string;
+  title?: string | null;
+  why?: string | null;
+  suggestedAction?: string | null;
   entryId: number | null;
   staffId: number | null;
   roomId: number | null;
   dayOfWeek: number | null;
   timeSlotId: number | null;
   dismissed: boolean;
+  teachingGroupId?: number | null;
+  teachingGroupCode?: string | null;
+  teachingGroupName?: string | null;
+  teachingGroupStatus?: string | null;
+  placementSize?: number | null;
+  placementSizeSource?: string | null;
+  roomCapacity?: number | null;
+  capacityMarginPercent?: number | null;
+  effectiveRoomCapacity?: number | null;
+  resolvedStudentCount?: number | null;
+  maxTeachingCapacity?: number | null;
+};
+
+/** AI-SCHED-CAP Prompt 6/8.2 — mirrors TimetablePublishReadinessResultDto (server-authoritative). */
+export type TimetablePublishReadinessResultDto = {
+  timetableId: number;
+  lifecycleState: TimetableStatus;
+  isFrozen: boolean;
+  /** True when there are no blocking findings. */
+  isReady: boolean;
+  blockingFindingCount: number;
+  warningFindingCount: number;
+  informationalFindingCount: number;
+  evaluatedAtUtc: string;
+  findings: PublishReadinessFindingDto[];
+};
+
+/** AI-SCHED-CAP Prompt 6/8.2 — mirrors PublishReadinessFindingDto. */
+export type PublishReadinessFindingDto = {
+  code: string;
+  /** Critical | Error | Warning | Information */
+  severity: string;
+  /** Server-authoritative; do not derive from severity/code on the client. */
+  isBlocking: boolean;
+  title: string;
+  why: string;
+  recommendedAction: string;
+  timetableEntryId?: number | null;
+  dayOfWeek?: number | null;
+  timeSlotId?: number | null;
+  roomId?: number | null;
+  teachingGroupId?: number | null;
+  teachingGroupCode?: string | null;
+  teachingGroupName?: string | null;
+  teachingGroupStatus?: string | null;
+  placementSize?: number | null;
+  placementSizeSource?: string | null;
+  roomCapacity?: number | null;
+  capacityMarginPercent?: number | null;
+  effectiveRoomCapacity?: number | null;
+  resolvedStudentCount?: number | null;
+  maxTeachingCapacity?: number | null;
 };
 
 export type DismissSoftWarningRequest = {
@@ -1606,6 +1715,10 @@ export const getGovernanceDashboard = (academicYearId?: number) =>
 
 export const publishTimetable = (id: number, payload?: PublishTimetableRequest) =>
   api.post<TimetableDto>(`/scheduling/timetables/${id}/publish`, payload ?? {});
+
+/** AI-SCHED-CAP Prompt 6/8.2 — read-only publish readiness preflight (server-authoritative). */
+export const getTimetablePublishReadiness = (id: number) =>
+  api.get<TimetablePublishReadinessResultDto>(`/scheduling/timetables/${id}/publish-readiness`);
 
 export const archiveTimetable = (id: number, payload?: ArchiveTimetableRequest) =>
   api.post<TimetableDto>(`/scheduling/timetables/${id}/archive`, payload ?? {});
@@ -1755,6 +1868,9 @@ export type AttendanceSessionResolutionDto = {
   subjectName?: string | null;
   roomName?: string | null;
   attendanceDate?: string | null;
+  /** AI29 additive — from AttendanceSessionResolver TimetableSections (empty in Legacy). */
+  sectionIds?: number[] | null;
+  sectionCodes?: string[] | null;
 };
 
 export const analyzeConflicts = (payload: {

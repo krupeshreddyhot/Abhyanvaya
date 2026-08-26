@@ -2,6 +2,7 @@
 using Abhyanvaya.API.Common;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Abhyanvaya.Application.Academic;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Domain.Entities;
 using Abhyanvaya.Application.DTOs.Student;
@@ -161,6 +162,11 @@ namespace Abhyanvaya.API.Controllers
                     l.TenantId == _currentUser.TenantId))
                 return BadRequest("Invalid second language.");
 
+            var ownershipError = await ValidateStudentCatalogOwnershipAsync(
+                request.CourseId, request.GroupId, request.SemesterId);
+            if (ownershipError is not null)
+                return BadRequest(ownershipError);
+
             int firstLanguageId;
             if (request.FirstLanguageId is > 0)
             {
@@ -232,6 +238,11 @@ namespace Abhyanvaya.API.Controllers
                     l.Id == request.LanguageId &&
                     l.TenantId == _currentUser.TenantId))
                 return BadRequest("Invalid second language.");
+
+            var ownershipError = await ValidateStudentCatalogOwnershipAsync(
+                request.CourseId, request.GroupId, request.SemesterId);
+            if (ownershipError is not null)
+                return BadRequest(ownershipError);
 
             student.AppraId = request.AppraId;
                 student.StudentNumber = normalizedNumber;
@@ -401,6 +412,29 @@ namespace Abhyanvaya.API.Controllers
                 return $"\"{value.Replace("\"", "\"\"")}\"";
             }
             return value;
+        }
+
+        /// <summary>
+        /// AI-SCHED-CATALOG/TIMETABLE P1-4 Prompt 3B-A —
+        /// Server-authoritative Course → Group → Semester compatibility (no inference).
+        /// </summary>
+        private async Task<string?> ValidateStudentCatalogOwnershipAsync(int courseId, int groupId, int semesterId)
+        {
+            var tenantId = _currentUser.TenantId;
+            var group = await _context.Groups.AsNoTracking()
+                .Where(g => g.Id == groupId && g.TenantId == tenantId && !g.IsDeleted)
+                .Select(g => new StudentSemesterOwnershipRules.GroupSnapshot(g.Id, g.TenantId, g.CourseId, g.IsDeleted))
+                .FirstOrDefaultAsync();
+
+            var semester = await _context.Semesters.AsNoTracking()
+                .Where(s => s.Id == semesterId && s.TenantId == tenantId && !s.IsDeleted)
+                .Select(s => new StudentSemesterOwnershipRules.SemesterSnapshot(
+                    s.Id, s.TenantId, s.CourseId, s.GroupId, s.IsDeleted, s.IsHistoricalArchive))
+                .FirstOrDefaultAsync();
+
+            var decision = StudentSemesterOwnershipRules.EvaluateWrite(
+                tenantId, courseId, groupId, semesterId, group, semester);
+            return decision.Accepted ? null : decision.Error;
         }
 
         private async Task<int> GetOrCreateEnglishLanguageIdAsync()

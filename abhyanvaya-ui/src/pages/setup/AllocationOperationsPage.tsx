@@ -16,8 +16,10 @@ import {
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { AcademicPermissionAccess } from "../../auth/academicPermissionAccess";
 import { PermissionKeys } from "../../auth/permissionKeys";
 import { useAuth } from "../../context/AuthContext";
+import PermissionDeniedAlert from "../../components/common/PermissionDeniedAlert";
 import {
   approveAllocationScenario,
   archiveAllocationScenario,
@@ -35,17 +37,16 @@ import {
   type AllocationOpsDashboardDto,
   type AllocationScenarioDetailDto,
 } from "../../services/allocationOperationsService";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
-const errMsg = (e: unknown): string => {
-  const d = (e as { response?: { data?: unknown } }).response?.data;
-  if (typeof d === "string") return d;
-  if (d && typeof d === "object" && "message" in d) return String((d as { message: string }).message);
-  return "Request failed.";
-};
+const errMsg = (e: unknown): string => getApiErrorMessage(e, "Request failed.");
 
 const AllocationOperationsPage = () => {
-  const { hasPermission } = useAuth();
-  const canView = hasPermission(PermissionKeys.AllocationOperationsView) || hasPermission(PermissionKeys.SectionView);
+  const { hasPermission, hasAnyPermission } = useAuth();
+  const canView = hasAnyPermission([
+    ...AcademicPermissionAccess.allocation.contextAny,
+    AcademicPermissionAccess.allocationScenario.view,
+  ]);
   const canCompare = hasPermission(PermissionKeys.AllocationScenarioCompare);
   const canReplay = hasPermission(PermissionKeys.AllocationScenarioReplay);
   const canReview = hasPermission(PermissionKeys.AllocationScenarioReview);
@@ -110,8 +111,8 @@ const AllocationOperationsPage = () => {
 
   const doReplay = async (id: string) => {
     try {
-      const res = await replayAllocationScenario(id);
-      setMessage(`Replay created scenario ${res.data.scenarioId} (historical unchanged).`);
+      await replayAllocationScenario(id);
+      setMessage("Allocation replay completed. Student records were not changed.");
       await load();
     } catch (e) {
       setError(errMsg(e));
@@ -121,7 +122,7 @@ const AllocationOperationsPage = () => {
   const doReview = async (id: string) => {
     try {
       const res = await reviewAllocationScenario(id, "Reviewed in operations workspace");
-      setMessage(res.data.message || "Scenario marked Reviewed.");
+      setMessage(res.data.message || "Allocation marked as reviewed.");
       await load();
       if (detail?.scenarioId === id) await openDetail(id);
     } catch (e) {
@@ -132,7 +133,7 @@ const AllocationOperationsPage = () => {
   const doArchive = async (id: string) => {
     try {
       const res = await archiveAllocationScenario(id);
-      setMessage(res.data.message || "Scenario archived.");
+      setMessage(res.data.message || "Allocation archived.");
       await load();
       if (detail?.scenarioId === id) await openDetail(id);
     } catch (e) {
@@ -158,7 +159,7 @@ const AllocationOperationsPage = () => {
   const doReject = async (id: string) => {
     try {
       const res = await rejectAllocationScenario(id, "Rejected from operations workspace");
-      setMessage(res.data.message || "Scenario rejected.");
+      setMessage(res.data.message || "Allocation rejected.");
       await load();
       if (detail?.scenarioId === id) await openDetail(id);
     } catch (e) {
@@ -169,7 +170,7 @@ const AllocationOperationsPage = () => {
   if (!canView) {
     return (
       <Box sx={{ p: 2 }}>
-        <Alert severity="warning">Allocation.Operations.View permission required.</Alert>
+        <PermissionDeniedAlert permissionKey={AcademicPermissionAccess.allocation.operationsView} />
       </Box>
     );
   }
@@ -183,7 +184,8 @@ const AllocationOperationsPage = () => {
         Allocation Operations
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Enterprise review workspace. Latest Scenario ≠ Current Institutional Allocation. Human approval creates draft allocations only.
+        Review and manage student section allocations. Approval follows the server workflow and does not by itself permanently
+        move students.
       </Typography>
 
       {error && (
@@ -199,7 +201,7 @@ const AllocationOperationsPage = () => {
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab label="Runs" />
-        <Tab label="Scenarios" />
+        <Tab label="Allocations" />
         <Tab label="Analytics" />
         <Tab label="Constraints" />
       </Tabs>
@@ -209,7 +211,7 @@ const AllocationOperationsPage = () => {
       {ops && tab === 0 && (
         <Stack spacing={2}>
           <Alert severity={ops.mandatoryViolations === 0 ? "success" : "error"}>
-            Mandatory Violations = {ops.mandatoryViolations} (must be 0 for approval) · Preferred warnings {ops.preferredWarnings} ·
+            Required issues = {ops.mandatoryViolations} (must be 0 for approval) · Warnings {ops.preferredWarnings} ·
             Informational findings {ops.informationalFindings}
           </Alert>
           <Typography variant="body2">
@@ -217,7 +219,7 @@ const AllocationOperationsPage = () => {
             Out {ops.timedOutRuns} · Running {ops.runningRuns}
           </Typography>
           <Typography variant="body2">
-            Mandatory compliance {ops.mandatoryCompliance}% · Preferred compliance {ops.preferredCompliance}% · Avg score{" "}
+            Required rule compliance {ops.mandatoryCompliance}% · Preferred {ops.preferredCompliance}% · Avg score{" "}
             {ops.averageScore}
           </Typography>
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
@@ -226,17 +228,17 @@ const AllocationOperationsPage = () => {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Scenario</TableCell>
+                <TableCell>Allocation</TableCell>
                 <TableCell>Course/Group/Sem</TableCell>
                 <TableCell>Score</TableCell>
-                <TableCell>Lifecycle</TableCell>
-                <TableCell>Execution</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Run status</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {(ops.recentRuns || []).map((r) => (
                 <TableRow key={r.scenarioId} hover sx={{ cursor: "pointer" }} onClick={() => void openDetail(r.scenarioId)}>
-                  <TableCell>{r.scenarioId.slice(0, 8)}…</TableCell>
+                  <TableCell>{r.createdAt ? new Date(r.createdAt).toLocaleString() : "Open"}</TableCell>
                   <TableCell>
                     {r.courseId}/{r.groupId}/{r.semesterId}
                   </TableCell>
@@ -264,27 +266,24 @@ const AllocationOperationsPage = () => {
           {detail && (
             <Alert severity={detail.contextCurrent ? "success" : "warning"}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                Scenario {detail.scenarioId.slice(0, 8)}…
+                {detail.contextCurrent ? "Allocation ready for review" : "Allocation needs to be rebuilt"}
               </Typography>
               <Typography variant="body2">
-                Status: {detail.lifecycleStatus} · Execution: {detail.status} · Score: {detail.totalScore} · Version:{" "}
+                Status: {detail.lifecycleStatus} · Allocation Score: {detail.totalScore} · Version{" "}
                 {detail.currentVersionNumber}
-              </Typography>
-              <Typography variant="body2">
-                Scenario Context: v{detail.contextVersion} · Current Context: v{detail.currentContextVersion ?? detail.contextVersion}{" "}
-                {detail.contextCurrent ? "✓ Current" : "⚠ Outdated"}
               </Typography>
               {!detail.contextCurrent && (
                 <Typography variant="body2" sx={{ mt: 0.5 }}>
-                  This scenario was created using an earlier academic configuration and must be rebuilt before approval.
+                  The academic information used for this allocation has changed. Review the academic scope and generate
+                  the allocation again.
                 </Typography>
               )}
               <Typography variant="body2" sx={{ mt: 0.5 }}>
-                Mandatory Constraints: {ops?.mandatoryCompliance ?? "—"}% · Preferred: {ops?.preferredCompliance ?? "—"}%
+                Required rule compliance: {ops?.mandatoryCompliance ?? "—"}% · Preferred: {ops?.preferredCompliance ?? "—"}%
               </Typography>
               <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                 <Button size="small" disabled={!canReview} onClick={() => void doReview(detail.scenarioId)}>
-                  Review
+                  Mark as Reviewed
                 </Button>
                 <Button
                   size="small"
@@ -292,7 +291,7 @@ const AllocationOperationsPage = () => {
                   disabled={!canApprove || !detail.governance?.canApprove}
                   onClick={() => void doApprove(detail.scenarioId)}
                 >
-                  Approve
+                  Approve Allocation
                 </Button>
                 <Button size="small" color="warning" disabled={!canReject} onClick={() => void doReject(detail.scenarioId)}>
                   Reject
@@ -302,7 +301,7 @@ const AllocationOperationsPage = () => {
                 </Button>
                 {!detail.contextCurrent && (
                   <Button size="small" component={RouterLink} to="/setup/academic/allocation-context">
-                    Rebuild Scenario
+                    Review Academic Scope
                   </Button>
                 )}
               </Stack>
@@ -326,15 +325,15 @@ const AllocationOperationsPage = () => {
           )}
 
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            Scenario Workspace
+            Allocation list
           </Typography>
           <Table size="small">
             <TableHead>
               <TableRow>
                 <TableCell>Select</TableCell>
-                <TableCell>Scenario</TableCell>
+                <TableCell>Allocation</TableCell>
                 <TableCell>Score</TableCell>
-                <TableCell>Lifecycle</TableCell>
+                <TableCell>Status</TableCell>
                 <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -346,14 +345,14 @@ const AllocationOperationsPage = () => {
                   </TableCell>
                   <TableCell>
                     <Button size="small" onClick={() => void openDetail(s.scenarioId)}>
-                      {s.scenarioId.slice(0, 8)}…
+                      Open
                     </Button>
                   </TableCell>
                   <TableCell>{s.score}</TableCell>
                   <TableCell>{s.lifecycleStatus}</TableCell>
                   <TableCell>
                     <Button size="small" disabled={!canReplay} onClick={() => void doReplay(s.scenarioId)}>
-                      Replay
+                      Replay Allocation
                     </Button>
                     <Button size="small" disabled={!canReview} onClick={() => void doReview(s.scenarioId)}>
                       Review
@@ -368,8 +367,9 @@ const AllocationOperationsPage = () => {
           </Table>
           {compare && (
             <Alert severity="info">
-              Original {compare.originalScore} · Best {compare.bestScenarioLabel} ({compare.bestScenarioId?.slice(0, 8)}…) · Improvement{" "}
-              {compare.improvementVsOriginal} · {compare.summary}
+              Allocation comparison completed. Original score {compare.originalScore} · Best{" "}
+              {compare.bestScenarioLabel || "—"} · Improvement {compare.improvementVsOriginal}
+              {compare.summary ? ` · ${compare.summary}` : ""}
             </Alert>
           )}
         </Stack>
@@ -385,14 +385,14 @@ const AllocationOperationsPage = () => {
           <Typography variant="body2">Success rate: {analytics.successRate}% (from actual status counts)</Typography>
           <Typography variant="body2">Students allocated: {analytics.studentsAllocated}</Typography>
           <Typography variant="body2">Average occupancy: {analytics.averageSectionOccupancy}%</Typography>
-          <Typography variant="body2">Mandatory compliance: {analytics.mandatoryCompliance}%</Typography>
+          <Typography variant="body2">Required rule compliance: {analytics.mandatoryCompliance}%</Typography>
           <Typography variant="body2">Preferred compliance: {analytics.preferredCompliance}%</Typography>
           <Typography variant="body2">Informational findings: {analytics.informationalFindings}</Typography>
           <Typography variant="body2">Average score: {analytics.averageScore}</Typography>
           {ops?.heatmap && (
             <>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mt: 1 }}>
-                {ops.heatmap.title || "Latest Scenario – Section Utilization"}
+                {(ops.heatmap.title || "Latest Allocation – Section Utilization").replace(/Scenario/gi, "Allocation")}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {ops.heatmap.scopeNote}

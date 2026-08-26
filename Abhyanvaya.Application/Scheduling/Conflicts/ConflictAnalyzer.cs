@@ -1,4 +1,5 @@
 using Abhyanvaya.Application.Common.Interfaces;
+using Abhyanvaya.Application.Scheduling.Capacity;
 using Abhyanvaya.Application.Scheduling.Conflicts.Intelligence;
 using Abhyanvaya.Domain.Entities.Scheduling;
 using Microsoft.EntityFrameworkCore;
@@ -6,20 +7,26 @@ using Microsoft.EntityFrameworkCore;
 namespace Abhyanvaya.Application.Scheduling.Conflicts;
 
 /// <summary>Loads analysis context and runs the <see cref="ConflictEngine"/> pipeline.</summary>
-public sealed class ConflictAnalyzer
+public sealed class ConflictAnalyzer : IConflictAnalysisRunner
 {
     private readonly IApplicationDbContext _context;
     private readonly ConflictEngine _engine;
     private readonly IConflictRuleConfigurationService _ruleConfiguration;
+    private readonly ITeachingGroupMembershipResolver _membershipResolver;
+    private readonly IPlacementSizeResolver _placementSizeResolver;
 
     public ConflictAnalyzer(
         IApplicationDbContext context,
         ConflictEngine engine,
-        IConflictRuleConfigurationService ruleConfiguration)
+        IConflictRuleConfigurationService ruleConfiguration,
+        ITeachingGroupMembershipResolver membershipResolver,
+        IPlacementSizeResolver placementSizeResolver)
     {
         _context = context;
         _engine = engine;
         _ruleConfiguration = ruleConfiguration;
+        _membershipResolver = membershipResolver;
+        _placementSizeResolver = placementSizeResolver;
     }
 
     public async Task<(ConflictAnalysisContext Context, ConflictResultBag Bag)> AnalyzeAsync(
@@ -96,6 +103,23 @@ public sealed class ConflictAnalyzer
             .ToDictionaryAsync(x => x.Id, cancellationToken);
         var thresholds = await _ruleConfiguration.GetThresholdsAsync(tenantId, cancellationToken);
 
+        // AI-SCHED-CAP Prompt 3 — batch TG masters + membership counts (distinct ids only; tenant-scoped).
+        var tgIds = entries
+            .Where(e => e.TeachingGroupId.HasValue)
+            .Select(e => e.TeachingGroupId!.Value)
+            .Distinct()
+            .ToList();
+        var teachingGroups = tgIds.Count == 0
+            ? new Dictionary<int, TeachingGroup>()
+            : await _context.SchedulingTeachingGroups
+                .Where(g => g.TenantId == tenantId && tgIds.Contains(g.Id))
+                .AsNoTracking()
+                .ToDictionaryAsync(g => g.Id, cancellationToken);
+
+        var resolvedCounts = new Dictionary<int, int>(teachingGroups.Count);
+        foreach (var tgId in teachingGroups.Keys)
+            resolvedCounts[tgId] = await _membershipResolver.ResolveCountAsync(tgId, cancellationToken);
+
         var ctx = new ConflictAnalysisContext
         {
             TenantId = tenantId,
@@ -119,7 +143,10 @@ public sealed class ConflictAnalyzer
             AcademicYear = academicYear,
             StaffNames = staffNames,
             RoomFeatureAssignments = featureAssignments,
-            DeliveryTypes = deliveryTypes
+            DeliveryTypes = deliveryTypes,
+            TeachingGroups = teachingGroups,
+            ResolvedStudentCountsByTeachingGroupId = resolvedCounts,
+            PlacementSizeResolver = _placementSizeResolver
         };
 
         var bag = await _engine.ExecuteAsync(ctx, cancellationToken);

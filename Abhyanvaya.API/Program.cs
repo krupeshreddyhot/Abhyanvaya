@@ -6,6 +6,7 @@ using Abhyanvaya.API.Services;
 using Abhyanvaya.API.Common.Auth.Handlers;
 using Abhyanvaya.API.Common.Auth.Requirements;
 using Abhyanvaya.Application;
+using Abhyanvaya.Application.Academic;
 using Abhyanvaya.API.SignalR;
 using Abhyanvaya.API.Hubs;
 using Abhyanvaya.API.Middleware;
@@ -349,6 +350,52 @@ builder.Services.AddAuthorization(options =>
     AddSetupManagePolicy(AuthorizationPolicies.CanDeletePrograms, PermissionKeys.ProgramDelete);
     AddSetupManagePolicy(AuthorizationPolicies.CanManagePrograms, PermissionKeys.ProgramManage);
 
+    // AI29.1D.24 — Course → Program assignment (Course Master or Program managers).
+    options.AddPolicy(AuthorizationPolicies.CanAssignCourseToProgram, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (!int.TryParse(ctx.User.FindFirst("TenantId")?.Value, out var tid) || tid <= 0)
+                return false;
+            return ctx.User.HasClaim("permission", PermissionKeys.ProgramManage)
+                   || ctx.User.HasClaim("permission", PermissionKeys.SetupCoursesManage);
+        });
+    });
+
+    options.AddPolicy(AuthorizationPolicies.CanViewProgramCatalog, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (!int.TryParse(ctx.User.FindFirst("TenantId")?.Value, out var tid) || tid <= 0)
+                return false;
+            return ctx.User.HasClaim("permission", PermissionKeys.ProgramView)
+                   || ctx.User.HasClaim("permission", PermissionKeys.SetupCoursesManage);
+        });
+    });
+
+    // AI29.1D Prompt 16A — operational context breadcrumb (OR of consumer permissions; not Program write).
+    options.AddPolicy(AuthorizationPolicies.CanViewAcademicOperationalContext, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (!int.TryParse(ctx.User.FindFirst("TenantId")?.Value, out var tid) || tid <= 0)
+                return false;
+            return AcademicOperationalContextAccess.HasPermission(ctx.User.Claims, role);
+        });
+    });
+
     options.AddPolicy(AuthorizationPolicies.TenantCollegeAdminOnly, policy =>
     {
         policy.RequireAuthenticatedUser();
@@ -398,6 +445,24 @@ builder.Services.AddAuthorization(options =>
                 return true;
             return ctx.User.HasClaim("permission", PermissionKeys.SchedulingView)
                    || ctx.User.HasClaim("permission", PermissionKeys.SchedulingManage);
+        });
+    });
+
+    // Faculty with Attendance.Manage need current Academic Year for optional Section scope
+    // without granting full Scheduling.View.
+    options.AddPolicy(AuthorizationPolicies.CanViewAcademicYears, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.Equals(role, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+                return true;
+            return ctx.User.HasClaim("permission", PermissionKeys.SchedulingView)
+                   || ctx.User.HasClaim("permission", PermissionKeys.SchedulingManage)
+                   || ctx.User.HasClaim("permission", PermissionKeys.AttendanceView)
+                   || ctx.User.HasClaim("permission", PermissionKeys.AttendanceManage)
+                   || ctx.User.HasClaim("permission", PermissionKeys.SectionView);
         });
     });
 
@@ -451,6 +516,7 @@ builder.Services.AddAuthorization(options =>
     AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingSubjectDelivery, PermissionKeys.SchedulingSubjectDeliveryView, PermissionKeys.SchedulingSubjectDeliveryManage);
     AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingHolidayTypes, PermissionKeys.SchedulingHolidayTypesView, PermissionKeys.SchedulingHolidayTypesManage);
     AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingTimetable, PermissionKeys.SchedulingTimetableView, PermissionKeys.SchedulingTimetableManage);
+    AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingTeachingGroup, PermissionKeys.SchedulingTeachingGroupView, PermissionKeys.SchedulingTeachingGroupManage);
     AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingVersion, PermissionKeys.SchedulingVersionView, PermissionKeys.SchedulingVersionManage);
     AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingHistory, PermissionKeys.SchedulingHistoryView, PermissionKeys.SchedulingTimetableManage);
     AddSchedulingViewPolicy(AuthorizationPolicies.CanViewSchedulingGovernanceDashboard, PermissionKeys.SchedulingVersionView, PermissionKeys.SchedulingVersionManage);
@@ -468,6 +534,7 @@ builder.Services.AddAuthorization(options =>
     AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingSubjectDelivery, PermissionKeys.SchedulingSubjectDeliveryManage);
     AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingHolidayTypes, PermissionKeys.SchedulingHolidayTypesManage);
     AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingTimetable, PermissionKeys.SchedulingTimetableManage);
+    AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingTeachingGroup, PermissionKeys.SchedulingTeachingGroupManage);
     AddSetupManagePolicy(AuthorizationPolicies.CanManageSchedulingVersion, PermissionKeys.SchedulingVersionManage);
     AddSetupManagePolicy(AuthorizationPolicies.CanReviewScheduling, PermissionKeys.SchedulingReview);
     AddSetupManagePolicy(AuthorizationPolicies.CanApproveScheduling, PermissionKeys.SchedulingApprove);

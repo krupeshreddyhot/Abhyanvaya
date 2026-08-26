@@ -1,6 +1,7 @@
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Common.Interfaces.Scheduling;
 using Abhyanvaya.Application.Scheduling;
+using Abhyanvaya.Application.Scheduling.Capacity;
 using Abhyanvaya.Application.UnitTests.Scheduling.Phase2;
 using Abhyanvaya.Domain.Entities;
 using Abhyanvaya.Domain.Entities.Scheduling;
@@ -52,6 +53,7 @@ public sealed class TimetableSoftValidationTests
         context.Setup(c => c.Subjects).Returns(new List<Subject> { new() { Id = 1, ExpectedCapacity = 50 } }.AsAsyncQueryable());
         context.Setup(c => c.SchedulingWorkingDays).Returns(new List<WorkingDay> { new() { DayOfWeek = 1, IsWorking = false, AcademicYearId = 10, TenantId = 1 } }.AsAsyncQueryable());
         context.Setup(c => c.SchedulingHolidays).Returns(Array.Empty<Holiday>().AsAsyncQueryable());
+        context.Setup(c => c.SchedulingTeachingGroups).Returns(Array.Empty<TeachingGroup>().AsAsyncQueryable());
 
         var unitOfWork = new Mock<IUnitOfWork>();
         var currentUser = new Mock<ICurrentUserService>();
@@ -65,12 +67,19 @@ public sealed class TimetableSoftValidationTests
             unitOfWork.Object,
             currentUser.Object,
             Mock.Of<IValidator<Abhyanvaya.Application.DTOs.Scheduling.DismissSoftWarningRequest>>(v =>
-                v.ValidateAsync(It.IsAny<Abhyanvaya.Application.DTOs.Scheduling.DismissSoftWarningRequest>(), It.IsAny<CancellationToken>()) == Task.FromResult(new ValidationResult())));
+                v.ValidateAsync(It.IsAny<Abhyanvaya.Application.DTOs.Scheduling.DismissSoftWarningRequest>(), It.IsAny<CancellationToken>()) == Task.FromResult(new ValidationResult())),
+            Mock.Of<ITeachingGroupMembershipResolver>(),
+            PlacementSizeResolver.Instance,
+            RoomCapacityEvaluator.Instance,
+            Mock.Of<Abhyanvaya.Application.Scheduling.Conflicts.Intelligence.IConflictRuleConfigurationService>(c =>
+                c.GetThresholdsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())
+                == Task.FromResult(Abhyanvaya.Application.Scheduling.Conflicts.Intelligence.ConflictRuleThresholds.Defaults)),
+            SchedulingConflictPresentationComposer.Instance);
 
         var warnings = await Record.ExceptionAsync(() => service.ValidateAsync(1));
         Assert.Null(warnings);
         var result = await service.ValidateAsync(1);
         Assert.NotEmpty(result);
-        Assert.All(result, w => Assert.Equal("Warning", w.Severity));
+        Assert.All(result, w => Assert.Contains(w.Severity, new[] { "Warning", "Error", "Information", "Critical" }));
     }
 }

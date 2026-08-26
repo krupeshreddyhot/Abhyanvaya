@@ -39,6 +39,7 @@ public sealed class Phase2A5GovernanceEnhancementTests
             .ReturnsAsync(new TimetableDto { Id = 1, Name = "T", Status = TimetableStatus.Published, IsFrozen = true, AcademicYearId = 1 });
 
         var valid = new ValidationResult();
+        var readiness = Mock.Of<ITimetablePublishReadinessService>();
         var service = new TimetableLifecycleService(
             repository.Object,
             Mock.Of<IScheduleVersionRepository>(),
@@ -48,6 +49,7 @@ public sealed class Phase2A5GovernanceEnhancementTests
             Mock.Of<ICurrentUserService>(c => c.TenantId == 1 && c.UserId == 9),
             history.Object,
             timetableService.Object,
+            readiness,
             Mock.Of<IValidator<FreezeTimetableRequest>>(v => v.ValidateAsync(It.IsAny<FreezeTimetableRequest>(), It.IsAny<CancellationToken>()) == Task.FromResult(valid)),
             Mock.Of<IValidator<UnlockFrozenTimetableRequest>>(v => v.ValidateAsync(It.IsAny<UnlockFrozenTimetableRequest>(), It.IsAny<CancellationToken>()) == Task.FromResult(valid)));
 

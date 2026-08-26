@@ -63,7 +63,7 @@ const SubjectAllocationPage = () => {
 
   const [rows, setRows] = useState<SubjectAllocationDto[]>([]);
   const [years, setYears] = useState<{ id: number; label: string }[]>([]);
-  const [courses, setCourses] = useState<{ id: number; name: string }[]>([]);
+  const [courses, setCourses] = useState<{ id: number; name: string; departmentId?: number }[]>([]);
   const [groups, setGroups] = useState<{ id: number; name: string; courseId: number }[]>([]);
   const [semesters, setSemesters] = useState<{ id: number; name: string; courseId: number; groupId: number | null }[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
@@ -109,6 +109,15 @@ const SubjectAllocationPage = () => {
   const watchedGroupId = useWatch({ control: form.control, name: "groupId" });
   const watchedSemesterId = useWatch({ control: form.control, name: "semesterId" });
   const watchedSubjectId = useWatch({ control: form.control, name: "subjectId" });
+  const watchedDepartmentId = useWatch({ control: form.control, name: "departmentId" });
+
+  const dialogCourses = useMemo(
+    () =>
+      courses.filter(
+        (c) => !watchedDepartmentId || !c.departmentId || c.departmentId === watchedDepartmentId,
+      ),
+    [courses, watchedDepartmentId],
+  );
 
   const dialogGroups = useMemo(
     () => groups.filter((g) => !watchedCourseId || g.courseId === watchedCourseId),
@@ -159,7 +168,13 @@ const SubjectAllocationPage = () => {
           listDepartments(undefined, true),
         ]);
         setYears(y.data.map((a) => ({ id: a.id, label: `${a.code} — ${a.name}` })));
-        setCourses(c.data.map((x) => ({ id: x.id, name: x.name })));
+        setCourses(
+          c.data.map((x) => ({
+            id: x.id,
+            name: x.name,
+            departmentId: x.departmentId,
+          })),
+        );
         setGroups(g.data.map((x) => ({ id: x.id, name: x.name, courseId: x.courseId })));
         setSemesters(sem.data.map((x) => ({ id: x.id, name: x.name, courseId: x.courseId, groupId: x.groupId })));
         // Must use Subject.Id (catalog.id). TenantSubjectId is the master subject name key and is wrong for allocations.
@@ -447,7 +462,22 @@ const SubjectAllocationPage = () => {
               render={({ field }) => (
                 <FormControl fullWidth required>
                   <InputLabel id="dept">Department</InputLabel>
-                  <Select labelId="dept" label="Department" value={field.value} onChange={(e) => field.onChange(Number(e.target.value))}>
+                  <Select
+                    labelId="dept"
+                    label="Department"
+                    value={field.value}
+                    onChange={(e) => {
+                      const nextDept = Number(e.target.value);
+                      field.onChange(nextDept);
+                      const currentCourse = courses.find((c) => c.id === form.getValues("courseId"));
+                      if (currentCourse?.departmentId && currentCourse.departmentId !== nextDept) {
+                        form.setValue("courseId", 0);
+                        form.setValue("groupId", 0);
+                        form.setValue("semesterId", 0);
+                        form.setValue("subjectId", 0);
+                      }
+                    }}
+                  >
                     {departments.map((d) => (
                       <MenuItem key={d.id} value={d.id}>
                         {d.name}
@@ -471,6 +501,10 @@ const SubjectAllocationPage = () => {
                       onChange={(e) => {
                         const next = Number(e.target.value);
                         field.onChange(next);
+                        const course = courses.find((c) => c.id === next);
+                        if (course?.departmentId) {
+                          form.setValue("departmentId", course.departmentId);
+                        }
                         const nextGroups = groups.filter((g) => g.courseId === next);
                         const nextGroupId = nextGroups[0]?.id ?? 0;
                         form.setValue("groupId", nextGroupId);
@@ -480,7 +514,7 @@ const SubjectAllocationPage = () => {
                         form.setValue("semesterId", nextSemesters[0]?.id ?? 0);
                       }}
                     >
-                      {courses.map((c) => (
+                      {dialogCourses.map((c) => (
                         <MenuItem key={c.id} value={c.id}>
                           {c.name}
                         </MenuItem>
@@ -533,7 +567,7 @@ const SubjectAllocationPage = () => {
                       {dialogSemesters.map((s) => (
                         <MenuItem key={s.id} value={s.id}>
                           {s.name}
-                          {s.groupId == null ? " (all groups)" : ""}
+                          {s.groupId == null ? " (legacy historical — not for new allocations)" : ""}
                         </MenuItem>
                       ))}
                     </Select>

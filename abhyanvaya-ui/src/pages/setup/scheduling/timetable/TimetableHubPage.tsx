@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
-  Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -21,13 +18,22 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Typography,
 } from "@mui/material";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import {
+  AcademicConfirmDialog,
+  AcademicContextBreadcrumb,
+  AcademicDataPanel,
+  AcademicOperationalPageShell,
+  AcademicScopeToolbar,
+  AcademicStatusChip,
+  academicChipSx,
+  academicTouchButtonSx,
+} from "../../../../components/academic";
 import { PermissionKeys } from "../../../../auth/permissionKeys";
 import { useAuth } from "../../../../context/AuthContext";
 import { listDepartments } from "../../../../services/setupService";
@@ -69,6 +75,8 @@ const TimetableHubPage = () => {
     notes: "",
   });
   const [saving, setSaving] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadRows = useCallback(async () => {
     setLoading(true);
@@ -160,75 +168,111 @@ const TimetableHubPage = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm("Delete this timetable?")) return;
+    setDeleting(true);
     try {
       await deleteTimetable(id);
       setMessage("Timetable deleted.");
+      setDeleteId(null);
       void loadRows();
     } catch (e) {
       setError(errMsg(e));
+    } finally {
+      setDeleting(false);
     }
   };
 
   return (
-    <Stack spacing={2} className="timetable-hub">
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }} className="no-print">
-        <Button component={RouterLink} to="/setup/scheduling" startIcon={<ArrowBackIcon />} variant="text">
-          Scheduling
-        </Button>
-        <Typography variant="h5" sx={{ flexGrow: 1 }}>
-          Timetable designer
-        </Typography>
-        {canManage && (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
-            Create timetable
+    <AcademicOperationalPageShell
+      title="Timetable designer"
+      ariaLabel="Timetable hub"
+      breadcrumb={<AcademicContextBreadcrumb />}
+      subtitle="Administrative timetable list. Open a draft to edit; locked timetables remain read-only in the designer."
+      headerActions={
+        <>
+          <Button
+            component={RouterLink}
+            to="/setup/scheduling"
+            startIcon={<ArrowBackIcon />}
+            size="small"
+            sx={academicTouchButtonSx}
+            className="no-print"
+          >
+            Scheduling
           </Button>
-        )}
-      </Box>
-
-      {error && <Alert severity="error">{error}</Alert>}
-      {message && (
-        <Alert severity="success" onClose={() => setMessage(null)}>
-          {message}
-        </Alert>
-      )}
-
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} className="no-print">
-        <FormControl sx={{ minWidth: 200 }}>
-          <InputLabel>Academic year</InputLabel>
-          <Select
-            label="Academic year"
-            value={filterYearId}
-            onChange={(e) => setFilterYearId(parseOptionalSelectNumber(e.target.value))}
-          >
-            {years.map((y) => (
-              <MenuItem key={y.id} value={y.id}>
-                {y.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl sx={{ minWidth: 160 }}>
-          <InputLabel>Status</InputLabel>
-          <Select
-            label="Status"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(parseOptionalSelectNumber(e.target.value) as TimetableStatus | "")}
-          >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value={TimetableStatus.Draft}>Draft</MenuItem>
-            <MenuItem value={TimetableStatus.Locked}>Locked</MenuItem>
-          </Select>
-        </FormControl>
-        <Chip label={`${draftCount} drafts`} color="warning" variant="outlined" />
-        <Chip label={`${lockedCount} locked`} color="success" variant="outlined" />
-      </Stack>
-
-      {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
+          {canManage ? (
+            <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate} sx={academicTouchButtonSx} className="no-print">
+              Create timetable
+            </Button>
+          ) : null}
+        </>
+      }
+      error={error}
+      onClearError={() => setError(null)}
+      message={message}
+      onClearMessage={() => setMessage(null)}
+      toolbar={
+        <AcademicScopeToolbar
+          label="Timetable filters"
+          helpTitle="Timetable filters"
+          helpBody="Filter by Academic Year and status. Academic context breadcrumb reflects shared AcademicUi selection when set."
+          actions={
+            <>
+              <AcademicStatusChip label={`${draftCount} drafts`} status="Draft" variant="outlined" />
+              <AcademicStatusChip label={`${lockedCount} locked`} status="Locked" variant="outlined" />
+            </>
+          }
+        >
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} useFlexGap sx={{ flexWrap: "wrap" }}>
+            <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 200 } }}>
+              <InputLabel id="tt-year-label">Academic year</InputLabel>
+              <Select
+                labelId="tt-year-label"
+                label="Academic year"
+                value={filterYearId}
+                onChange={(e) => setFilterYearId(parseOptionalSelectNumber(e.target.value))}
+              >
+                {years.map((y) => (
+                  <MenuItem key={y.id} value={y.id}>
+                    {y.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 160 } }}>
+              <InputLabel id="tt-status-label">Status</InputLabel>
+              <Select
+                labelId="tt-status-label"
+                label="Status"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(parseOptionalSelectNumber(e.target.value) as TimetableStatus | "")}
+              >
+                <MenuItem value="">All</MenuItem>
+                <MenuItem value={TimetableStatus.Draft}>Draft</MenuItem>
+                <MenuItem value={TimetableStatus.Locked}>Locked</MenuItem>
+              </Select>
+            </FormControl>
+          </Stack>
+        </AcademicScopeToolbar>
+      }
+    >
+      <AcademicDataPanel
+        title="Timetables"
+        accent="scheduling"
+        loading={loading}
+        loadingLabel="Loading timetables…"
+        empty={!loading && rows.length === 0}
+        emptyTitle="No timetables found"
+        emptyDescription="Adjust filters or create a draft timetable for the selected academic year."
+        emptyAction={
+          canManage ? (
+            <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate}>
+              Create timetable
+            </Button>
+          ) : undefined
+        }
+        helpTitle="Timetable list"
+        helpBody="Desktop: manage drafts and open the designer. Tablet/mobile: scroll the table horizontally without page overflow."
+      >
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -255,35 +299,52 @@ const TimetableHubPage = () => {
                     size="small"
                     label={TIMETABLE_STATUS_LABELS[r.status] ?? r.status}
                     color={TIMETABLE_STATUS_COLORS[r.status] ?? "default"}
+                    sx={academicChipSx}
                   />
                 </TableCell>
                 <TableCell align="right">{r.entryCount}</TableCell>
                 <TableCell align="right" className="no-print">
                   <IconButton
                     size="small"
+                    aria-label={`Open designer for ${r.name}`}
                     title="Open designer"
                     onClick={() => navigate(`/setup/scheduling/timetables/${r.id}`)}
+                    sx={academicTouchButtonSx}
                   >
                     <OpenInNewIcon fontSize="small" />
                   </IconButton>
                   {canManage && r.status === TimetableStatus.Draft && (
-                    <IconButton size="small" color="error" title="Delete" onClick={() => void handleDelete(r.id)}>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      aria-label={`Delete ${r.name}`}
+                      title="Delete"
+                      onClick={() => setDeleteId(r.id)}
+                      sx={academicTouchButtonSx}
+                    >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   )}
                 </TableCell>
               </TableRow>
             ))}
-            {rows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} align="center">
-                  No timetables found.
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
-      )}
+      </AcademicDataPanel>
+
+      <AcademicConfirmDialog
+        open={deleteId != null}
+        title="Delete timetable?"
+        description="This permanently deletes the draft timetable and its entries."
+        confirmLabel="Delete"
+        confirming={deleting}
+        onCancel={() => {
+          if (!deleting) setDeleteId(null);
+        }}
+        onConfirm={() => {
+          if (deleteId != null) void handleDelete(deleteId);
+        }}
+      />
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Create timetable</DialogTitle>
@@ -371,7 +432,7 @@ const TimetableHubPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Stack>
+    </AcademicOperationalPageShell>
   );
 };
 

@@ -43,6 +43,16 @@ public sealed class AllocationEngineController : ControllerBase
         public int SemesterId { get; set; }
         public string? GroupingMode { get; set; }
         public Dictionary<string, bool>? EnabledStrategies { get; set; }
+        /// <summary>AI29.1C constraint priorities (Mandatory / Preferred / Informational) by constraint code.</summary>
+        public Dictionary<string, string>? ConstraintPriorities { get; set; }
+        /// <summary>AI29.1D — Population selection criteria (resolved against Allocation Context only).</summary>
+        public AllocationPopulationSelection? PopulationSelection { get; set; }
+        /// <summary>AI29.1D — Explicit target section ids (omit/empty = all eligible sections in context).</summary>
+        public List<int>? TargetSectionIds { get; set; }
+        /// <summary>AI29.1D.24B.4 — Optional band size for RollNumberBands placement (null = first section capacity).</summary>
+        public int? RollNumberBandSize { get; set; }
+        /// <summary>AI29.1D.24B.4A — PreserveExisting | Reallocate | LegacyPreserveWhenCapacityAllows (omit = legacy).</summary>
+        public string? ExistingAssignmentPolicy { get; set; }
     }
 
     [HttpPost("run")]
@@ -175,6 +185,19 @@ public sealed class AllocationEngineController : ControllerBase
     [Authorize(Policy = AuthorizationPolicies.CanViewSections)]
     public ActionResult<IReadOnlyList<string>> GroupingModes() => Ok(AllocationGroupingModes.All);
 
+    [HttpGet("pipeline-strategies")]
+    [Authorize(Policy = AuthorizationPolicies.CanViewSections)]
+    public ActionResult<IReadOnlyList<string>> PipelineStrategies()
+        => Ok(AllocationPipelineConfig.Default.EnabledStrategies.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase).ToList());
+
+    [HttpGet("constraint-priorities")]
+    [Authorize(Policy = AuthorizationPolicies.CanViewSections)]
+    public ActionResult<IReadOnlyDictionary<string, string>> ConstraintPriorityDefaults()
+        => Ok(AllocationPipelineConfig.Default.ConstraintPriorities.ToDictionary(
+            kv => kv.Key,
+            kv => kv.Value.ToString(),
+            StringComparer.OrdinalIgnoreCase));
+
     [HttpGet("engine-architecture-report")]
     [Authorize(Policy = AuthorizationPolicies.CanViewSections)]
     public ActionResult<AllocationArchitectureReport> EngineArchitecture()
@@ -194,10 +217,50 @@ public sealed class AllocationEngineController : ControllerBase
         return new AllocationPipelineConfig
         {
             GroupingMode = string.IsNullOrWhiteSpace(request.GroupingMode) ? defaults.GroupingMode : request.GroupingMode!,
-            EnabledStrategies = request.EnabledStrategies is { Count: > 0 }
-                ? new Dictionary<string, bool>(request.EnabledStrategies, StringComparer.OrdinalIgnoreCase)
-                : defaults.EnabledStrategies,
-            ConstraintPriorities = defaults.ConstraintPriorities,
-        };
+            EnabledStrategies = MergeStrategies(defaults.EnabledStrategies, request.EnabledStrategies),
+            ConstraintPriorities = MergeConstraintPriorities(defaults.ConstraintPriorities, request.ConstraintPriorities),
+            PopulationSelection = request.PopulationSelection ?? AllocationPopulationSelection.AllEligible,
+            TargetSectionIds = request.TargetSectionIds is { Count: > 0 } ? request.TargetSectionIds : null,
+            RollNumberBandSize = request.RollNumberBandSize is > 0 ? request.RollNumberBandSize : null,
+            ExistingAssignmentPolicy = request.ExistingAssignmentPolicy,
+        }.Normalize();
+    }
+
+    /// <summary>
+    /// Merge request toggles onto platform defaults so opt-in strategies (e.g. RollNumberBands)
+    /// remain false when omitted — missing keys must not silently enable placement policies.
+    /// </summary>
+    private static IReadOnlyDictionary<string, bool> MergeStrategies(
+        IReadOnlyDictionary<string, bool> defaults,
+        Dictionary<string, bool>? overrides)
+    {
+        var merged = new Dictionary<string, bool>(defaults, StringComparer.OrdinalIgnoreCase);
+        if (overrides is null || overrides.Count == 0) return merged;
+        foreach (var (code, enabled) in overrides)
+        {
+            if (string.IsNullOrWhiteSpace(code)) continue;
+            merged[code.Trim()] = enabled;
+        }
+        return merged;
+    }
+
+    private static IReadOnlyDictionary<string, AllocationConstraintPriority> MergeConstraintPriorities(
+        IReadOnlyDictionary<string, AllocationConstraintPriority> defaults,
+        Dictionary<string, string>? overrides)
+    {
+        var merged = new Dictionary<string, AllocationConstraintPriority>(defaults, StringComparer.OrdinalIgnoreCase);
+        if (overrides is null || overrides.Count == 0) return merged;
+
+        foreach (var (code, raw) in overrides)
+        {
+            if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(raw)) continue;
+            if (!Enum.TryParse<AllocationConstraintPriority>(raw.Trim(), ignoreCase: true, out var priority))
+                continue;
+            // Only allow known engine constraint codes from the default contract.
+            if (!merged.ContainsKey(code)) continue;
+            merged[code] = priority;
+        }
+
+        return merged;
     }
 }

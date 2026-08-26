@@ -88,7 +88,7 @@ const ElectiveGroupsPage = () => {
   const semestersForSelection = useMemo(() => {
     return semesters.filter((s) => {
       if (s.courseId !== courseId) return false;
-      if (s.groupId == null) return true;
+      if (s.groupId == null) return false;
       return s.groupId === groupId;
     });
   }, [semesters, courseId, groupId]);
@@ -100,7 +100,7 @@ const ElectiveGroupsPage = () => {
     setCourseId(c0);
     const g0 = groups.find((x) => x.courseId === c0)?.id ?? 0;
     setGroupId(g0);
-    const sem0 = semesters.find((s) => s.courseId === c0 && (s.groupId == null || s.groupId === g0))?.id ?? 0;
+    const sem0 = semesters.find((s) => s.courseId === c0 && s.groupId != null && s.groupId === g0)?.id ?? 0;
     setSemesterId(sem0);
     setDialogOpen(true);
   };
@@ -197,7 +197,7 @@ const ElectiveGroupsPage = () => {
                 setCourseId(cid);
                 const g = groups.find((x) => x.courseId === cid);
                 setGroupId(g?.id ?? 0);
-                const sem = semesters.find((s) => s.courseId === cid && (s.groupId == null || s.groupId === g?.id));
+                const sem = semesters.find((s) => s.courseId === cid && s.groupId != null && s.groupId === g?.id);
                 setSemesterId(sem?.id ?? 0);
               }}
               fullWidth
@@ -216,7 +216,7 @@ const ElectiveGroupsPage = () => {
               onChange={(e) => {
                 const gid = Number(e.target.value);
                 setGroupId(gid);
-                const sem = semesters.find((s) => s.courseId === courseId && (s.groupId == null || s.groupId === gid));
+                const sem = semesters.find((s) => s.courseId === courseId && s.groupId != null && s.groupId === gid);
                 setSemesterId(sem?.id ?? 0);
               }}
               fullWidth

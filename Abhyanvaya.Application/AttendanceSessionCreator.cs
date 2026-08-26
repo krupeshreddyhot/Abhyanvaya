@@ -1,4 +1,5 @@
 using Abhyanvaya.Application;
+using Abhyanvaya.Application.Academic;
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Internal;
 using Abhyanvaya.Domain.Entities;
@@ -45,6 +46,8 @@ public sealed class AttendanceSessionCreator : IAttendanceSessionCreator
 
             await _unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
+                await EnsureOperationalSemesterAsync(request.SemesterId, ct);
+
                 var facultyId = _currentUser.StaffId > 0 ? _currentUser.StaffId : _currentUser.UserId;
                 var session = AttendanceSession.CreateForPhotoAttendance(
                     _currentUser.TenantId,
@@ -93,6 +96,8 @@ public sealed class AttendanceSessionCreator : IAttendanceSessionCreator
         {
             await _unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
+                await EnsureOperationalSemesterAsync(request.SemesterId, ct);
+
                 var facultyId = _currentUser.StaffId > 0 ? _currentUser.StaffId : _currentUser.UserId;
                 var session = AttendanceSession.CreateForPhotoAttendance(
                     _currentUser.TenantId,
@@ -141,5 +146,17 @@ public sealed class AttendanceSessionCreator : IAttendanceSessionCreator
             _logger.LogWarning(ex, "Failed to create attendance session with classroom photo upload.");
             return (false, ex.Message, null);
         }
+    }
+
+    private async Task EnsureOperationalSemesterAsync(int semesterId, CancellationToken ct)
+    {
+        var semester = await _context.Semesters.AsNoTracking()
+            .Where(s => s.Id == semesterId && s.TenantId == _currentUser.TenantId && !s.IsDeleted)
+            .Select(s => new { s.GroupId, s.IsHistoricalArchive })
+            .FirstOrDefaultAsync(ct);
+        if (semester is null)
+            throw new InvalidOperationException("Semester not found.");
+        if (semester.IsHistoricalArchive || semester.GroupId is null)
+            throw new InvalidOperationException(OperationalSemesterRules.HistoricalRejectedMessage);
     }
 }

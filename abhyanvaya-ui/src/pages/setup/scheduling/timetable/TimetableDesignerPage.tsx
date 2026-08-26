@@ -25,7 +25,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { Link as RouterLink, useParams } from "react-router-dom";
+import { Link as RouterLink, useParams, useSearchParams } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import LockIcon from "@mui/icons-material/Lock";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
@@ -48,7 +48,14 @@ import {
   publishTimetable,
   submitTimetableForReview,
   type SoftWarningDto,
+  type TimetablePublishReadinessResultDto,
 } from "../../../../services/schedulingService";
+import {
+  getTimetablePublishReadiness,
+  normalizePublishReadiness,
+  parsePublishFailure,
+} from "../publishReadiness";
+import PublishReadinessPanel from "../PublishReadinessPanel";
 import {
   bulkTimetableEntries,
   copyTimetableEntry,
@@ -64,6 +71,7 @@ import {
   type SubjectAllocationDto,
   type TimetableEntryDto,
   type TimetableGridDto,
+  type CompatibleTeachingGroupOptionDto,
 } from "../../../../services/schedulingService";
 import SoftWarningsPanel from "./SoftWarningsPanel";
 import { DAY_LABELS, errMsg, parseOptionalSelectNumber } from "../schedulingFormUtils";
@@ -81,7 +89,12 @@ import {
 import { listStaff, listSubjectCatalog } from "../../../../services/setupService";
 import { useTimetableHistory } from "./useTimetableHistory";
 
-import { periodTimeSlots, TIMETABLE_STATUS_COLORS, TIMETABLE_STATUS_LABELS, timetablePrintSx } from "./timetableUtils";
+import { periodTimeSlots, TIMETABLE_STATUS_COLORS, TIMETABLE_STATUS_LABELS, timetablePrintSx, type TeachingGroupGridHint } from "./timetableUtils";
+import {
+  enrichMissingTeachingGroupHints,
+  mergeTeachingGroupHintsFromOptions,
+} from "./timetableTeachingGroupGridHints";
+import { TIMETABLE_TG_CONFLICT_MESSAGE } from "./timetableTeachingGroupAssignmentActions";
 
 const buildCellWarningCounts = (warnings: SoftWarningDto[]): Map<string, number> => {
   const map = new Map<string, number>();
@@ -98,6 +111,7 @@ const DND_ENTRY = "application/x-timetable-entry";
 const TimetableDesignerPage = () => {
   const { id: idParam } = useParams<{ id: string }>();
   const timetableId = Number(idParam);
+  const [searchParams, setSearchParams] = useSearchParams();
   const { hasPermission } = useAuth();
   const canManage = hasPermission(PermissionKeys.SchedulingTimetableManage);
   const canPublish = hasPermission(PermissionKeys.SchedulingPublish);
@@ -145,6 +159,13 @@ const TimetableDesignerPage = () => {
   const [dupDayTo, setDupDayTo] = useState<number | "">(2);
   const [softWarnings, setSoftWarnings] = useState<SoftWarningDto[]>([]);
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
+  /** Latest server publish-readiness (GET preflight or POST blocked publish). Prompt 8.3 UX. */
+  const [publishReadiness, setPublishReadiness] =
+    useState<TimetablePublishReadinessResultDto | null>(null);
+  const [publishReadinessLoading, setPublishReadinessLoading] = useState(false);
+  const [publishReadinessError, setPublishReadinessError] = useState<string | null>(null);
+  const [teachingGroupHints, setTeachingGroupHints] = useState<Map<number, TeachingGroupGridHint>>(new Map());
+  const [tgConflictNotice, setTgConflictNotice] = useState<string | null>(null);
 
   const history = useTimetableHistory();
   const cellWarningCounts = useMemo(() => buildCellWarningCounts(softWarnings), [softWarnings]);
@@ -182,6 +203,19 @@ const TimetableDesignerPage = () => {
     setDirty(false);
   }, [timetableId]);
 
+  const handleTeachingGroupOptionsLoaded = useCallback((options: CompatibleTeachingGroupOptionDto[]) => {
+    setTeachingGroupHints((prev) => mergeTeachingGroupHintsFromOptions(prev, options));
+  }, []);
+
+  const handleTeachingGroupConflict = useCallback(async () => {
+    setTgConflictNotice(TIMETABLE_TG_CONFLICT_MESSAGE);
+    try {
+      await refreshGrid();
+    } catch (e) {
+      setError(errMsg(e));
+    }
+  }, [refreshGrid]);
+
   const refreshSoftWarnings = useCallback(async () => {
     try {
       const res = await getTimetableSoftWarnings(timetableId);
@@ -190,6 +224,47 @@ const TimetableDesignerPage = () => {
       // Soft warnings are informational; do not block the designer.
     }
   }, [timetableId]);
+
+  const refreshPublishReadiness = useCallback(async () => {
+    if (!timetableId) return;
+    setPublishReadinessLoading(true);
+    setPublishReadinessError(null);
+    try {
+      const res = await getTimetablePublishReadiness(timetableId);
+      const normalized = normalizePublishReadiness(res.data) ?? res.data;
+      setPublishReadiness(normalized);
+    } catch (e) {
+      setPublishReadinessError(errMsg(e));
+    } finally {
+      setPublishReadinessLoading(false);
+    }
+  }, [timetableId]);
+
+  const openEntryFromPublishFinding = useCallback(
+    (entryId: number) => {
+      const entry = entries.find((e) => e.id === entryId);
+      if (!entry) {
+        setError(`Timetable entry #${entryId} is not loaded in this designer view.`);
+        return;
+      }
+      setEditingEntry(entry);
+      setEntryDialogOpen(true);
+    },
+    [entries],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    setTeachingGroupHints((prev) => {
+      void enrichMissingTeachingGroupHints(entries, prev).then((next) => {
+        if (!cancelled) setTeachingGroupHints(next);
+      });
+      return prev;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [entries]);
 
   useEffect(() => {
     if (!timetableId) return;
@@ -211,13 +286,32 @@ const TimetableDesignerPage = () => {
         setStaffOptions(staffRes.data.items.map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` })));
         setRoomOptions(roomRes.data.items.map((r) => ({ id: r.id, label: `${r.code} — ${r.name}` })));
         setSubjectNameById(new Map(subjectRes.data.map((s) => [s.id, s.name])));
+        // UX preflight only — POST /publish remains authoritative (Prompt 7/8.3).
+        if (g.data.timetable.status === TimetableStatus.Locked) {
+          void refreshPublishReadiness();
+        }
       } catch (e) {
         setError(errMsg(e));
       } finally {
         setLoading(false);
       }
     })();
-  }, [timetableId, refreshGrid, refreshSoftWarnings]);
+  }, [timetableId, refreshGrid, refreshSoftWarnings, refreshPublishReadiness]);
+
+  // Deep-link from PublishingPage: ?entryId=
+  useEffect(() => {
+    const raw = searchParams.get("entryId");
+    if (!raw || entries.length === 0) return;
+    const entryId = Number(raw);
+    if (!Number.isFinite(entryId)) return;
+    const entry = entries.find((e) => e.id === entryId);
+    if (!entry) return;
+    setEditingEntry(entry);
+    setEntryDialogOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("entryId");
+    setSearchParams(next, { replace: true });
+  }, [entries, searchParams, setSearchParams]);
 
   const upsertEntryLocal = (entry: TimetableEntryDto) => {
     setEntries((prev) => {
@@ -229,6 +323,11 @@ const TimetableDesignerPage = () => {
       }
       return [...prev, entry];
     });
+  };
+
+  const handleEntrySaved = (entry: TimetableEntryDto) => {
+    upsertEntryLocal(entry);
+    setEditingEntry((prev) => (prev?.id === entry.id ? entry : prev));
   };
 
   const removeEntryLocal = (entryId: number) => {
@@ -256,10 +355,20 @@ const TimetableDesignerPage = () => {
     setLifecycleBusy(true);
     try {
       const res = await publishTimetable(timetableId);
+      setPublishReadiness(null);
+      setPublishReadinessError(null);
       setGrid((g) => (g ? { ...g, timetable: res.data } : g));
       await refreshSoftWarnings();
     } catch (e) {
-      setError(errMsg(e));
+      // Prompt 8.2/8.3 — structured readiness replaces stale GET; no auto-retry.
+      const failure = parsePublishFailure(e);
+      if (failure.readiness) {
+        setPublishReadiness(failure.readiness);
+        setPublishReadinessError(null);
+      } else {
+        setPublishReadinessError(failure.message);
+      }
+      setError(failure.message);
     } finally {
       setLifecycleBusy(false);
     }
@@ -618,13 +727,42 @@ const TimetableDesignerPage = () => {
         </Alert>
       )}
       {error && (
-        <Alert severity="error" className="no-print" onClose={() => setError(null)}>
+        <Alert
+          severity="error"
+          className="no-print"
+          onClose={() => {
+            setError(null);
+          }}
+        >
           {error}
         </Alert>
       )}
+      {tgConflictNotice && (
+        <Alert
+          severity="warning"
+          className="no-print"
+          role="status"
+          onClose={() => setTgConflictNotice(null)}
+        >
+          {tgConflictNotice}
+        </Alert>
+      )}
 
-      <Stack direction={{ xs: "column", md: "row" }} spacing={2} className="no-print">
-        <ToggleButtonGroup
+      {(canPublish || publishReadiness || publishReadinessLoading || publishReadinessError) &&
+        grid.timetable.status === TimetableStatus.Locked && (
+          <Box className="no-print" sx={{ maxWidth: 960 }}>
+            <PublishReadinessPanel
+              readiness={publishReadiness}
+              loading={publishReadinessLoading}
+              error={publishReadinessError}
+              onRecheck={() => void refreshPublishReadiness()}
+              recheckBusy={publishReadinessLoading}
+              onViewEntry={openEntryFromPublishFinding}
+            />
+          </Box>
+        )}
+
+      <Stack direction={{ xs: "column", md: "row" }} spacing={2} className="no-print">        <ToggleButtonGroup
           exclusive
           size="small"
           value={viewMode}
@@ -761,6 +899,8 @@ const TimetableDesignerPage = () => {
             days={days}
             readOnly={readOnly}
             viewMode={viewMode}
+            teachingGroupHints={teachingGroupHints}
+            softWarnings={softWarnings}
             cellWarningCounts={cellWarningCounts}
             selectedCells={readOnly ? undefined : selectedCells}
             onCellMouseDown={onCellMouseDown}
@@ -771,12 +911,14 @@ const TimetableDesignerPage = () => {
             }}
             onEntryClick={(entry, e) => {
               if (e.detail === 2) {
-                setEditingEntry(entry);
+                const fresh = entries.find((x) => x.id === entry.id) ?? entry;
+                setEditingEntry(fresh);
                 setEntryDialogOpen(true);
               }
             }}
             onEntryContextMenu={(entry, e) => {
-              setContextMenu({ mouseX: e.clientX, mouseY: e.clientY, entry, coord: null });
+              const fresh = entries.find((x) => x.id === entry.id) ?? entry;
+              setContextMenu({ mouseX: e.clientX, mouseY: e.clientY, entry: fresh, coord: null });
             }}
             onDropOnCell={handleDropOnCell}
             onEntryDragStart={(entry, e) => {
@@ -876,13 +1018,16 @@ const TimetableDesignerPage = () => {
         entry={editingEntry}
         initial={entryInitial}
         readOnly={readOnly}
+        softWarnings={softWarnings}
         onClose={() => {
           setEntryDialogOpen(false);
           setEditingEntry(null);
           setEntryInitial(undefined);
         }}
-        onSaved={(e) => upsertEntryLocal(e)}
+        onSaved={handleEntrySaved}
         onDeleted={(id) => removeEntryLocal(id)}
+        onTeachingGroupOptionsLoaded={handleTeachingGroupOptionsLoaded}
+        onTeachingGroupConflict={handleTeachingGroupConflict}
       />
 
       <Dialog open={roomPromptOpen} onClose={() => setRoomPromptOpen(false)}>

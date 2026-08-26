@@ -143,6 +143,9 @@ public sealed class AcademicStructureV1Controller : ControllerBase
     public async Task<ActionResult<AcademicBreadcrumb>> SectionBreadcrumb(int sectionId, CancellationToken cancellationToken)
         => Ok(await _breadcrumbs.BuildSectionBreadcrumbAsync(sectionId, cancellationToken));
 
+    // AI29.1D Prompt 16A — operational breadcrumb/context moved to AcademicOperationalContextController
+    // (CanViewAcademicOperationalContext; does not require Program.View).
+
     [HttpGet("search/node")]
     public async Task<ActionResult<AcademicSearchResult>> FindNode([FromQuery] string nodeId, CancellationToken cancellationToken)
     {
@@ -191,6 +194,19 @@ public sealed class AcademicStructureV1Controller : ControllerBase
     [Authorize(Policy = AuthorizationPolicies.CanManagePrograms)]
     public ActionResult<AcademicArchitectureReport> ArchitectureReport()
         => Ok(AcademicArchitectureGuard.Validate());
+
+    /// <summary>
+    /// AI29.1D Prompt 21 — UI → API/Application → Domain architecture compliance report.
+    /// </summary>
+    [HttpGet("architecture/ai29-1d-report")]
+    [Authorize(Policy = AuthorizationPolicies.CanManagePrograms)]
+    public ActionResult<Ai291DArchitectureComplianceReport> Ai291DArchitectureReport(
+        [FromServices] IWebHostEnvironment env)
+    {
+        var root = Ai291DArchitectureGuard.TryResolveRepositoryRoot(env.ContentRootPath)
+                   ?? Ai291DArchitectureGuard.TryResolveRepositoryRoot();
+        return Ok(Ai291DArchitectureGuard.Validate(root));
+    }
 
     [HttpGet("snapshots/latest")]
     public async Task<IActionResult> LatestSnapshot(CancellationToken cancellationToken)

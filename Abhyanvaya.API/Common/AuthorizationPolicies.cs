@@ -65,6 +65,24 @@ namespace Abhyanvaya.API.Common
         public const string CanDeletePrograms = "CanDeletePrograms";
         public const string CanManagePrograms = "CanManagePrograms";
 
+        /// <summary>
+        /// AI29.1D.24 — assign/unlink Course.ProgramId via <c>POST /api/programs/assign-course</c>.
+        /// OR of <c>Program.Manage</c> and <c>Setup.Courses.Manage</c> (Course Master UI).
+        /// </summary>
+        public const string CanAssignCourseToProgram = "CanAssignCourseToProgram";
+
+        /// <summary>
+        /// AI29.1D.24 — read Programs list / EnablePrograms for Course Master selector.
+        /// OR of <c>Program.View</c> and <c>Setup.Courses.Manage</c>.
+        /// </summary>
+        public const string CanViewProgramCatalog = "CanViewProgramCatalog";
+
+        /// <summary>
+        /// AI29.1D Prompt 16A — read-only academic operational context (breadcrumb/context).
+        /// OR of Attendance / Section / Timetable / Allocation / Program.View — not Program write.
+        /// </summary>
+        public const string CanViewAcademicOperationalContext = "CanViewAcademicOperationalContext";
+
         /// <summary>Tenant college profile, branding, parent linkage (JWT <c>Organization.Manage</c>).</summary>
         public const string CanManageOrganization = "CanManageOrganization";
 
@@ -82,6 +100,12 @@ namespace Abhyanvaya.API.Common
 
         /// <summary>Manage enterprise scheduling foundation data.</summary>
         public const string CanManageScheduling = "CanManageScheduling";
+
+        /// <summary>
+        /// AI29.1D — read academic years for attendance/section operational scope.
+        /// Scheduling.View/Manage OR Attendance.View/Manage OR Section.View (not full scheduling catalog).
+        /// </summary>
+        public const string CanViewAcademicYears = "CanViewAcademicYears";
 
         /// <summary>Read Catalog Department for Catalog admins and Scheduling consumers (SSOT lookup).</summary>
         public const string CanViewDepartmentLookup = "CanViewDepartmentLookup";
@@ -102,6 +126,8 @@ namespace Abhyanvaya.API.Common
         public const string CanManageSchedulingHolidayTypes = "CanManageSchedulingHolidayTypes";
         public const string CanViewSchedulingTimetable = "CanViewSchedulingTimetable";
         public const string CanManageSchedulingTimetable = "CanManageSchedulingTimetable";
+        public const string CanViewSchedulingTeachingGroup = "CanViewSchedulingTeachingGroup";
+        public const string CanManageSchedulingTeachingGroup = "CanManageSchedulingTeachingGroup";
         public const string CanViewSchedulingVersion = "CanViewSchedulingVersion";
         public const string CanManageSchedulingVersion = "CanManageSchedulingVersion";
         public const string CanReviewScheduling = "CanReviewScheduling";

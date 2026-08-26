@@ -36,7 +36,6 @@ import {
   getGroups,
   getLanguages,
   getMediums,
-  getSemesters,
   getStudentPhoto,
   getStudents,
   uploadStudentPhoto,
@@ -47,6 +46,7 @@ import {
   type StudentUpsertPayload,
   updateStudent,
 } from "../services/studentsService";
+import { listSemesters, type SemesterRow } from "../services/setupService";
 import { PhotoCard } from "../components/media";
 import { StudentEmbeddingPanel, StudentProfileHeader } from "../components/students";
 import { mediaAssetUrl } from "../utils/mediaAssetUrl";
@@ -139,7 +139,7 @@ const StudentsPage = () => {
   const [pageSize, setPageSize] = useState(30);
   const [courses, setCourses] = useState<MasterOptionDto[]>([]);
   const [groups, setGroups] = useState<GroupOptionDto[]>([]);
-  const [semesters, setSemesters] = useState<MasterOptionDto[]>([]);
+  const [semesters, setSemesters] = useState<SemesterRow[]>([]);
   const [genders, setGenders] = useState<MasterOptionDto[]>([]);
   const [mediums, setMediums] = useState<MasterOptionDto[]>([]);
   const [languages, setLanguages] = useState<MasterOptionDto[]>([]);
@@ -266,7 +266,7 @@ const StudentsPage = () => {
       const [cRes, grpRes, sRes, gRes, mRes, lRes] = await Promise.all([
         getCourses(),
         getGroups(),
-        getSemesters(),
+        listSemesters(),
         getGenders(),
         getMediums(),
         getLanguages(),
@@ -296,6 +296,26 @@ const StudentsPage = () => {
   }, [search, batchFilter, courseFilter, groupFilter, semesterFilter, pageNumber, pageSize]);
 
   const groupOptions = useMemo(() => groups.filter((g) => g.courseId === form.courseId), [groups, form.courseId]);
+
+  /** Student write form: Group-specific Semesters only (server rejects legacy NULL-group). */
+  const formSemesterOptions = useMemo(() => {
+    if (!form.courseId || !form.groupId) return [];
+    return semesters.filter(
+      (s) => Number(s.courseId) === form.courseId && Number(s.groupId) === form.groupId,
+    );
+  }, [semesters, form.courseId, form.groupId]);
+
+  const filterSemesterOptions = useMemo(() => {
+    if (courseFilter > 0 && groupFilter > 0) {
+      return semesters.filter(
+        (s) => Number(s.courseId) === courseFilter && s.groupId != null && Number(s.groupId) === groupFilter,
+      );
+    }
+    if (courseFilter > 0) {
+      return semesters.filter((s) => Number(s.courseId) === courseFilter);
+    }
+    return semesters;
+  }, [semesters, courseFilter, groupFilter]);
 
   const profileCourseName = useMemo(
     () => courses.find((c) => c.id === form.courseId)?.name ?? "",
@@ -549,6 +569,7 @@ const StudentsPage = () => {
             const nextCourse = Number(e.target.value);
             setCourseFilter(nextCourse);
             setGroupFilter(0);
+            setSemesterFilter(0);
           }}
           size="small"
           fullWidth
@@ -564,7 +585,10 @@ const StudentsPage = () => {
           select
           label="Group"
           value={groupFilter}
-          onChange={(e) => setGroupFilter(Number(e.target.value))}
+          onChange={(e) => {
+            setGroupFilter(Number(e.target.value));
+            setSemesterFilter(0);
+          }}
           size="small"
           fullWidth
         >
@@ -586,7 +610,7 @@ const StudentsPage = () => {
           fullWidth
         >
           <MenuItem value={0}>All semesters</MenuItem>
-          {semesters.map((x) => (
+          {filterSemesterOptions.map((x) => (
             <MenuItem key={x.id} value={x.id}>
               {x.name}
             </MenuItem>
@@ -893,7 +917,12 @@ const StudentsPage = () => {
                   label="Course"
                   value={form.courseId}
                   onChange={(e) =>
-                    setForm((f) => ({ ...f, courseId: Number(e.target.value), groupId: 0 }))
+                    setForm((f) => ({
+                      ...f,
+                      courseId: Number(e.target.value),
+                      groupId: 0,
+                      semesterId: 0,
+                    }))
                   }
                   {...studentFormFieldProps}
                 >
@@ -910,7 +939,13 @@ const StudentsPage = () => {
                   select
                   label="Group"
                   value={form.groupId}
-                  onChange={(e) => setForm((f) => ({ ...f, groupId: Number(e.target.value) }))}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      groupId: Number(e.target.value),
+                      semesterId: 0,
+                    }))
+                  }
                   {...studentFormFieldProps}
                 >
                   <MenuItem value={0}>Select group</MenuItem>
@@ -930,7 +965,7 @@ const StudentsPage = () => {
                   {...studentFormFieldProps}
                 >
                   <MenuItem value={0}>Select semester</MenuItem>
-                  {semesters.map((x) => (
+                  {formSemesterOptions.map((x) => (
                     <MenuItem key={x.id} value={x.id}>
                       {x.name}
                     </MenuItem>

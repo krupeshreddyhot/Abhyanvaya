@@ -1,17 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Abhyanvaya.Application.DTOs.Semester
+﻿namespace Abhyanvaya.Application.DTOs.Semester
 {
     public class UpdateSemesterRequest
     {
         public int Id { get; set; }
         public int Number { get; set; }        // 1,2,3...
-        public string Name { get; set; }      // Semester 1
+        public string Name { get; set; } = null!;      // Semester 1
+        /// <summary>Optional client hint; server derives authoritative CourseId from Group.</summary>
         public int CourseId { get; set; }
-        public int? GroupId { get; set; }
+        /// <summary>AI-SCHED-CATALOG/TIMETABLE P1-4 Prompt 2A — required; cannot clear to null.</summary>
+        public int GroupId { get; set; }
     }
 }

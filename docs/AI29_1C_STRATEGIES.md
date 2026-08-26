@@ -21,4 +21,4 @@ Disabled strategies appear in the allocation trace as skipped.
 
 ## Grouping modes
 
-StudentNumber, StudentNumberRange, Alphabetical, Merit, Gender, Language, Scholarship, MinorSubject, Hostel, Transport, ElectiveCombination.
+StudentNumber, StudentNumberRange, LastThreeDigits, Alphabetical, Merit, Gender, Language, Scholarship, MinorSubject, Hostel, Transport, ElectiveCombination.

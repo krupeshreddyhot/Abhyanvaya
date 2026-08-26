@@ -1,3 +1,4 @@
+using Abhyanvaya.Application.Scheduling.Capacity;
 using Abhyanvaya.Domain.Enums.Scheduling;
 
 namespace Abhyanvaya.Application.Scheduling.Conflicts.Rules;
@@ -42,16 +43,21 @@ public sealed class RoomCapacityExceededRule : IConflictRule
         foreach (var entry in context.Entries)
         {
             if (!context.Rooms.TryGetValue(entry.RoomId, out var room)) continue;
-            if (!context.Subjects.TryGetValue(entry.SubjectId, out var subject) || !subject.ExpectedCapacity.HasValue) continue;
-            var effectiveCapacity = room.Capacity * (1m - (context.Thresholds.RoomCapacityMarginPercent / 100m));
-            if (effectiveCapacity >= subject.ExpectedCapacity.Value) continue;
 
+            var placement = context.ResolvePlacementSize(entry);
+            var evaluation = context.RoomCapacityEvaluator.Evaluate(
+                room.Capacity,
+                context.Thresholds.RoomCapacityMarginPercent,
+                placement);
+            if (!evaluation.IsExceeded) continue;
+
+            var (description, why, action) = SchedulingConflictPresentationComposer.Instance.RoomCapacityCopy(evaluation);
             bag.Add(context.Create(
                 this,
                 ConflictSeverity.Error,
-                $"Room capacity ({room.Capacity}, effective {effectiveCapacity:0.#} after {context.Thresholds.RoomCapacityMarginPercent}% margin) is below expected subject capacity ({subject.ExpectedCapacity}).",
-                "Assigned room cannot accommodate expected class size.",
-                "Assign a larger room or reduce expected capacity.",
+                description,
+                why,
+                action,
                 entry));
         }
         return Task.CompletedTask;

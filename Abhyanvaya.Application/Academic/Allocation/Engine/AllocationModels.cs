@@ -1,6 +1,6 @@
 namespace Abhyanvaya.Application.Academic.Allocation;
 
-/// <summary>AI29.1C — Pipeline configuration (enabled strategies + grouping mode).</summary>
+/// <summary>AI29.1C — Pipeline configuration (enabled strategies + grouping mode + AI29.1D scope).</summary>
 public sealed class AllocationPipelineConfig
 {
     public string GroupingMode { get; init; } = AllocationGroupingModes.Alphabetical;
@@ -9,8 +9,47 @@ public sealed class AllocationPipelineConfig
     public IReadOnlyDictionary<string, AllocationConstraintPriority> ConstraintPriorities { get; init; }
         = new Dictionary<string, AllocationConstraintPriority>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>AI29.1D — Population selection criteria (null = all eligible students).</summary>
+    public AllocationPopulationSelection? PopulationSelection { get; init; }
+
+    /// <summary>AI29.1D — Explicit target section ids (null/empty = all eligible sections).</summary>
+    public IReadOnlyList<int>? TargetSectionIds { get; init; }
+
+    /// <summary>
+    /// AI29.1D.24B.4 — Optional band width for <see cref="AllocationStrategyCodes.RollNumberBands"/>.
+    /// When null, the first target section's MaximumCapacity is used. Never hard-coded to 60.
+    /// </summary>
+    public int? RollNumberBandSize { get; init; }
+
+    /// <summary>
+    /// AI29.1D.24B.4A — How existing StudentSection assignments are treated during placement.
+    /// Null / omitted → <see cref="ExistingAssignmentPolicies.LegacyPreserveWhenCapacityAllows"/>.
+    /// </summary>
+    public string? ExistingAssignmentPolicy { get; init; }
+
     public bool IsStrategyEnabled(string code)
         => !EnabledStrategies.TryGetValue(code, out var enabled) || enabled;
+
+    /// <summary>Deterministic config for ConfigJson / checksum / replay.</summary>
+    public AllocationPipelineConfig Normalize()
+    {
+        IReadOnlyList<int>? targets = null;
+        if (TargetSectionIds is { Count: > 0 })
+            targets = TargetSectionIds.Distinct().OrderBy(x => x).ToList();
+
+        int? bandSize = RollNumberBandSize is > 0 ? RollNumberBandSize : null;
+
+        return new AllocationPipelineConfig
+        {
+            GroupingMode = GroupingMode,
+            EnabledStrategies = EnabledStrategies,
+            ConstraintPriorities = ConstraintPriorities,
+            PopulationSelection = (PopulationSelection ?? AllocationPopulationSelection.AllEligible).Normalize(),
+            TargetSectionIds = targets,
+            RollNumberBandSize = bandSize,
+            ExistingAssignmentPolicy = ExistingAssignmentPolicies.Normalize(ExistingAssignmentPolicy),
+        };
+    }
 
     public static AllocationPipelineConfig Default { get; } = new()
     {
@@ -19,6 +58,7 @@ public sealed class AllocationPipelineConfig
         {
             [AllocationStrategyCodes.Validation] = true,
             [AllocationStrategyCodes.Capacity] = true,
+            [AllocationStrategyCodes.RollNumberBands] = false,
             [AllocationStrategyCodes.Policy] = true,
             [AllocationStrategyCodes.Gender] = true,
             [AllocationStrategyCodes.Language] = true,
@@ -42,6 +82,10 @@ public sealed class AllocationPipelineConfig
             ["MinorSubject"] = AllocationConstraintPriority.Informational,
             ["Scholarship"] = AllocationConstraintPriority.Preferred,
         },
+        PopulationSelection = AllocationPopulationSelection.AllEligible,
+        TargetSectionIds = null,
+        RollNumberBandSize = null,
+        ExistingAssignmentPolicy = ExistingAssignmentPolicies.LegacyPreserveWhenCapacityAllows,
     };
 }
 
@@ -56,6 +100,8 @@ public static class AllocationStrategyCodes
 {
     public const string Validation = "Validation";
     public const string Capacity = "Capacity";
+    /// <summary>AI29.1D.24B.4 — Configurable last-three-digit / roll-number band placement (not LastThreeDigits ordering).</summary>
+    public const string RollNumberBands = "RollNumberBands";
     public const string Policy = "Policy";
     public const string Gender = "Gender";
     public const string Language = "Language";
@@ -71,6 +117,8 @@ public static class AllocationGroupingModes
 {
     public const string StudentNumber = "StudentNumber";
     public const string StudentNumberRange = "StudentNumberRange";
+    /// <summary>Order by last three characters of StudentNumber (alphanumeric-safe).</summary>
+    public const string LastThreeDigits = "LastThreeDigits";
     public const string Alphabetical = "Alphabetical";
     public const string Merit = "Merit";
     public const string Gender = "Gender";
@@ -83,7 +131,7 @@ public static class AllocationGroupingModes
 
     public static IReadOnlyList<string> All { get; } =
     [
-        StudentNumber, StudentNumberRange, Alphabetical, Merit, Gender, Language,
+        StudentNumber, StudentNumberRange, LastThreeDigits, Alphabetical, Merit, Gender, Language,
         Scholarship, MinorSubject, Hostel, Transport, ElectiveCombination,
     ];
 }

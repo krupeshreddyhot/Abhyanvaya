@@ -19,8 +19,37 @@ const readObjectMessage = (data: Record<string, unknown>): string | null => {
   return null;
 };
 
-export const getApiErrorMessage = (error: unknown, fallback = "Request failed."): string => {
+export const getHttpStatus = (error: unknown): number | undefined => {
   if (axios.isAxiosError(error)) {
+    return error.response?.status;
+  }
+  return undefined;
+};
+
+export const isUnauthorizedError = (error: unknown): boolean => getHttpStatus(error) === 401;
+export const isForbiddenError = (error: unknown): boolean => getHttpStatus(error) === 403;
+
+export type ApiErrorMessageOptions = {
+  /**
+   * Domain-specific copy when the server returns 403 without a body.
+   * Does not invent authorization rules — only presentation after the API rejects.
+   */
+  forbiddenFallback?: string;
+  /** Domain-specific copy when the server returns 401 without a body. */
+  unauthorizedFallback?: string;
+};
+
+/**
+ * Prefer server-provided message body. Map 401/403 to clear UX when the body is empty.
+ * UI permission checks never replace this — the API remains authoritative.
+ */
+export const getApiErrorMessage = (
+  error: unknown,
+  fallback = "Request failed.",
+  options?: ApiErrorMessageOptions,
+): string => {
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
     const data = error.response?.data;
 
     if (typeof data === "string" && data.trim()) {
@@ -36,6 +65,20 @@ export const getApiErrorMessage = (error: unknown, fallback = "Request failed.")
 
     if (!error.response) {
       return "Network error. Check your connection and try again.";
+    }
+
+    if (status === 401) {
+      return (
+        options?.unauthorizedFallback ??
+        "Your session has expired or is not authenticated. Sign in again and retry."
+      );
+    }
+
+    if (status === 403) {
+      return (
+        options?.forbiddenFallback ??
+        "You are not authorized to perform this action. If you believe this is wrong, ask an administrator to review your permissions."
+      );
     }
 
     return fallback;

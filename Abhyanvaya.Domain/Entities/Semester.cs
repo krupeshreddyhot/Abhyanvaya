@@ -20,5 +20,14 @@ namespace Abhyanvaya.Domain.Entities
 
         /// <summary>AI29.1A.5 — display sort key (DisplayOrder then Name).</summary>
         public int DisplayOrder { get; set; }
+
+        /// <summary>
+        /// AI-SCHED-CATALOG/TIMETABLE P1-4 Prompt 3J-A (PromptCode P1-4-3JA) —
+        /// Explicit historical disposition. Distinct from <see cref="Abhyanvaya.Domain.Common.BaseEntity.IsDeleted"/>.
+        /// Historical rows remain readable for audit/reporting/FK integrity but are excluded from
+        /// operational Semester selection and new Student/SA/TT/TG assignments.
+        /// Does not imply Group ownership and must never be used to guess GroupId.
+        /// </summary>
+        public bool IsHistoricalArchive { get; set; }
     }
 }

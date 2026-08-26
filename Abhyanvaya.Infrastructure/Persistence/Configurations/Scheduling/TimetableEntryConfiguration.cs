@@ -13,6 +13,14 @@ public sealed class TimetableEntryConfiguration : IEntityTypeConfiguration<Timet
         builder.HasOne(x => x.Timetable).WithMany(t => t.Entries).HasForeignKey(x => x.TimetableId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.TimeSlot).WithMany().HasForeignKey(x => x.TimeSlotId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.SubjectAllocation).WithMany().HasForeignKey(x => x.SubjectAllocationId).OnDelete(DeleteBehavior.Restrict);
+
+        // AI-SCHED-TG.4 Prompt 2 — TeachingGroup 1──* TimetableEntry; Restrict (do not cascade-delete entries).
+        builder.HasOne(x => x.TeachingGroup)
+            .WithMany()
+            .HasForeignKey(x => x.TeachingGroupId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
+
         builder.HasOne(x => x.Staff).WithMany().HasForeignKey(x => x.StaffId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.Room).WithMany().HasForeignKey(x => x.RoomId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.Department).WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
@@ -24,5 +32,6 @@ public sealed class TimetableEntryConfiguration : IEntityTypeConfiguration<Timet
         builder.HasIndex(x => new { x.TenantId, x.TimetableId, x.StaffId });
         builder.HasIndex(x => new { x.TenantId, x.TimetableId, x.RoomId });
         builder.HasIndex(x => new { x.TenantId, x.TimetableId, x.CourseId, x.GroupId, x.SemesterId });
+        builder.HasIndex(x => new { x.TenantId, x.TeachingGroupId });
     }
 }

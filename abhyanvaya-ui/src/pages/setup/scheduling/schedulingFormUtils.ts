@@ -36,9 +36,8 @@ type SubjectSemesterLink = { courseId: number; groupId: number; semesterId: numb
 
 /**
  * Semesters available for a course/group selection.
- * Includes: course-wide (groupId null), group-specific, and any semester used by
- * subjects for that course/group. Falls back to all course semesters when none match
- * (common when semesters were created under a different group but reused).
+ * P1-4 Prompt 3L / 3I1 — Group-specific only; no NULL-group wildcard; no silent course-wide fallback.
+ * When editing, a currently selected semester may be included for display even if out of scope.
  */
 export const resolveSemestersForCourseGroup = <T extends SemesterLike>(
   semesters: T[],
@@ -50,30 +49,32 @@ export const resolveSemestersForCourseGroup = <T extends SemesterLike>(
   },
 ): T[] => {
   if (!courseId) return semesters;
+  if (!groupId) {
+    return semesters.filter((s) => s.courseId === courseId && s.groupId != null);
+  }
 
   const subjects = options?.subjects ?? [];
   const fromSubjects = new Set(
     subjects
-      .filter((s) => s.courseId === courseId && (!groupId || s.groupId === groupId))
+      .filter((s) => s.courseId === courseId && s.groupId === groupId)
       .map((s) => s.semesterId),
   );
 
   const matched = semesters.filter((s) => {
     if (s.courseId !== courseId) return false;
-    if (fromSubjects.has(s.id)) return true;
-    if (!groupId) return true;
-    return s.groupId == null || s.groupId === groupId;
+    if (s.groupId == null) return false;
+    if (s.groupId === groupId) return true;
+    // Subject catalog may still reference a Group-specific semester id for this group.
+    return fromSubjects.has(s.id) && s.groupId === groupId;
   });
 
-  const result = matched.length > 0 ? matched : semesters.filter((s) => s.courseId === courseId);
-
   const selectedId = options?.selectedSemesterId;
-  if (selectedId && !result.some((s) => s.id === selectedId)) {
+  if (selectedId && !matched.some((s) => s.id === selectedId)) {
     const current = semesters.find((s) => s.id === selectedId);
-    if (current) return [current, ...result];
+    if (current) return [current, ...matched];
   }
 
-  return result;
+  return matched;
 };
 
 /** Parse "HH:mm" or "HH:mm:ss" to minutes from midnight; null if invalid. */

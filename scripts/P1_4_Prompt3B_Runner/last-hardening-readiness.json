@@ -1,0 +1,157 @@
+﻿d:\Resheta\AttendenceProject\Abhyanvaya\Abhyanvaya.Application\Abhyanvaya.Application.csproj : warning NU1903: Package 'AutoMapper' 12.0.1 has a known high severity vulnerability, https://github.com/advisories/GHSA-rvv3-g6hj-g44x [d:\Resheta\AttendenceProject\Abhyanvaya\scripts\P1_4_Prompt3B_Runner\P1_4_Prompt3B_Runner.csproj]
+d:\Resheta\AttendenceProject\Abhyanvaya\Abhyanvaya.Infrastructure\Abhyanvaya.Infrastructure.csproj : warning NU1902: Package 'SixLabors.ImageSharp' 3.1.10 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-rxmq-m78w-7wmc [d:\Resheta\AttendenceProject\Abhyanvaya\scripts\P1_4_Prompt3B_Runner\P1_4_Prompt3B_Runner.csproj]
+d:\Resheta\AttendenceProject\Abhyanvaya\Abhyanvaya.Application\Abhyanvaya.Application.csproj : warning NU1903: Package 'AutoMapper' 12.0.1 has a known high severity vulnerability, https://github.com/advisories/GHSA-rvv3-g6hj-g44x
+d:\Resheta\AttendenceProject\Abhyanvaya\Abhyanvaya.Infrastructure\Abhyanvaya.Infrastructure.csproj : warning NU1902: Package 'SixLabors.ImageSharp' 3.1.10 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-rxmq-m78w-7wmc
+{
+  "PromptCode": "P1-4-3M",
+  "IsReadOnly": true,
+  "NoMutationsPerformed": true,
+  "SaveChangesInvoked": false,
+  "DecisionCode": "NO_GO",
+  "IsReady": false,
+  "TenantCount": 1,
+  "SemesterCount": 8,
+  "NullGroupSemesterCount": 5,
+  "InvalidOwnershipCount": 0,
+  "DuplicateKeyCount": 0,
+  "DownstreamLegacyReferenceCount": 1,
+  "TeachingGroupBlockingCount": 0,
+  "SectionBlockingCount": 0,
+  "StudentIntegrityViolationCount": 0,
+  "SchedulingIntegrityViolationCount": 0,
+  "WildcardProductionDependencyCount": 0,
+  "CrossTenantViolationCount": 0,
+  "NotNullReady": false,
+  "UniqueReady": false,
+  "WritePathsGroupOwned": true,
+  "NoActiveNullGroupWritePath": true,
+  "ArchitectureGuardsIntact": true,
+  "ConstraintSimulationSummary": "ALTER GroupId NOT NULL would FAIL on SemIds=[1,2,3,4,5]. UNIQUE(TenantId,GroupId,Number) would SUCCEED for Group-specific non-deleted keys (also blocked while NULL GroupId rows remain under plain UNIQUE without filtered design).",
+  "EvidenceSummary": "NO_GO: 6 blocking finding(s). NullGroup=5; Dup=0; StudentViol=0; SchedViol=0; ActiveWildcards=0.",
+  "NullGroup": [
+    {
+      "SemesterId": 1,
+      "DispositionCode": "OTHER_EXPLICIT_APPROVED_STATE",
+      "DownstreamReferenceCount": 1
+    },
+    {
+      "SemesterId": 2,
+      "DispositionCode": "RETAIN_HISTORICAL",
+      "DownstreamReferenceCount": 0
+    },
+    {
+      "SemesterId": 3,
+      "DispositionCode": "RETAIN_HISTORICAL",
+      "DownstreamReferenceCount": 0
+    },
+    {
+      "SemesterId": 4,
+      "DispositionCode": "OTHER_EXPLICIT_APPROVED_STATE",
+      "DownstreamReferenceCount": 0
+    },
+    {
+      "SemesterId": 5,
+      "DispositionCode": "OTHER_EXPLICIT_APPROVED_STATE",
+      "DownstreamReferenceCount": 0
+    }
+  ],
+  "Wildcards": [
+    {
+      "Path": "AcademicTreeService",
+      "KindCode": "DEAD_UNREACHABLE",
+      "BlocksHardening": false
+    },
+    {
+      "Path": "filterSemestersForScope",
+      "KindCode": "DEAD_UNREACHABLE",
+      "BlocksHardening": false
+    },
+    {
+      "Path": "schedulingFormUtils",
+      "KindCode": "DEAD_UNREACHABLE",
+      "BlocksHardening": false
+    },
+    {
+      "Path": "academicCascade",
+      "KindCode": "DEAD_UNREACHABLE",
+      "BlocksHardening": false
+    },
+    {
+      "Path": "ElectiveGroupsPage",
+      "KindCode": "DEAD_UNREACHABLE",
+      "BlocksHardening": false
+    },
+    {
+      "Path": "StudentsPage",
+      "KindCode": "DEAD_UNREACHABLE",
+      "BlocksHardening": false
+    },
+    {
+      "Path": "SemestersPage",
+      "KindCode": "HISTORICAL_DISPLAY_ONLY",
+      "BlocksHardening": false
+    },
+    {
+      "Path": "SemesterController",
+      "KindCode": "LEGACY_READ_COMPATIBILITY",
+      "BlocksHardening": false
+    }
+  ],
+  "Blockers": [
+    {
+      "Code": "SEMESTER_NULL_GROUP",
+      "Entity": "Semester",
+      "EntityId": 1,
+      "Reason": "NULL-group Semester disposition=OTHER_EXPLICIT_APPROVED_STATE. Operational wildcard retired from AcademicTree/filterSemestersForScope/schedulingFormUtils/StudentsPage. LegacySemIds=[1,2,3,4,5]; actor=1.",
+      "RequiredRemediation": "Map to Group, archive under approved historical model, or exclude via Architect-approved schema design before NOT NULL."
+    },
+    {
+      "Code": "SEMESTER_NULL_GROUP",
+      "Entity": "Semester",
+      "EntityId": 2,
+      "Reason": "NULL-group Semester disposition=RETAIN_HISTORICAL. Zero students/downstream refs on multi-Group Course; Prompt 3A retain/pending \u2014 HISTORICAL_RETAIN pending Architect disposition.",
+      "RequiredRemediation": "Map to Group, archive under approved historical model, or exclude via Architect-approved schema design before NOT NULL."
+    },
+    {
+      "Code": "SEMESTER_NULL_GROUP",
+      "Entity": "Semester",
+      "EntityId": 3,
+      "Reason": "NULL-group Semester disposition=RETAIN_HISTORICAL. Historical retain (no operational Student/Att/Section/SA/TT/TG deps). Zero students/downstream refs on multi-Group Course; Prompt 3A retain/pending \u2014 HISTORICAL_RETAIN pending Architect disposition.",
+      "RequiredRemediation": "Map to Group, archive under approved historical model, or exclude via Architect-approved schema design before NOT NULL."
+    },
+    {
+      "Code": "SEMESTER_NULL_GROUP",
+      "Entity": "Semester",
+      "EntityId": 4,
+      "Reason": "NULL-group Semester disposition=OTHER_EXPLICIT_APPROVED_STATE. DUPLICATE_REVIEW: Duplicate legacy Semester Number on Course (or Prompt 3A DUPLICATE_REVIEW); no auto-merge.",
+      "RequiredRemediation": "Map to Group, archive under approved historical model, or exclude via Architect-approved schema design before NOT NULL."
+    },
+    {
+      "Code": "SEMESTER_NULL_GROUP",
+      "Entity": "Semester",
+      "EntityId": 5,
+      "Reason": "NULL-group Semester disposition=OTHER_EXPLICIT_APPROVED_STATE. DUPLICATE_REVIEW: Duplicate legacy Semester Number on Course (or Prompt 3A DUPLICATE_REVIEW); no auto-merge.",
+      "RequiredRemediation": "Map to Group, archive under approved historical model, or exclude via Architect-approved schema design before NOT NULL."
+    },
+    {
+      "Code": "DOWNSTREAM_LEGACY_REFERENCE",
+      "Entity": "Subject",
+      "EntityId": 1,
+      "Reason": "Subject still references NULL-group Semester 1.",
+      "RequiredRemediation": "Subject Catalog remediation / formal historical retention excluding FK before NOT NULL."
+    }
+  ],
+  "Warnings": [
+    "Soft-deleted Semesters are excluded by EF global IsDeleted filter. Eventual UNIQUE should be a filtered index (WHERE IsDeleted=0) and DBA must scan soft-deleted NULL GroupId rows before ALTER NOT NULL."
+  ],
+  "RecommendedNextPrompt": "Do NOT begin schema DDL. Clear BlockingFindings via Architect-approved remediation (historical archive model / duplicate disposition / remaining Subject historical / soft-deleted scan).",
+  "Notes": [
+    "Prompt 3J FINAL SCHEMA HARDENING READINESS \u2014 AUDIT \u002B CONTRACT ONLY.",
+    "PromptCode=P1-4-3M (Subject Catalog remediation already owns P1-4-3J).",
+    "Zero SaveChanges. Zero DDL. Zero TG/Section/Attendance/SA/TT mutation.",
+    "Tenant scope: EF global filter (ambient tenant, or SuperAdmin cross-tenant when Role=SuperAdmin).",
+    "Write-path: OwnershipRules=True; AlignedGroupId assignment=True; DTO GroupId required=True.",
+    "Decision=NO_GO; NullGroup=5; DupKeys=0; ActiveWildcards=0.",
+    "ALTER GroupId NOT NULL would FAIL on SemIds=[1,2,3,4,5]. UNIQUE(TenantId,GroupId,Number) would SUCCEED for Group-specific non-deleted keys (also blocked while NULL GroupId rows remain under plain UNIQUE without filtered design)."
+  ]
+}

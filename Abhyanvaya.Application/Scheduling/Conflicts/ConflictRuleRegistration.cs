@@ -29,6 +29,9 @@ public static class ConflictRuleRegistration
         services.AddScoped<IConflictRule, RoomMaintenanceConflictRule>();
         services.AddScoped<IConflictRule, RoomLabRequirementRule>();
 
+        // AI-SCHED-CAP Prompt 3 — Teaching Group capacity (separate from Room.Capacity)
+        services.AddScoped<IConflictRule, TeachingGroupCapacityExceededRule>();
+
         // Student rules
         services.AddScoped<IConflictRule, StudentGroupOverlapRule>();
         services.AddScoped<IConflictRule, StudentSemesterOverlapRule>();
@@ -48,6 +51,7 @@ public static class ConflictRuleRegistration
 
         services.AddScoped<ConflictEngine>();
         services.AddScoped<ConflictAnalyzer>();
+        services.AddScoped<IConflictAnalysisRunner>(sp => sp.GetRequiredService<ConflictAnalyzer>());
         services.AddScoped<IConflictDetectionService, ConflictDetectionService>();
         services.AddScoped<IAttendanceSessionResolver, AttendanceSessionResolver>();
 

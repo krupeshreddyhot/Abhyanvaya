@@ -108,6 +108,7 @@ public sealed class AttendanceSessionResolver : IAttendanceSessionResolver
             select ts.Name).FirstOrDefaultAsync(cancellationToken);
 
         // AI29 additive — resolve mapped sections for combined/single section classes.
+        // AI-SCHED-TG.4A Prompt 6 — projection read only; no repair / auto-create on resolve.
         // Does not alter Manual/Legacy selection; only enriches Timetable mode payload.
         var sectionRows = await (
             from ts in _context.TimetableSections.AsNoTracking()

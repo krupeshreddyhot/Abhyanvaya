@@ -26,8 +26,36 @@ export type SectionAllocationContext = {
     semesterName?: string | null;
   };
   sections: { sectionId: number; sectionCode: string; sectionName: string; sectionType: string; lifecycle: string; health: string; readiness: string }[];
-  capacities: { sectionId: number; maximumCapacity: number; currentStrength: number; availableCapacity: number; occupancyPercent: number; capacityStatus: string }[];
-  students: { studentId: number; studentNumber?: string | null; studentName?: string | null; currentSectionId?: number | null; currentSectionCode?: string | null }[];
+  capacities: {
+    sectionId: number;
+    maximumCapacity: number;
+    minimumCapacity?: number;
+    recommendedCapacity?: number;
+    currentStrength: number;
+    availableCapacity: number;
+    reservedSeats?: number;
+    waitingList?: number;
+    occupancyPercent: number;
+    capacityStatus: string;
+  }[];
+  students: {
+    studentId: number;
+    studentNumber?: string | null;
+    studentName?: string | null;
+    currentSectionId?: number | null;
+    currentSectionCode?: string | null;
+    /** AI29.1D population filter facets (from Allocation Context projection). */
+    genderId?: number | null;
+    gender?: string | null;
+    languageId?: number | null;
+    language?: string | null;
+    scholarshipCategory?: string | null;
+    minorSubject?: string | null;
+    transportRoute?: string | null;
+    hostel?: string | null;
+    electiveCombination?: string | null;
+    merit?: string | null;
+  }[];
   facultyAssignments: { facultyId: number; facultyName?: string | null; sectionId: number; role: string }[];
   subjectAssignments: { subjectId: number; subjectCode?: string | null; subjectName?: string | null }[];
   roomAvailability: { roomCode?: string | null; timetableMappingCount: number; status: string }[];
@@ -91,9 +119,28 @@ export const listAllocationSnapshots = (scope: AllocationScope) =>
 export const getAllocationArchitectureReport = () =>
   api.get<{ passed: boolean; checks: string[]; violations: string[] }>("/allocation/architecture-report");
 
+export type AllocationConstraintPriority = "Mandatory" | "Preferred" | "Informational";
+
+/** AI29.1D Prompt 10A — population selection criteria (resolved server-side against Allocation Context). */
+export type AllocationPopulationSelection = {
+  mode: string;
+  fromStudentNumber?: string | null;
+  toStudentNumber?: string | null;
+  studentIds?: number[] | null;
+  facetValue?: string | null;
+};
+
 export type AllocationRunRequest = AllocationScope & {
   groupingMode?: string;
   enabledStrategies?: Record<string, boolean>;
+  /** AI29.1C constraint priorities by constraint code. */
+  constraintPriorities?: Record<string, AllocationConstraintPriority | string>;
+  populationSelection?: AllocationPopulationSelection | null;
+  targetSectionIds?: number[] | null;
+  /** AI29.1D.24B.4 — optional band size for RollNumberBands (null = first section capacity). */
+  rollNumberBandSize?: number | null;
+  /** AI29.1D.24B.4A — PreserveExisting | Reallocate (omit = legacy server default). */
+  existingAssignmentPolicy?: string | null;
 };
 
 export type AllocationStudentRecommendation = {
@@ -123,7 +170,58 @@ export type AllocationScoreBreakdown = {
   capacityUtilization: number;
   policyCompliance: number;
   genderBalance: number;
+  meritDistribution?: number;
+  languageDistribution?: number;
+  hostelDistribution?: number;
+  electiveBalance?: number;
+  transportBalance?: number;
   summary: string;
+};
+
+export type AllocationSandboxItem = {
+  sandboxId: string;
+  name: string;
+  scenarioId: string;
+  sessionId?: string;
+  savedAt?: string;
+  isArchived?: boolean;
+  tags?: string | null;
+};
+
+/**
+ * AI29.1D.24B.4A.2 — Matches C# AllocationExecutionResult.
+ * Student placement recommendations are ONLY under scenario.recommendations
+ * (not at result.recommendations). Constraint.priority may be a numeric enum (0/1/2)
+ * from System.Text.Json without JsonStringEnumConverter.
+ */
+export type AllocationConstraintEvaluationDto = {
+  constraintCode: string;
+  /** String name or numeric enum (Mandatory=0, Preferred=1, Informational=2). */
+  priority: string | number;
+  satisfied: boolean;
+  summary: string;
+  scoreImpact?: number;
+};
+
+export type AllocationScenarioDto = {
+  scenarioId: string;
+  sessionId?: string;
+  contextId?: string;
+  contextChecksum?: string;
+  generatedAt?: string;
+  status?: string;
+  recommendations?: AllocationStudentRecommendation[] | null;
+  sectionSummaries?: {
+    sectionId: number;
+    sectionCode: string;
+    assignedCount: number;
+    maximumCapacity: number;
+    reservedSeats?: number;
+    occupancyPercent: number;
+  }[] | null;
+  constraints?: AllocationConstraintEvaluationDto[] | null;
+  score?: AllocationScoreBreakdown | null;
+  metadata?: Record<string, string> | null;
 };
 
 export type AllocationExecutionResult = {
@@ -131,18 +229,13 @@ export type AllocationExecutionResult = {
   scenarioId: string;
   succeeded: boolean;
   status: string;
-  score: AllocationScoreBreakdown;
-  warnings: string[];
-  errors: string[];
+  score?: AllocationScoreBreakdown | null;
+  warnings?: string[] | null;
+  errors?: string[] | null;
   durationMs: number;
-  scenario: {
-    scenarioId: string;
-    recommendations: AllocationStudentRecommendation[];
-    sectionSummaries: { sectionId: number; sectionCode: string; assignedCount: number; maximumCapacity: number; occupancyPercent: number }[];
-    constraints: { constraintCode: string; priority: string; satisfied: boolean; summary: string }[];
-    score: AllocationScoreBreakdown;
-  };
-  trace: { traceId: string; steps: AllocationTraceStep[] };
+  /** May be absent/partial on malformed payloads — UI must tolerate. */
+  scenario?: AllocationScenarioDto | null;
+  trace?: { traceId: string; steps?: AllocationTraceStep[] | null } | null;
 };
 
 export type AllocationComparisonReport = {
@@ -171,6 +264,44 @@ export type AllocationDashboardDto = {
   recentRuns: { sessionId: string; scenarioId?: string; createdAt: string; status: string; score: number; groupingMode: string }[];
 };
 
+/** Existing engine catalog — UI must not invent grouping modes. */
+export const listAllocationGroupingModes = () => api.get<string[]>("/allocation/grouping-modes");
+
+export const listAllocationPipelineStrategies = () => api.get<string[]>("/allocation/pipeline-strategies");
+
+export const getAllocationConstraintPriorityDefaults = () =>
+  api.get<Record<string, string>>("/allocation/constraint-priorities");
+
+/** Default strategy toggles aligned with AllocationPipelineConfig.Default (server remains authoritative). */
+export const DEFAULT_ALLOCATION_STRATEGIES: Record<string, boolean> = {
+  Validation: true,
+  Capacity: true,
+  RollNumberBands: false,
+  Policy: true,
+  Gender: true,
+  Language: true,
+  Scholarship: false,
+  Elective: false,
+  Transport: false,
+  Hostel: false,
+  Merit: false,
+  Scoring: true,
+};
+
+/** Default constraint priorities aligned with AllocationPipelineConfig.Default. */
+export const DEFAULT_CONSTRAINT_PRIORITIES: Record<string, AllocationConstraintPriority> = {
+  Capacity: "Mandatory",
+  ReservedSeats: "Mandatory",
+  GenderBalance: "Preferred",
+  Language: "Preferred",
+  Merit: "Preferred",
+  Hostel: "Informational",
+  Transport: "Informational",
+  ElectiveCombination: "Preferred",
+  MinorSubject: "Informational",
+  Scholarship: "Preferred",
+};
+
 export const runAllocation = (payload: AllocationRunRequest) =>
   api.post<AllocationExecutionResult>("/allocation/run", payload);
 
@@ -192,3 +323,12 @@ export const exportAllocationReport = (kind: string, format: string, scenarioId?
     params: { kind, format, scenarioId },
     responseType: "blob",
   });
+
+/** Save scenario to allocation sandbox (draft) — no live StudentSection writes. */
+export const saveAllocationSandboxDraft = (scenarioId: string, name: string, tags?: string) =>
+  api.post<AllocationSandboxItem>("/allocation/sandbox", null, {
+    params: { scenarioId, name, tags },
+  });
+
+export const listAllocationSandbox = (includeArchived = false) =>
+  api.get<AllocationSandboxItem[]>("/allocation/sandbox", { params: { includeArchived } });

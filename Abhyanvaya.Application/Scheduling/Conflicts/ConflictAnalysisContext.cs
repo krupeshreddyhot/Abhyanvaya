@@ -1,3 +1,4 @@
+using Abhyanvaya.Application.Scheduling.Capacity;
 using Abhyanvaya.Application.Scheduling.Conflicts.Intelligence;
 using Abhyanvaya.Domain.Entities;
 using Abhyanvaya.Domain.Entities.Scheduling;
@@ -31,6 +32,41 @@ public sealed class ConflictAnalysisContext
     public required IReadOnlyDictionary<int, string> StaffNames { get; init; }
     public required IReadOnlyList<RoomFeatureAssignment> RoomFeatureAssignments { get; init; }
     public required IReadOnlyDictionary<int, SubjectDeliveryType> DeliveryTypes { get; init; }
+
+    /// <summary>AI-SCHED-CAP Prompt 3 — TeachingGroups referenced by entries (tenant-scoped load).</summary>
+    public IReadOnlyDictionary<int, TeachingGroup> TeachingGroups { get; init; } =
+        new Dictionary<int, TeachingGroup>();
+
+    /// <summary>
+    /// AI-SCHED-CAP Prompt 3 — Successfully resolved membership counts keyed by TeachingGroupId.
+    /// Absence of a key means ResolvedStudentCount is unavailable (not zero).
+    /// </summary>
+    public IReadOnlyDictionary<int, int> ResolvedStudentCountsByTeachingGroupId { get; init; } =
+        new Dictionary<int, int>();
+
+    public IPlacementSizeResolver PlacementSizeResolver { get; init; } = Capacity.PlacementSizeResolver.Instance;
+
+    /// <summary>AI-SCHED-CAP Prompt 3A — shared room-fit evaluator (margin-aware).</summary>
+    public IRoomCapacityEvaluator RoomCapacityEvaluator { get; init; } = Capacity.RoomCapacityEvaluator.Instance;
+
+    public PlacementSizeResolution ResolvePlacementSize(TimetableEntry entry)
+    {
+        int? resolved = null;
+        int? expected = null;
+        if (entry.TeachingGroupId is int tgId)
+        {
+            if (ResolvedStudentCountsByTeachingGroupId.TryGetValue(tgId, out var count))
+                resolved = count;
+            if (TeachingGroups.TryGetValue(tgId, out var tg))
+                expected = tg.ExpectedStudentCount;
+        }
+
+        int? subjectCap = Subjects.TryGetValue(entry.SubjectId, out var subject)
+            ? subject.ExpectedCapacity
+            : null;
+
+        return PlacementSizeResolver.Resolve(resolved, expected, subjectCap);
+    }
 
     public string Nav(TimetableEntry entry) =>
         $"/setup/scheduling/timetables/{entry.TimetableId}?entryId={entry.Id}&day={entry.DayOfWeek}&slot={entry.TimeSlotId}";

@@ -1,6 +1,7 @@
 using Abhyanvaya.API.Common;
 using Abhyanvaya.Application.Academic;
 using Abhyanvaya.Application.DTOs.Academic;
+using Abhyanvaya.Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -201,6 +202,7 @@ public sealed class TimetableSectionsController : ControllerBase
     {
         try { return Ok(await _service.SetTimetableSectionsAsync(timetableId, request, cancellationToken)); }
         catch (KeyNotFoundException) { return NotFound(); }
+        catch (DomainException ex) { return BadRequest(ex.Message); }
         catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
     }
 }

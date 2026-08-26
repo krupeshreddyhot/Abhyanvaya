@@ -1,6 +1,9 @@
 using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.DTOs.Academic;
+using Abhyanvaya.Application.Scheduling;
 using Abhyanvaya.Domain.Entities.Academic;
+using Abhyanvaya.Domain.Entities.Scheduling;
+using Abhyanvaya.Domain.Exceptions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Abhyanvaya.Application.Academic;
@@ -11,17 +14,20 @@ public sealed class SectionManagementService : ISectionManagementService
     private readonly ICurrentUserService _currentUser;
     private readonly ISectionCapacityEngine _capacity;
     private readonly ISectionVersioningService _versions;
+    private readonly ITeachingGroupSectionApplicationService _teachingGroupSections;
 
     public SectionManagementService(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
         ISectionCapacityEngine capacity,
-        ISectionVersioningService versions)
+        ISectionVersioningService versions,
+        ITeachingGroupSectionApplicationService teachingGroupSections)
     {
         _db = db;
         _currentUser = currentUser;
         _capacity = capacity;
         _versions = versions;
+        _teachingGroupSections = teachingGroupSections;
     }
 
     public async Task<IReadOnlyList<SectionDto>> GetSectionsAsync(
@@ -267,31 +273,45 @@ public sealed class SectionManagementService : ISectionManagementService
 
     public async Task<FacultySectionDto> AssignFacultyAsync(AssignFacultySectionRequest request, CancellationToken cancellationToken = default)
     {
-        _ = await _db.Sections.FirstOrDefaultAsync(s => s.Id == request.SectionId && s.TenantId == _currentUser.TenantId, cancellationToken)
-            ?? throw new KeyNotFoundException("Section not found.");
-        var facultyOk = await _db.StaffMembers.AnyAsync(s => s.Id == request.FacultyId && s.TenantId == _currentUser.TenantId, cancellationToken);
-        if (!facultyOk) throw new InvalidOperationException("Invalid faculty.");
+        // AI29.1D.15A Prompt 7 — do not trust client Staff Id / scope; validate then assign exact validated ids.
+        var validation = await FacultySectionAssignmentAuthorization.ValidateAssignAsync(
+                _db,
+                _currentUser.TenantId,
+                request,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!validation.Ok)
+        {
+            if (validation.SectionNotFound)
+                throw new KeyNotFoundException(validation.Error ?? "Section not found.");
+            throw new InvalidOperationException(validation.Error ?? FacultySectionAssignmentAuthorization.UnauthorizedFacultyMessage);
+        }
+
+        var section = validation.Section!;
+        var facultyId = validation.FacultyId; // requested id only — never substituted
+        var academicYearId = section.AcademicYearId;
 
         var existing = await _db.FacultySectionAssignments
             .Where(x => x.TenantId == _currentUser.TenantId
-                        && x.FacultyId == request.FacultyId
-                        && x.SectionId == request.SectionId
+                        && x.FacultyId == facultyId
+                        && x.SectionId == section.Id
                         && x.IsCurrent)
             .FirstOrDefaultAsync(cancellationToken);
         if (existing is not null)
         {
             existing.Role = string.IsNullOrWhiteSpace(request.Role) ? existing.Role : request.Role.Trim();
-            existing.AcademicYearId = request.AcademicYearId;
+            existing.AcademicYearId = academicYearId;
             existing.UpdatedDate = DateTime.UtcNow;
             await _db.SaveChangesAsync(cancellationToken);
-            return (await GetFacultySectionsAsync(sectionId: request.SectionId, facultyId: request.FacultyId, cancellationToken: cancellationToken)).First();
+            return (await GetFacultySectionsAsync(sectionId: section.Id, facultyId: facultyId, cancellationToken: cancellationToken)).First();
         }
 
         var row = new FacultySectionAssignment
         {
-            FacultyId = request.FacultyId,
-            SectionId = request.SectionId,
-            AcademicYearId = request.AcademicYearId,
+            FacultyId = facultyId,
+            SectionId = section.Id,
+            AcademicYearId = academicYearId,
             Role = string.IsNullOrWhiteSpace(request.Role) ? "Primary" : request.Role.Trim(),
             EffectiveFrom = request.EffectiveFrom ?? DateOnly.FromDateTime(DateTime.UtcNow),
             IsCurrent = true,
@@ -301,9 +321,13 @@ public sealed class SectionManagementService : ISectionManagementService
         };
         await _db.AddAsync(row);
         await _db.SaveChangesAsync(cancellationToken);
-        return (await GetFacultySectionsAsync(sectionId: request.SectionId, facultyId: request.FacultyId, cancellationToken: cancellationToken)).First();
+        return (await GetFacultySectionsAsync(sectionId: section.Id, facultyId: facultyId, cancellationToken: cancellationToken)).First();
     }
 
+    /// <summary>
+    /// AI-SCHED-TG.4A Prompt 6 — Legacy GET reads TimetableSection projection only.
+    /// Does not mutate SoT or projection, create Teaching Groups, or repair drift on GET.
+    /// </summary>
     public async Task<IReadOnlyList<TimetableSectionDto>> GetTimetableSectionsAsync(int timetableId, CancellationToken cancellationToken = default)
     {
         var rows = await _db.TimetableSections.AsNoTracking()
@@ -317,37 +341,37 @@ public sealed class SectionManagementService : ISectionManagementService
         SetTimetableSectionsRequest request,
         CancellationToken cancellationToken = default)
     {
-        var ttOk = await _db.SchedulingTimetables.AnyAsync(t => t.Id == timetableId && t.TenantId == _currentUser.TenantId, cancellationToken);
-        if (!ttOk) throw new KeyNotFoundException("Timetable not found.");
+        // AI-SCHED-TG.4A Prompt 5 — Legacy API contract preserved; SoT is TeachingGroupSection.
+        // TimetableSection is updated only via ReplaceSectionsAndProjectAsync (single SaveChanges).
+        var timetable = await _db.SchedulingTimetables
+            .FirstOrDefaultAsync(t => t.Id == timetableId && t.TenantId == _currentUser.TenantId, cancellationToken)
+            ?? throw new KeyNotFoundException("Timetable not found.");
 
-        var existing = await _db.TimetableSections
-            .Where(x => x.TenantId == _currentUser.TenantId
-                        && x.TimetableId == timetableId
-                        && x.TimetableEntryId == request.TimetableEntryId)
-            .ToListAsync(cancellationToken);
-        foreach (var e in existing)
+        TimetableService.EnsureDraft(timetable);
+
+        if (request.TimetableEntryId is not int entryId || entryId <= 0)
+            throw new DomainException("TimetableEntryId is required to assign sections.");
+
+        var entry = await _db.SchedulingTimetableEntries
+            .FirstOrDefaultAsync(
+                e => e.Id == entryId
+                     && e.TimetableId == timetableId
+                     && e.TenantId == _currentUser.TenantId,
+                cancellationToken)
+            ?? throw new KeyNotFoundException("Timetable entry was not found.");
+
+        if (entry.TeachingGroupId is not int teachingGroupId)
         {
-            e.IsDeleted = true;
-            e.UpdatedDate = DateTime.UtcNow;
+            throw new DomainException(
+                "This timetable entry has no Teaching Group assigned. Assign a Teaching Group first, then set sections.");
         }
 
-        var ids = request.SectionIds.Distinct().Where(id => id > 0).ToList();
-        foreach (var sectionId in ids)
-        {
-            var sectionOk = await _db.Sections.AnyAsync(s => s.Id == sectionId && s.TenantId == _currentUser.TenantId, cancellationToken);
-            if (!sectionOk) throw new InvalidOperationException($"Invalid section {sectionId}.");
-            await _db.AddAsync(new TimetableSection
-            {
-                TimetableId = timetableId,
-                TimetableEntryId = request.TimetableEntryId,
-                SectionId = sectionId,
-                TenantId = _currentUser.TenantId,
-                CreatedDate = DateTime.UtcNow,
-                CreatedBy = _currentUser.UserId > 0 ? _currentUser.UserId : null,
-            });
-        }
+        // Explicit TeachingGroupId only — no allocation inference; no TeachingGroup auto-create.
+        await _teachingGroupSections.ReplaceSectionsAndProjectAsync(
+            teachingGroupId,
+            request.SectionIds,
+            cancellationToken);
 
-        await _db.SaveChangesAsync(cancellationToken);
         return await GetTimetableSectionsAsync(timetableId, cancellationToken);
     }
 
@@ -472,6 +496,9 @@ public sealed class SectionManagementService : ISectionManagementService
     public Task<IReadOnlyList<StudentSectionDto>> GetStudentsPerSectionAsync(int sectionId, CancellationToken cancellationToken = default)
         => GetStudentSectionsAsync(sectionId: sectionId, cancellationToken: cancellationToken);
 
+    /// <summary>
+    /// AI-SCHED-TG.4A Prompt 6 — Combined-session read from TimetableSection projection (no SoT mutation).
+    /// </summary>
     public async Task<IReadOnlyList<TimetableSectionDto>> GetCombinedSessionsAsync(int? timetableId = null, CancellationToken cancellationToken = default)
     {
         var q = _db.TimetableSections.AsNoTracking().Where(x => x.TenantId == _currentUser.TenantId);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Alert,
@@ -7,6 +7,7 @@ import {
   Card,
   CardContent,
   Checkbox,
+  Chip,
   CircularProgress,
   FormControl,
   FormControlLabel,
@@ -28,6 +29,8 @@ import {
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { AiAttendancePanel } from "../components/attendance/AiAttendancePanel";
+import { CombinedSectionClassBanner } from "../components/attendance/CombinedSectionClassBanner";
+import { OperationalTimetableContextPanel } from "../components/attendance/OperationalTimetableContextPanel";
 import { PERIOD_OPTIONS } from "../constants/attendanceConstants";
 import {
   type AttendanceContext,
@@ -37,63 +40,93 @@ import {
   editAttendance,
   getCourses,
   getGroups,
-  getSemesters,
   getStudentsForMarking,
   getSubjects,
   markAttendance,
   type AttendanceStudentDto,
   type CourseDto,
   type GroupDto,
-  type SemesterDto,
   type SubjectDto,
 } from "../services/attendanceService";
-import { resolveAttendanceSession } from "../services/schedulingService";
+import {
+  AcademicContextBreadcrumb,
+  AcademicHelpHint,
+  academicChipSx,
+  academicPageShellSx,
+} from "../components/academic";
+import { useAcademicUi } from "../context/AcademicUiContext";
+import { listSections, type SectionDto } from "../services/sectionService";
+import { filterSemestersForScope, listSemesters, type SemesterRow } from "../services/setupService";
+import { listAcademicYears, resolveAttendanceSession } from "../services/schedulingService";
+import {
+  buildSectionListParams,
+  buildAttendanceWritePayload,
+  buildStudentsForMarkingParams,
+  hasTimetableAcademicDrift,
+  normalizeSectionIds,
+  resolveAuthoritativeAcademicYear,
+  resolveAttendanceMarkingMode,
+  snapshotFromTimetableResolution,
+  type AcademicYearAuthority,
+  type AttendanceMarkingScopeMode,
+  type AttendanceResolutionLike,
+  type AttendanceTimetableSnapshot,
+} from "../utils/attendanceMarkingScope";
+import { getApiErrorMessage } from "../utils/apiErrorMessage";
+import { ACADEMIC_UI_PAGE_SIZES, isAbortError, replaceAbortController } from "../utils/academicRequest";
+import { describeAttendancePopulation } from "../utils/attendanceSectionBehavior";
+import { buildCombinedSectionClassView } from "../utils/combinedSectionClass";
+import {
+  buildOperationalTimetableContextView,
+  sectionOrGroupLabel,
+} from "../utils/operationalTimetableContext";
+import { safeMultiSelectValues, safePeriodValue, safeSelectValue } from "../utils/safeSelectValue";
+import { useAuth } from "../context/AuthContext";
+import {
+  getCoursesCache,
+  getGroupsCache,
+  getSectionsCache,
+  getSemestersCache,
+  getSubjectsCache,
+  isScopedSemesterCache,
+  readPersistedSelection,
+  sectionsCacheKey,
+  setCoursesCache,
+  setSemestersCache,
+  subjectsCacheKey,
+  writePersistedSelection,
+} from "../utils/attendanceMarkingPersistence";
 
-/**
- * Remembers the faculty's last course/group/semester/subject/period/method/date selection and
- * caches the course/group/semester/subject lookup lists in memory for this browser tab/session.
- * Without this, navigating away (e.g. to the AI recognition review page) and back always reset
- * every dropdown to blank and re-fetched the course/semester lists from scratch, because this
- * component fully unmounts on route change and all of the above lived in local component state.
- */
-const SELECTION_STORAGE_KEY = "attendanceMarking.selection.v1";
+type RosterCacheEntry = {
+  students: AttendanceStudentDto[];
+  totalCount: number;
+  fetchedAt: number;
+};
 
-type PersistedAttendanceSelection = {
+/** Short-lived full-roster cache so Mark-all + Save share one paged fetch per scope. */
+const rosterCache = new Map<string, RosterCacheEntry>();
+const ROSTER_CACHE_TTL_MS = 30_000;
+
+/** Stable empty list — `sectionScopeEnabled ? selected : []` must not allocate a new [] each render
+ *  (that identity change re-triggers the roster effect and exceeds React's update depth). */
+const EMPTY_SECTION_IDS: number[] = [];
+
+const rosterCacheKey = (parts: {
   courseId: number;
   groupId: number;
   semesterId: number;
   subjectId: number;
-  periodNumber: number;
-  attendanceMethod: AttendanceMethodMode;
   date: string;
-};
-
-const readPersistedSelection = (): Partial<PersistedAttendanceSelection> => {
-  try {
-    const raw = sessionStorage.getItem(SELECTION_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Partial<PersistedAttendanceSelection>;
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-};
-
-const writePersistedSelection = (selection: PersistedAttendanceSelection) => {
-  try {
-    sessionStorage.setItem(SELECTION_STORAGE_KEY, JSON.stringify(selection));
-  } catch {
-    // Ignore storage errors (e.g. private browsing quota) — persistence is a UX nicety, not critical.
-  }
-};
-
-/** Module-level (in-memory) lookup caches — survive component unmount/remount within this page load. */
-let coursesCache: CourseDto[] | null = null;
-let semestersCache: SemesterDto[] | null = null;
-const groupsCache = new Map<number, GroupDto[]>();
-const subjectsCache = new Map<string, SubjectDto[]>();
-const subjectsCacheKey = (courseId: number, groupId: number, semesterId: number) =>
-  `${courseId}:${groupId}:${semesterId}`;
+  sectionIds: number[];
+}) =>
+  [
+    parts.courseId,
+    parts.groupId,
+    parts.semesterId,
+    parts.subjectId,
+    parts.date,
+    parts.sectionIds.slice().sort((a, b) => a - b).join(","),
+  ].join(":");
 
 const resolveMethodFromNavigation = (
   searchParams: URLSearchParams,
@@ -122,8 +155,13 @@ const AttendanceMarking = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const academicUi = useAcademicUi();
+  const { user } = useAuth();
+  const authUserId = user?.userId ?? 0;
+  const authTenantId = user?.tenantId ?? 0;
 
-  const initialSelection = readPersistedSelection();
+  // Per-user sessionStorage — never restore another faculty member's Course/Group/Subject.
+  const initialSelection = readPersistedSelection(authUserId, authTenantId);
   const locationState = (location.state as {
     switchToManual?: boolean;
     attendanceMethod?: AttendanceMethodMode;
@@ -134,11 +172,17 @@ const AttendanceMarking = () => {
     initialSelection.attendanceMethod
   );
 
+  const coursesCache = getCoursesCache();
+  const semestersCache = getSemestersCache();
+  const groupsCache = getGroupsCache();
+  const subjectsCache = getSubjectsCache();
+  const sectionsCache = getSectionsCache();
+
   const [courses, setCourses] = useState<CourseDto[]>(coursesCache ?? []);
   const [groups, setGroups] = useState<GroupDto[]>(() =>
     initialSelection.courseId ? (groupsCache.get(initialSelection.courseId) ?? []) : []
   );
-  const [semesters, setSemesters] = useState<SemesterDto[]>(semestersCache ?? []);
+  const [semesters, setSemesters] = useState<SemesterRow[]>(semestersCache ?? []);
   const [subjects, setSubjects] = useState<SubjectDto[]>(() =>
     initialSelection.courseId && initialSelection.groupId && initialSelection.semesterId
       ? (subjectsCache.get(
@@ -146,13 +190,35 @@ const AttendanceMarking = () => {
         ) ?? [])
       : []
   );
+  const [subjectsLoading, setSubjectsLoading] = useState(false);
 
   const [courseId, setCourseId] = useState(() => initialSelection.courseId ?? 0);
   const [groupId, setGroupId] = useState(() => initialSelection.groupId ?? 0);
   const [semesterId, setSemesterId] = useState(() => initialSelection.semesterId ?? 0);
   const [subjectId, setSubjectId] = useState(() => initialSelection.subjectId ?? 0);
   const [periodNumber, setPeriodNumber] = useState(() => initialSelection.periodNumber ?? 1);
-  const [attendanceMethod, setAttendanceMethod] = useState<AttendanceMethodMode>(() => initialMethod);
+  const [academicYearAuthority, setAcademicYearAuthority] = useState<AcademicYearAuthority>({
+    status: "None",
+    academicYearId: null,
+    message: "Current academic year is not configured.",
+  });
+  const academicYearId = academicYearAuthority.academicYearId;
+  const sectionScopeEnabled = academicYearAuthority.status === "ExactlyOne";
+  const [selectedSectionIds, setSelectedSectionIds] = useState<number[]>(() =>
+    normalizeSectionIds(initialSelection.selectedSectionIds),
+  );
+  /** Never send section filters when Academic Year authority is not ExactlyOne. */
+  const effectiveSectionIds = sectionScopeEnabled ? selectedSectionIds : EMPTY_SECTION_IDS;
+  const effectiveSectionIdsKey = effectiveSectionIds.join(",");
+  const [sections, setSections] = useState<SectionDto[]>([]);
+  const [scopeMode, setScopeMode] = useState<AttendanceMarkingScopeMode>("Manual");
+  const [roomName, setRoomName] = useState<string | null>(null);
+  const [resolvedSectionCodes, setResolvedSectionCodes] = useState<string[]>([]);
+  const timetableSnapshotRef = useRef<AttendanceTimetableSnapshot | null>(null);
+  const applyingTimetableRef = useRef(false);
+  const [attendanceMethod, setAttendanceMethod] = useState<AttendanceMethodMode>(() =>
+    initialMethod === "aiPhoto" || initialMethod === "manual" ? initialMethod : "manual",
+  );
   /** YYYY-MM-DD in the user's local calendar (date input); never use toISOString().slice(0,10) here — that is UTC date. */
   const [date, setDate] = useState(() => {
     if (initialSelection.date) return initialSelection.date;
@@ -174,9 +240,11 @@ const AttendanceMarking = () => {
   /** Total students in class for selected filters (ignores search) — used for save eligibility */
   const [fullClassTotal, setFullClassTotal] = useState(0);
   const [pageNumber, setPageNumber] = useState(1);
-  const pageSize = 50;
+  const pageSize = ACADEMIC_UI_PAGE_SIZES.attendanceRosterPage;
   /** Full roster pages use API max page size for fewer round trips */
-  const rosterPageSize = 200;
+  const rosterPageSize = ACADEMIC_UI_PAGE_SIZES.attendanceRosterFetch;
+  const studentsAbortRef = useRef<AbortController | null>(null);
+  const rosterAbortRef = useRef<AbortController | null>(null);
   const [statusMap, setStatusMap] = useState<Record<string, number>>({});
 
   const [loadingMeta, setLoadingMeta] = useState(() => !(coursesCache && semestersCache));
@@ -186,40 +254,127 @@ const AttendanceMarking = () => {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"card" | "table">(isMobile ? "card" : "table");
-  const [timetableHint, setTimetableHint] = useState<string | null>(null);
+  const [subjectAccessHint, setSubjectAccessHint] = useState<string | null>(null);
+  const [sessionResolution, setSessionResolution] = useState<AttendanceResolutionLike | null>(null);
+  const [rosterCombinedMeta, setRosterCombinedMeta] = useState<{
+    isCombinedClass?: boolean;
+    participatingSectionIds?: number[];
+    participatingSectionCodes?: string[];
+    operationalClassLabel?: string | null;
+  }>({});
 
   useEffect(() => {
     setViewMode(isMobile ? "card" : "table");
   }, [isMobile]);
 
+  // Prompt 11B — fail-closed Academic Year authority for Section options (never guess first year).
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await listAcademicYears();
+        if (cancelled) return;
+        const authority = resolveAuthoritativeAcademicYear(res.data ?? []);
+        setAcademicYearAuthority(authority);
+        if (authority.status !== "ExactlyOne") {
+          setSelectedSectionIds((prev) => (prev.length === 0 ? prev : []));
+          setResolvedSectionCodes((prev) => (prev.length === 0 ? prev : []));
+        }
+      } catch {
+        if (!cancelled) {
+          setAcademicYearAuthority({
+            status: "None",
+            academicYearId: null,
+            message: "Current academic year is not configured.",
+          });
+          setSelectedSectionIds((prev) => (prev.length === 0 ? prev : []));
+          setResolvedSectionCodes((prev) => (prev.length === 0 ? prev : []));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (sectionScopeEnabled) return;
+    if (selectedSectionIds.length === 0 && resolvedSectionCodes.length === 0) return;
+    setSelectedSectionIds((prev) => (prev.length === 0 ? prev : []));
+    setResolvedSectionCodes((prev) => (prev.length === 0 ? prev : []));
+  }, [sectionScopeEnabled, selectedSectionIds.length, resolvedSectionCodes.length]);
+
   // Optional Phase 2B resolver: pre-fill from today's timetable when available.
   // Never removes legacy Course → Group → Semester → Subject → Period workflow.
+  // AI29.1D Prompt 11/11A: Timetable prefills Section(s)/Room; Manual keeps Section optional.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         const res = await resolveAttendanceSession({ date });
         if (cancelled) return;
-        if (res.data.mode === "Timetable" && res.data.hasTimetable) {
+        setSessionResolution(res.data);
+        const mode = resolveAttendanceMarkingMode(res.data);
+        setScopeMode(mode);
+        if (mode === "Timetable") {
+          applyingTimetableRef.current = true;
+          const snap = snapshotFromTimetableResolution(res.data);
+          timetableSnapshotRef.current = snap;
           if (res.data.courseId) setCourseId(res.data.courseId);
           if (res.data.groupId) setGroupId(res.data.groupId);
           if (res.data.semesterId) setSemesterId(res.data.semesterId);
           if (res.data.subjectId) setSubjectId(res.data.subjectId);
           if (res.data.periodNumber) setPeriodNumber(res.data.periodNumber);
-          setTimetableHint(
-            `Timetable mode: ${res.data.subjectName ?? "class"}${res.data.roomName ? ` @ ${res.data.roomName}` : ""}. You can still change filters manually.`
-          );
+          setSelectedSectionIds(snap.sectionIds);
+          setResolvedSectionCodes(snap.sectionCodes);
+          setRoomName(snap.roomName);
+          queueMicrotask(() => {
+            applyingTimetableRef.current = false;
+          });
         } else {
-          setTimetableHint(null);
+          // Graceful fallback — never block attendance when timetable is unavailable.
+          timetableSnapshotRef.current = null;
+          setResolvedSectionCodes((prev) => (prev.length === 0 ? prev : []));
+          setRoomName((prev) => (prev == null ? prev : null));
         }
       } catch {
-        if (!cancelled) setTimetableHint(null);
+        if (!cancelled) {
+          setSessionResolution(null);
+          timetableSnapshotRef.current = null;
+          setScopeMode("Manual");
+          setResolvedSectionCodes((prev) => (prev.length === 0 ? prev : []));
+          setRoomName((prev) => (prev == null ? prev : null));
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
+    // selectedSectionIds intentionally omitted — manual Section choice updates hint separately.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
+
+  // Prompt 11A — changing a timetable-resolved academic field drops stale Section/Room context.
+  useEffect(() => {
+    if (applyingTimetableRef.current) return;
+    if (scopeMode !== "Timetable") return;
+    if (
+      !hasTimetableAcademicDrift(timetableSnapshotRef.current, {
+        courseId,
+        groupId,
+        semesterId,
+        subjectId,
+        periodNumber,
+      })
+    ) {
+      return;
+    }
+    timetableSnapshotRef.current = null;
+    setScopeMode("Manual");
+    setSelectedSectionIds((prev) => (prev.length === 0 ? prev : []));
+    setResolvedSectionCodes((prev) => (prev.length === 0 ? prev : []));
+    setRoomName((prev) => (prev == null ? prev : null));
+  }, [scopeMode, courseId, groupId, semesterId, subjectId, periodNumber]);
 
   // Apply method from Faculty Workspace / deep-link (?ai=1|0) or one-shot location.state.
   // Button intent always wins over a previously persisted Manual/AI selection.
@@ -245,8 +400,10 @@ const AttendanceMarking = () => {
 
   // Remember the current selection so it survives navigating away and back (e.g. AI photo
   // attendance → recognition review → back to this page) instead of resetting every dropdown.
+  // Scoped by signed-in user — never leak Course/Group/Subject to the next faculty login.
   useEffect(() => {
-    writePersistedSelection({
+    if (!authUserId || !authTenantId) return;
+    writePersistedSelection(authUserId, authTenantId, {
       courseId,
       groupId,
       semesterId,
@@ -254,8 +411,20 @@ const AttendanceMarking = () => {
       periodNumber,
       attendanceMethod,
       date,
+      selectedSectionIds,
     });
-  }, [courseId, groupId, semesterId, subjectId, periodNumber, attendanceMethod, date]);
+  }, [
+    authUserId,
+    authTenantId,
+    courseId,
+    groupId,
+    semesterId,
+    subjectId,
+    periodNumber,
+    attendanceMethod,
+    date,
+    selectedSectionIds,
+  ]);
 
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput.trim()), 300);
@@ -263,9 +432,11 @@ const AttendanceMarking = () => {
   }, [searchInput]);
 
   useEffect(() => {
-    if (coursesCache && semestersCache) {
-      setCourses(coursesCache);
-      setSemesters(semestersCache);
+    const cachedCourses = getCoursesCache();
+    const cachedSemesters = getSemestersCache();
+    if (cachedCourses && isScopedSemesterCache(cachedSemesters)) {
+      setCourses(cachedCourses);
+      setSemesters(cachedSemesters);
       setLoadingMeta(false);
       return;
     }
@@ -273,11 +444,13 @@ const AttendanceMarking = () => {
       setLoadingMeta(true);
       setError(null);
       try {
-        const [cRes, sRes] = await Promise.all([getCourses(), getSemesters()]);
-        coursesCache = cRes.data;
-        semestersCache = sRes.data;
+        // Full semester rows include courseId/groupId so the Semester dropdown can be scoped —
+        // unscoped /master/semesters let faculty pick another course's "Semester III" and subjects stayed empty.
+        const [cRes, sRes] = await Promise.all([getCourses(), listSemesters()]);
+        setCoursesCache(cRes.data);
+        setSemestersCache(sRes.data ?? []);
         setCourses(cRes.data);
-        setSemesters(sRes.data);
+        setSemesters(sRes.data ?? []);
       } catch {
         setError("Failed to load course/semester data.");
       } finally {
@@ -287,15 +460,29 @@ const AttendanceMarking = () => {
     void loadMeta();
   }, []);
 
+  const scopedSemesters = useMemo(
+    () => filterSemestersForScope(semesters, courseId, groupId),
+    [semesters, courseId, groupId],
+  );
+
+  // Drop a persisted/global semester that is not valid for the selected Course + Group.
+  useEffect(() => {
+    if (semesterId <= 0 || scopedSemesters.length === 0) return;
+    if (scopedSemesters.some((s) => s.id === semesterId)) return;
+    setSemesterId(0);
+    setSubjectId(0);
+    setSubjects((prev) => (prev.length === 0 ? prev : []));
+  }, [semesterId, scopedSemesters]);
+
   useEffect(() => {
     if (!courseId) {
-      setGroups([]);
-      setGroupId(0);
+      setGroups((prev) => (prev.length === 0 ? prev : []));
+      setGroupId((prev) => (prev === 0 ? prev : 0));
       return;
     }
     const cached = groupsCache.get(courseId);
     if (cached) {
-      setGroups(cached);
+      setGroups((prev) => (prev === cached ? prev : cached));
       return;
     }
     const loadGroups = async () => {
@@ -304,35 +491,88 @@ const AttendanceMarking = () => {
         groupsCache.set(courseId, res.data);
         setGroups(res.data);
       } catch {
-        setGroups([]);
+        setGroups((prev) => (prev.length === 0 ? prev : []));
       }
     };
     void loadGroups();
   }, [courseId]);
 
+  // Subjects = Course + Group + Semester only (never Section / Academic Year). Own abort signal.
   useEffect(() => {
     if (!courseId || !groupId || !semesterId) {
-      setSubjects([]);
-      setSubjectId(0);
+      setSubjectsLoading(false);
+      setSubjects((prev) => (prev.length === 0 ? prev : []));
+      setSubjectId((prev) => (prev === 0 ? prev : 0));
       return;
     }
+
     const key = subjectsCacheKey(courseId, groupId, semesterId);
-    const cached = subjectsCache.get(key);
-    if (cached) {
-      setSubjects(cached);
+    if (subjectsCache.has(key)) {
+      const cached = subjectsCache.get(key)!;
+      setSubjects((prev) => (prev === cached ? prev : cached));
+      setSubjectsLoading(false);
       return;
     }
-    const loadSubjects = async () => {
-      try {
-        const res = await getSubjects(courseId, groupId, semesterId);
-        subjectsCache.set(key, res.data);
-        setSubjects(res.data);
-      } catch {
-        setSubjects([]);
-      }
-    };
-    void loadSubjects();
+
+    const controller = new AbortController();
+    setSubjectsLoading(true);
+    void getSubjects(courseId, groupId, semesterId, { signal: controller.signal })
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        const rows = res.data ?? [];
+        // Cache non-empty only — empty results may be from a stale wrong Semester id.
+        if (rows.length > 0) subjectsCache.set(key, rows);
+        else subjectsCache.delete(key);
+        setSubjects(rows);
+      })
+      .catch((e) => {
+        if (isAbortError(e)) return;
+        setSubjects((prev) => (prev.length === 0 ? prev : []));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSubjectsLoading(false);
+      });
+    return () => controller.abort();
   }, [courseId, groupId, semesterId]);
+
+  // Sections require Academic Year → C/G/S. Separate from subjects so AY load cannot abort subject fetch.
+  useEffect(() => {
+    if (!courseId || !groupId || !semesterId) {
+      setSections((prev) => (prev.length === 0 ? prev : []));
+      return;
+    }
+
+    const sectionParams = buildSectionListParams({ academicYearId, courseId, groupId, semesterId });
+    if (!sectionParams) {
+      setSections((prev) => (prev.length === 0 ? prev : []));
+      return;
+    }
+
+    const secKey = sectionsCacheKey(
+      sectionParams.academicYearId,
+      sectionParams.courseId,
+      sectionParams.groupId,
+      sectionParams.semesterId,
+    );
+    if (sectionsCache.has(secKey)) {
+      const secCached = sectionsCache.get(secKey)!;
+      setSections((prev) => (prev === secCached ? prev : secCached));
+      return;
+    }
+
+    const controller = new AbortController();
+    void listSections(sectionParams, { signal: controller.signal })
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        const rows = res.data ?? [];
+        sectionsCache.set(secKey, rows);
+        setSections(rows);
+      })
+      .catch((e) => {
+        if (!isAbortError(e)) setSections((prev) => (prev.length === 0 ? prev : []));
+      });
+    return () => controller.abort();
+  }, [academicYearId, courseId, groupId, semesterId]);
 
   // Timetable pre-fill can select a subject the faculty user is not assigned to.
   // Master /subjects already filters by StaffSubjectAssignment for Faculty — if the
@@ -345,32 +585,43 @@ const AttendanceMarking = () => {
     if (!list) return; // still loading this scope
     if (list.some((s) => s.id === subjectId)) return;
     setSubjectId(0);
-    setTimetableHint((prev) =>
-      prev
-        ? `${prev} That class is not in your assigned subjects — pick a subject you teach.`
-        : "Selected subject is not in your assigned list. Pick a subject you teach."
-    );
+    setSubjectAccessHint("Selected subject is not in your assigned list. Pick a subject you teach.");
   }, [subjects, subjectId, courseId, groupId, semesterId]);
 
   const canLoadStudents = courseId > 0 && groupId > 0 && semesterId > 0 && subjectId > 0 && !!date;
 
   const loadStudents = async (targetPage = 1, append = false) => {
     if (!canLoadStudents) return;
+    const controller = replaceAbortController(studentsAbortRef.current);
+    studentsAbortRef.current = controller;
     setLoadingStudents(true);
     setError(null);
     setMessage(null);
     try {
-      const res = await getStudentsForMarking({
-        courseId,
-        groupId,
-        semesterId,
-        subjectId,
-        date: attendanceDateIsoUtc(),
-        search: search || undefined,
-        pageNumber: targetPage,
-        pageSize,
-      });
+      const res = await getStudentsForMarking(
+        buildStudentsForMarkingParams({
+          courseId,
+          groupId,
+          semesterId,
+          subjectId,
+          date: attendanceDateIsoUtc(),
+          search: search || undefined,
+          pageNumber: targetPage,
+          pageSize,
+          selectedSectionIds: effectiveSectionIds,
+        }),
+        { signal: controller.signal },
+      );
+      if (controller.signal.aborted) return;
       setStudents((prev) => (append ? [...prev, ...res.data.students] : res.data.students));
+      if (!append) {
+        setRosterCombinedMeta({
+          isCombinedClass: res.data.isCombinedClass,
+          participatingSectionIds: res.data.participatingSectionIds,
+          participatingSectionCodes: res.data.participatingSectionCodes,
+          operationalClassLabel: res.data.operationalClassLabel,
+        });
+      }
       setIsLocked(res.data.isLocked);
       setAlreadyMarked(res.data.alreadyMarked);
       setTotalCount(res.data.totalCount);
@@ -388,35 +639,46 @@ const AttendanceMarking = () => {
         return next;
       });
     } catch (e) {
-      // Faculty denied via FacultySubjectAccess returns HTTP 403 (after DefaultForbidScheme fix).
-      // Surface that clearly — a generic message hid "not assigned to this subject" in production.
-      const status = (e as { response?: { status?: number } }).response?.status;
-      if (status === 403) {
-        setError(
-          "You are not assigned to this subject. Choose a subject from your teaching assignments."
-        );
-      } else {
-        setError("Failed to load students for attendance.");
-      }
+      if (isAbortError(e)) return;
+      // Faculty denied via FacultySubjectAccess returns HTTP 403 — server remains authoritative.
+      setError(
+        getApiErrorMessage(e, "Failed to load students for attendance.", {
+          forbiddenFallback:
+            "You are not assigned to this subject. Choose a subject from your teaching assignments.",
+        }),
+      );
     } finally {
-      setLoadingStudents(false);
+      if (!controller.signal.aborted) setLoadingStudents(false);
     }
   };
 
   useEffect(() => {
     if (!canLoadStudents) {
-      setStudents([]);
-      setStatusMap({});
-      setAlreadyMarked(false);
-      setIsLocked(false);
-      setTotalCount(0);
-      setFullClassTotal(0);
-      setPageNumber(1);
+      studentsAbortRef.current?.abort();
+      setStudents((prev) => (prev.length === 0 ? prev : []));
+      setStatusMap((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+      setAlreadyMarked((prev) => (prev ? false : prev));
+      setIsLocked((prev) => (prev ? false : prev));
+      setTotalCount((prev) => (prev === 0 ? prev : 0));
+      setFullClassTotal((prev) => (prev === 0 ? prev : 0));
+      setPageNumber((prev) => (prev === 1 ? prev : 1));
+      setRosterCombinedMeta((prev) =>
+        prev.isCombinedClass == null &&
+        prev.participatingSectionIds == null &&
+        prev.participatingSectionCodes == null &&
+        prev.operationalClassLabel == null
+          ? prev
+          : {},
+      );
       return;
     }
     void loadStudents(1, false);
+    return () => {
+      studentsAbortRef.current?.abort();
+    };
+    // Use a stable string key for section ids — array identity must not re-fire this effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId, groupId, semesterId, subjectId, date, search]);
+  }, [courseId, groupId, semesterId, subjectId, date, search, effectiveSectionIdsKey]);
 
   const hasMore = students.length < totalCount;
 
@@ -440,25 +702,46 @@ const AttendanceMarking = () => {
 
   /** Full class list for this course/group/semester/subject/date — ignores search (search is view-only). */
   const fetchFullRoster = async () => {
+    const dateIso = attendanceDateIsoUtc();
+    const key = rosterCacheKey({
+      courseId,
+      groupId,
+      semesterId,
+      subjectId,
+      date: dateIso,
+      sectionIds: effectiveSectionIds,
+    });
+    const hit = rosterCache.get(key);
+    if (hit && Date.now() - hit.fetchedAt < ROSTER_CACHE_TTL_MS) {
+      return hit.students;
+    }
+
+    const controller = replaceAbortController(rosterAbortRef.current);
+    rosterAbortRef.current = controller;
     const all: AttendanceStudentDto[] = [];
     let page = 1;
     let total = 0;
 
     do {
-      const res = await getStudentsForMarking({
-        courseId,
-        groupId,
-        semesterId,
-        subjectId,
-        date: attendanceDateIsoUtc(),
-        pageNumber: page,
-        pageSize: rosterPageSize,
-      });
+      const res = await getStudentsForMarking(
+        buildStudentsForMarkingParams({
+          courseId,
+          groupId,
+          semesterId,
+          subjectId,
+          date: dateIso,
+          pageNumber: page,
+          pageSize: rosterPageSize,
+          selectedSectionIds: effectiveSectionIds,
+        }),
+        { signal: controller.signal },
+      );
       all.push(...res.data.students);
       total = res.data.totalCount;
       page += 1;
     } while (all.length < total);
 
+    rosterCache.set(key, { students: all, totalCount: total, fetchedAt: Date.now() });
     return all;
   };
 
@@ -502,16 +785,17 @@ const AttendanceMarking = () => {
     setError(null);
     setMessage(null);
     try {
+      // Server-loaded roster for the selected scope only — do not filter eligibility in React.
       const allStudents = await fetchFullRoster();
       const map = statusMap;
-      const payload = {
+      const payload = buildAttendanceWritePayload({
         subjectId,
         date: attendanceDateIsoUtc(),
-        students: allStudents.map((s) => ({
-          studentNumber: s.studentNumber,
-          status: resolveStatus(s, map),
-        })),
-      };
+        students: allStudents,
+        getStatus: (s) => resolveStatus(s, map),
+        selectedSectionIds: effectiveSectionIds,
+        operation: alreadyMarked ? "edit" : "mark",
+      });
 
       if (alreadyMarked) {
         await editAttendance(payload);
@@ -521,9 +805,14 @@ const AttendanceMarking = () => {
         setMessage("Attendance marked successfully.");
       }
 
+      rosterCache.clear();
       await loadStudents(1, false);
-    } catch {
-      setError("Failed to save attendance.");
+    } catch (e) {
+      setError(
+        getApiErrorMessage(e, "Failed to save attendance.", {
+          forbiddenFallback: "You are not authorized to mark or edit attendance for this subject/scope.",
+        }),
+      );
     } finally {
       setSaving(false);
     }
@@ -531,6 +820,108 @@ const AttendanceMarking = () => {
 
   const isManualMode = attendanceMethod === "manual";
   const isAiPhotoMode = attendanceMethod === "aiPhoto";
+
+  const sectionCodesForDisplay = useMemo(() => {
+    if (rosterCombinedMeta.participatingSectionCodes?.length) {
+      return rosterCombinedMeta.participatingSectionCodes;
+    }
+    if (resolvedSectionCodes.length > 0) return resolvedSectionCodes;
+    return selectedSectionIds
+      .map((id) => sections.find((s) => s.id === id)?.sectionCode)
+      .filter((c): c is string => Boolean(c));
+  }, [
+    rosterCombinedMeta.participatingSectionCodes,
+    resolvedSectionCodes,
+    selectedSectionIds,
+    sections,
+  ]);
+
+  const combinedClassView = useMemo(
+    () =>
+      buildCombinedSectionClassView({
+        sectionIds: rosterCombinedMeta.participatingSectionIds?.length
+          ? rosterCombinedMeta.participatingSectionIds
+          : effectiveSectionIds,
+        sectionCodes: sectionCodesForDisplay,
+        operationalClassLabel: rosterCombinedMeta.operationalClassLabel,
+        isCombinedClass: rosterCombinedMeta.isCombinedClass,
+      }),
+    [
+      rosterCombinedMeta.participatingSectionIds,
+      rosterCombinedMeta.operationalClassLabel,
+      rosterCombinedMeta.isCombinedClass,
+      effectiveSectionIds,
+      sectionCodesForDisplay,
+    ],
+  );
+
+  const showStudentSectionColumn =
+    combinedClassView.isCombined ||
+    students.some((s) => Boolean(s.sectionCode)) ||
+    effectiveSectionIds.length > 0;
+
+  /** Optional Program context only — never required for Manual attendance. */
+  const programContextLabel = useMemo(() => {
+    if (!academicUi.enablePrograms || courseId <= 0) return null;
+    const courseRow = academicUi.catalogs.courses.find((c) => c.id === courseId);
+    const programId = courseRow?.programId;
+    if (programId == null || programId <= 0) return null;
+    const program = academicUi.catalogs.programs.find((p) => p.id === programId);
+    return program ? `${program.programCode} — ${program.programName}` : null;
+  }, [academicUi.enablePrograms, academicUi.catalogs.courses, academicUi.catalogs.programs, courseId]);
+
+  const operationalContextView = useMemo(
+    () =>
+      buildOperationalTimetableContextView({
+        resolution: sessionResolution,
+        driftedToManual: scopeMode === "Manual",
+        labels: {
+          programName: programContextLabel,
+          courseName: courses.find((c) => c.id === courseId)?.name,
+          groupName: groups.find((g) => g.id === groupId)?.name,
+          semesterName: semesters.find((s) => s.id === semesterId)?.name,
+          subjectName:
+            subjects.find((s) => s.id === subjectId)?.name ?? sessionResolution?.subjectName ?? null,
+          sectionLabel:
+            sectionOrGroupLabel(sectionCodesForDisplay) ??
+            (effectiveSectionIds.length ? `${effectiveSectionIds.length} section(s)` : null),
+          periodLabel: periodNumber > 0 ? `Period ${periodNumber}` : null,
+          roomName: scopeMode === "Timetable" ? roomName : null,
+          dateLabel: date || null,
+        },
+      }),
+    [
+      sessionResolution,
+      scopeMode,
+      programContextLabel,
+      courses,
+      courseId,
+      groups,
+      groupId,
+      semesters,
+      semesterId,
+      subjects,
+      subjectId,
+      sectionCodesForDisplay,
+      effectiveSectionIds,
+      periodNumber,
+      roomName,
+      date,
+    ],
+  );
+
+  // MUI Select crashes (blank page) when value is not among MenuItems — common on faculty
+  // cold start with persisted Course/Group/Semester/Subject before lists return.
+  const selectCourseId = safeSelectValue(courseId, courses);
+  const selectGroupId = safeSelectValue(groupId, groups);
+  const selectSemesterId = safeSelectValue(semesterId, scopedSemesters);
+  const selectSubjectId = safeSelectValue(subjectId, subjects);
+  const selectPeriodNumber = safePeriodValue(periodNumber, PERIOD_OPTIONS);
+  const selectSectionIds = useMemo(() => {
+    if (!sectionScopeEnabled) return EMPTY_SECTION_IDS;
+    const next = safeMultiSelectValues(selectedSectionIds, sections);
+    return next.length === 0 ? EMPTY_SECTION_IDS : next;
+  }, [sectionScopeEnabled, selectedSectionIds, sections]);
 
   const attendanceContext = useMemo<AttendanceContext>(
     () => ({
@@ -545,6 +936,10 @@ const AttendanceMarking = () => {
       groupName: groups.find((g) => g.id === groupId)?.name,
       semesterName: semesters.find((s) => s.id === semesterId)?.name,
       subjectName: subjects.find((s) => s.id === subjectId)?.name,
+      sectionIds: effectiveSectionIds,
+      sectionCodes: sectionScopeEnabled ? sectionCodesForDisplay : [],
+      roomName: roomName ?? undefined,
+      scopeMode,
     }),
     [
       courseId,
@@ -558,12 +953,70 @@ const AttendanceMarking = () => {
       groups,
       semesters,
       subjects,
-    ]
+      effectiveSectionIds,
+      sectionCodesForDisplay,
+      sectionScopeEnabled,
+      roomName,
+      scopeMode,
+    ],
   );
 
   return (
-    <Stack spacing={2} sx={{ pb: isMobile ? 22 : 10 }}>
-      <Typography variant={isMobile ? "h5" : "h4"}>Mark Attendance</Typography>
+    <Stack
+      spacing={1.25}
+      component="main"
+      aria-label="Mark attendance"
+      sx={{ ...academicPageShellSx, pb: isMobile ? 22 : 2 }}
+    >
+      <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+        <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 800, flex: 1 }}>
+          Mark Attendance
+        </Typography>
+        <AcademicHelpHint
+          title="Attendance workflow"
+          body="Mobile prioritizes marking and save actions. Desktop supports full administrative filters. Section scope is optional; timetable resolution remains authoritative when present."
+        />
+      </Stack>
+      <AcademicContextBreadcrumb
+        context={{
+          courseId: courseId || null,
+          groupId: groupId || null,
+          semesterId: semesterId || null,
+          sectionId: effectiveSectionIds.length === 1 ? effectiveSectionIds[0] : null,
+          sectionIds: effectiveSectionIds,
+          subjectId: subjectId || null,
+        }}
+      />
+
+      <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 0.75 }}>
+        <Chip
+          size="small"
+          color={scopeMode === "Timetable" ? "primary" : "default"}
+          label={scopeMode === "Timetable" ? "Timetable context" : "Manual attendance"}
+          sx={academicChipSx}
+        />
+        {programContextLabel ? (
+          <Chip size="small" variant="outlined" label={`Program ${programContextLabel}`} sx={academicChipSx} />
+        ) : null}
+        {sectionScopeEnabled && academicYearId != null ? (
+          <Chip size="small" variant="outlined" label={`AY #${academicYearId}`} sx={academicChipSx} />
+        ) : null}
+        {roomName && scopeMode === "Timetable" ? (
+          <Chip size="small" variant="outlined" label={`Room ${roomName}`} sx={academicChipSx} />
+        ) : null}
+        {sectionCodesForDisplay.length > 1 ? (
+          <Chip
+            size="small"
+            color="secondary"
+            variant="outlined"
+            label={`Combined: ${sectionCodesForDisplay.join(" + ")}`}
+            sx={academicChipSx}
+          />
+        ) : null}
+        {sectionCodesForDisplay.length === 1 ? (
+          <Chip size="small" variant="outlined" label={`Section ${sectionCodesForDisplay[0]}`} sx={academicChipSx} />
+        ) : null}
+      </Box>
 
       {loadingMeta && (
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
@@ -574,14 +1027,20 @@ const AttendanceMarking = () => {
         </Box>
       )}
 
-      {timetableHint && <Alert severity="info">{timetableHint}</Alert>}
+      <OperationalTimetableContextPanel view={operationalContextView} />
+      <CombinedSectionClassBanner view={combinedClassView} />
+      {!sectionScopeEnabled && academicYearAuthority.message && (
+        <Alert severity="warning">{academicYearAuthority.message}</Alert>
+      )}
+      {subjectAccessHint && <Alert severity="warning">{subjectAccessHint}</Alert>}
       {message && <Alert severity="success">{message}</Alert>}
       {error && <Alert severity="error">{error}</Alert>}
       {isLocked && isManualMode && <Alert severity="warning">Attendance is locked for this date and subject.</Alert>}
       {!isLocked && canLoadStudents && isManualMode && (
         <Alert severity="info" sx={{ py: 0.75 }}>
           Search only filters the list. Save sends every student in this class for the selected subject and date
-          (present and absent).
+          (present and absent)
+          {selectedSectionIds.length > 0 ? " within the selected section(s)" : ""}.
         </Alert>
       )}
 
@@ -591,11 +1050,14 @@ const AttendanceMarking = () => {
             <TextField
               select
               label="Course"
-              value={courseId}
+              value={selectCourseId}
               onChange={(e) => {
                 setCourseId(Number(e.target.value));
                 setGroupId(0);
+                setSemesterId(0);
                 setSubjectId(0);
+                setSelectedSectionIds([]);
+                setResolvedSectionCodes([]);
               }}
               fullWidth
               disabled={loadingMeta}
@@ -611,10 +1073,13 @@ const AttendanceMarking = () => {
             <TextField
               select
               label="Group"
-              value={groupId}
+              value={selectGroupId}
               onChange={(e) => {
                 setGroupId(Number(e.target.value));
+                setSemesterId(0);
                 setSubjectId(0);
+                setSelectedSectionIds([]);
+                setResolvedSectionCodes([]);
               }}
               fullWidth
               disabled={loadingMeta || !courseId}
@@ -630,16 +1095,23 @@ const AttendanceMarking = () => {
             <TextField
               select
               label="Semester"
-              value={semesterId}
+              value={selectSemesterId}
               onChange={(e) => {
                 setSemesterId(Number(e.target.value));
                 setSubjectId(0);
+                setSelectedSectionIds([]);
+                setResolvedSectionCodes([]);
               }}
               fullWidth
-              disabled={loadingMeta}
+              disabled={loadingMeta || !courseId || !groupId}
+              helperText={
+                courseId && groupId && scopedSemesters.length === 0
+                  ? "No semesters configured for this Course + Group."
+                  : "Semesters are filtered to the selected Course + Group."
+              }
             >
               <MenuItem value={0}>Select semester</MenuItem>
-              {semesters.map((s) => (
+              {scopedSemesters.map((s) => (
                 <MenuItem key={s.id} value={s.id}>
                   {s.name}
                 </MenuItem>
@@ -648,13 +1120,69 @@ const AttendanceMarking = () => {
 
             <TextField
               select
+              label="Section (optional)"
+              value={selectSectionIds}
+              onChange={(e) => {
+                if (!sectionScopeEnabled) return;
+                const raw = e.target.value;
+                const next = typeof raw === "string" ? raw.split(",").map(Number) : (raw as number[]);
+                setSelectedSectionIds(normalizeSectionIds(next));
+                setResolvedSectionCodes([]);
+              }}
+              fullWidth
+              disabled={loadingMeta || !sectionScopeEnabled || !courseId || !groupId || !semesterId}
+              helperText={
+                !sectionScopeEnabled
+                  ? academicYearAuthority.message
+                  : describeAttendancePopulation(
+                      selectedSectionIds,
+                      selectedSectionIds.map(
+                        (id) => sections.find((s) => s.id === id)?.sectionCode ?? "",
+                      ),
+                    )
+              }
+              slotProps={{
+                // displayEmpty + empty multi value overlaps the floating label unless shrink is forced.
+                inputLabel: { shrink: true },
+                select: {
+                  multiple: true,
+                  displayEmpty: true,
+                  renderValue: (selected) => {
+                    const ids = selected as number[];
+                    if (!ids.length) return "All students (no section filter)";
+                    const labels = ids.map(
+                      (id) => sections.find((s) => s.id === id)?.sectionCode ?? `Section ${id}`,
+                    );
+                    return labels.join(" + ");
+                  },
+                },
+              }}
+            >
+              {/* Never use MenuItem value="" here — MUI multiple Select + string option crashes React (blank page). */}
+              {sections.map((s) => (
+                <MenuItem key={s.id} value={s.id}>
+                  <Checkbox checked={selectSectionIds.includes(s.id)} size="small" sx={{ mr: 1 }} />
+                  {s.sectionCode} — {s.sectionName}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              select
               label="Subject"
-              value={subjectId}
+              value={selectSubjectId}
               onChange={(e) => setSubjectId(Number(e.target.value))}
               fullWidth
-              disabled={loadingMeta || !courseId || !groupId || !semesterId}
+              disabled={loadingMeta || subjectsLoading || !courseId || !groupId || !semesterId}
+              helperText={
+                subjectsLoading
+                  ? "Loading subjects…"
+                  : subjects.length === 0 && courseId && groupId && semesterId
+                    ? "No subjects assigned for this Course + Group + Semester (or none in your teaching assignments)."
+                    : "Subject Master = Course + Group + Semester. Section does not redefine subjects."
+              }
             >
-              <MenuItem value={0}>Select subject</MenuItem>
+              <MenuItem value={0}>{subjectsLoading ? "Loading subjects…" : "Select subject"}</MenuItem>
               {subjects.map((s) => (
                 <MenuItem key={s.id} value={s.id}>
                   {s.name}
@@ -665,7 +1193,7 @@ const AttendanceMarking = () => {
             <TextField
               select
               label="Period"
-              value={periodNumber}
+              value={selectPeriodNumber}
               onChange={(e) => setPeriodNumber(Number(e.target.value))}
               fullWidth
             >
@@ -818,6 +1346,7 @@ const AttendanceMarking = () => {
                   Student No
                 </TableCell>
                 <TableCell>Name</TableCell>
+                {showStudentSectionColumn && <TableCell>Section</TableCell>}
                 <TableCell>Batch</TableCell>
                 <TableCell>Mobile</TableCell>
                 <TableCell>Email</TableCell>
@@ -853,6 +1382,9 @@ const AttendanceMarking = () => {
                     {s.studentNumber}
                   </TableCell>
                   <TableCell>{s.name}</TableCell>
+                  {showStudentSectionColumn && (
+                    <TableCell>{s.sectionCode ?? "-"}</TableCell>
+                  )}
                   <TableCell>{s.batch ?? "-"}</TableCell>
                   <TableCell>{s.mobile || "-"}</TableCell>
                   <TableCell>{s.email || "-"}</TableCell>
@@ -917,6 +1449,11 @@ const AttendanceMarking = () => {
                 <Typography variant="body2">
                   <strong>Name:</strong> {s.name}
                 </Typography>
+                {showStudentSectionColumn && (
+                  <Typography variant="body2">
+                    <strong>Section:</strong> {s.sectionCode ?? "-"}
+                  </Typography>
+                )}
                 <Typography variant="body2">
                   <strong>Batch:</strong> {s.batch ?? "-"}
                 </Typography>

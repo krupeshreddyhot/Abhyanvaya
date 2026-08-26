@@ -4,6 +4,9 @@ public sealed class ProgramDto
 {
     public int Id { get; init; }
     public int CollegeId { get; init; }
+    public int DepartmentId { get; init; }
+    public string? DepartmentCode { get; init; }
+    public string? DepartmentName { get; init; }
     public string ProgramCode { get; init; } = "";
     public string ProgramName { get; init; } = "";
     public string? Description { get; init; }
@@ -20,6 +23,7 @@ public sealed class ProgramDto
 
 public sealed class CreateProgramRequest
 {
+    public int DepartmentId { get; init; }
     public string ProgramCode { get; init; } = "";
     public string ProgramName { get; init; } = "";
     public string? Description { get; init; }
@@ -32,6 +36,7 @@ public sealed class CreateProgramRequest
 
 public sealed class UpdateProgramRequest
 {
+    public int DepartmentId { get; init; }
     public string ProgramCode { get; init; } = "";
     public string ProgramName { get; init; } = "";
     public string? Description { get; init; }
@@ -42,6 +47,16 @@ public sealed class UpdateProgramRequest
     public string? Icon { get; init; }
     public string? ThemeColor { get; init; }
     public int? AcademicCalendarId { get; init; }
+}
+
+/// <summary>Tenant/College-scoped department choices for Program create/edit (P1-2).</summary>
+public sealed class ProgramDepartmentOptionDto
+{
+    public int Id { get; init; }
+    public int CollegeId { get; init; }
+    public string Name { get; init; } = "";
+    public string? Code { get; init; }
+    public bool IsActive { get; init; }
 }
 
 public sealed class TenantAcademicConfigurationDto

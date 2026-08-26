@@ -14,7 +14,7 @@ import {
 } from "@mui/material";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { alpha, useTheme } from "@mui/material/styles";
-import type { TimeSlotDto, TimetableEntryDto } from "../../../../services/schedulingService";
+import type { SoftWarningDto, TimeSlotDto, TimetableEntryDto } from "../../../../services/schedulingService";
 import { DAY_LABELS } from "../schedulingFormUtils";
 import {
   cellKey,
@@ -22,7 +22,15 @@ import {
   type CellSelection,
   resolveWeekDays,
 } from "./timetableSelection";
-import { formatEntryCompact, formatSlotLabel, periodTimeSlots, timetablePrintSx } from "./timetableUtils";
+import {
+  entryCapacityFeedbackFromSoftWarnings,
+  formatEntryCompact,
+  formatEntryTeachingGroupLine,
+  formatSlotLabel,
+  periodTimeSlots,
+  timetablePrintSx,
+  type TeachingGroupGridHint,
+} from "./timetableUtils";
 
 export type TimetableViewMode = "academic" | "faculty" | "room";
 
@@ -41,6 +49,10 @@ export type TimetableGridProps = {
   onEntryContextMenu?: (entry: TimetableEntryDto, event: React.MouseEvent) => void;
   onDropOnCell?: (coord: CellCoord, data: DataTransfer) => void;
   onEntryDragStart?: (entry: TimetableEntryDto, event: React.DragEvent) => void;
+  /** Display-only Teaching Group labels keyed by TeachingGroupId. */
+  teachingGroupHints?: Map<number, TeachingGroupGridHint>;
+  /** Server soft warnings — capacity captions must come from here (Prompt 4). */
+  softWarnings?: SoftWarningDto[];
   cellWarningCounts?: Map<string, number>;
   className?: string;
   maxHeight?: number | string;
@@ -61,6 +73,8 @@ const TimetableGrid = ({
   onEntryContextMenu,
   onDropOnCell,
   onEntryDragStart,
+  teachingGroupHints,
+  softWarnings,
   cellWarningCounts,
   className,
   maxHeight = "calc(100vh - 280px)",
@@ -213,7 +227,47 @@ const TimetableGrid = ({
                               "&:hover": readOnly ? undefined : { bgcolor: alpha(theme.palette.primary.main, 0.16) },
                             }}
                           >
-                            {formatEntryCompact(entry, viewMode)}
+                            <Typography component="div" variant="caption" sx={{ display: "block", fontWeight: 600 }}>
+                              {formatEntryCompact(entry, viewMode)}
+                            </Typography>
+                            <Typography
+                              component="div"
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ display: "block" }}
+                              aria-label={formatEntryTeachingGroupLine(
+                                entry,
+                                entry.teachingGroupId != null
+                                  ? teachingGroupHints?.get(entry.teachingGroupId)
+                                  : null,
+                              )}
+                            >
+                              {formatEntryTeachingGroupLine(
+                                entry,
+                                entry.teachingGroupId != null
+                                  ? teachingGroupHints?.get(entry.teachingGroupId)
+                                  : null,
+                              )}
+                            </Typography>
+                            {(() => {
+                              const feedback = entryCapacityFeedbackFromSoftWarnings(
+                                entry.id,
+                                softWarnings,
+                              );
+                              if (feedback.length === 0) return null;
+                              return feedback.map((w) => (
+                                <Typography
+                                  key={w.code}
+                                  component="div"
+                                  variant="caption"
+                                  color="warning.main"
+                                  sx={{ display: "block" }}
+                                  role="status"
+                                >
+                                  ⚠ {w.title ?? w.message}
+                                </Typography>
+                              ));
+                            })()}
                           </Box>
                         ))
                       )}

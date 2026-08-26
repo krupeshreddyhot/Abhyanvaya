@@ -52,7 +52,9 @@ namespace Abhyanvaya.API.Controllers
                 {
                     Id = x.Id,
                     Code = x.Code,
-                    Name = x.Name
+                    Name = x.Name,
+                    DepartmentId = x.DepartmentId,
+                    ProgramId = x.ProgramId,
                 })
                 .ToListAsync();
 
@@ -87,8 +89,11 @@ namespace Abhyanvaya.API.Controllers
         [HttpGet("semesters/full")]
         public async Task<IActionResult> GetSemestersFull()
         {
+            // P1-4 Prompt 3J-A — operational master list excludes historical archive + NULL-group legacy.
+            // Historical reporting uses /api/semester?includeHistorical=true (CanManageSemesters).
             var data = await _context.Semesters
                 .AsNoTracking()
+                .Where(x => x.GroupId != null && !x.IsHistoricalArchive)
                 .OrderBy(x => x.CourseId)
                 .ThenBy(x => x.Number)
                 .Select(x => new
@@ -99,7 +104,9 @@ namespace Abhyanvaya.API.Controllers
                     x.CourseId,
                     CourseName = x.Course != null ? x.Course.Name : "",
                     x.GroupId,
-                    GroupName = x.Group != null ? x.Group.Name : (string?)null
+                    GroupName = x.Group != null ? x.Group.Name : (string?)null,
+                    IsLegacyCourseWide = false,
+                    x.IsHistoricalArchive
                 })
                 .ToListAsync();
 

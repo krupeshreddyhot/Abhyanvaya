@@ -183,6 +183,7 @@ public sealed class Phase2BConflictEngineTests
         new RoomUnavailableRule(),
         new RoomMaintenanceConflictRule(),
         new RoomLabRequirementRule(),
+        new TeachingGroupCapacityExceededRule(),
         new StudentGroupOverlapRule(),
         new StudentSemesterOverlapRule(),
         new StudentDuplicateSubjectRule(),

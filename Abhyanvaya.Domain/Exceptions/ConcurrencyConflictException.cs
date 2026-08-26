@@ -35,4 +35,11 @@ public sealed class ConcurrencyConflictException : Exception
     /// <summary>Conflict on a <see cref="Entities.StudentEnrollmentBatch"/> or item row.</summary>
     public static ConcurrencyConflictException ForEnrollmentBatch() =>
         new("This enrollment batch was modified by another process. Please reload and try again.");
+
+    /// <summary>
+    /// Conflict on a scheduling entity (timetable, entry, teaching group, membership, projection).
+    /// AI-SCHED-CAP Prompt 10 — established conflict response for PostgreSQL / EF concurrency.
+    /// </summary>
+    public static ConcurrencyConflictException ForSchedulingModule() =>
+        new("This scheduling data was modified by another user. Please reload and try again.");
 }

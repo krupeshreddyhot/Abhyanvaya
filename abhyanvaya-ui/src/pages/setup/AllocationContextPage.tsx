@@ -1,33 +1,36 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import {
   Alert,
   Box,
   Button,
   CircularProgress,
-  MenuItem,
   Stack,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
-  TextField,
   Typography,
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { AcademicPermissionAccess } from "../../auth/academicPermissionAccess";
 import { PermissionKeys } from "../../auth/permissionKeys";
 import { useAuth } from "../../context/AuthContext";
-import { listAcademicYears, type AcademicYearDto } from "../../services/schedulingService";
+import { useAcademicUi } from "../../context/AcademicUiContext";
 import {
-  filterSemestersForScope,
-  listGroups,
-  listMasterCourses,
-  listSemesters,
-  type CourseRow,
-  type GroupRow,
-  type SemesterRow,
-} from "../../services/setupService";
+  AcademicContextBreadcrumb,
+  AcademicDataPanel,
+  AcademicOperationalPageShell,
+  AcademicScopeSelector,
+  AcademicScopeToolbar,
+  AcademicStatusChip,
+  academicTouchButtonSx,
+} from "../../components/academic";
+import PermissionAwareButton from "../../components/common/PermissionAwareButton";
+import PermissionDeniedAlert from "../../components/common/PermissionDeniedAlert";
+import { isAcademicScopeReady } from "../../utils/academicSelectorFieldState";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 import {
   approveAllocation,
   compareAllocation,
@@ -51,26 +54,15 @@ import {
   type SectionAllocationContext,
 } from "../../services/allocationPlatformService";
 
-const errMsg = (e: unknown): string => {
-  const d = (e as { response?: { data?: unknown } }).response?.data;
-  if (typeof d === "string") return d;
-  return "Request failed.";
-};
+const errMsg = (e: unknown): string => getApiErrorMessage(e, "Request failed.");
 
 const AllocationContextPage = () => {
-  const { hasPermission } = useAuth();
-  const canView = hasPermission(PermissionKeys.SectionView);
+  const { hasPermission, hasAnyPermission } = useAuth();
+  const canView = hasAnyPermission([...AcademicPermissionAccess.allocation.contextAny]);
   const canRun = hasPermission(PermissionKeys.AllocationRun);
   const canApprove = hasPermission(PermissionKeys.AllocationApprove);
-
-  const [years, setYears] = useState<AcademicYearDto[]>([]);
-  const [courses, setCourses] = useState<CourseRow[]>([]);
-  const [groups, setGroups] = useState<GroupRow[]>([]);
-  const [semesters, setSemesters] = useState<SemesterRow[]>([]);
-  const [yearId, setYearId] = useState(0);
-  const [courseId, setCourseId] = useState(0);
-  const [groupId, setGroupId] = useState(0);
-  const [semesterId, setSemesterId] = useState(0);
+  const canCompare = hasPermission(PermissionKeys.AllocationScenarioCompare);
+  const { selection } = useAcademicUi();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,35 +78,13 @@ const AllocationContextPage = () => {
   const [dashboard, setDashboard] = useState<AllocationDashboardDto | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const filteredGroups = useMemo(() => groups.filter((g) => !courseId || g.courseId === courseId), [groups, courseId]);
-  const filteredSemesters = useMemo(
-    () => filterSemestersForScope(semesters, courseId, groupId),
-    [semesters, courseId, groupId],
-  );
-
-  useEffect(() => {
-    if (semesterId > 0 && !filteredSemesters.some((s) => s.id === semesterId)) {
-      setSemesterId(0);
-    }
-  }, [filteredSemesters, semesterId]);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const [y, c, g, s] = await Promise.all([listAcademicYears(), listMasterCourses(), listGroups(), listSemesters()]);
-        setYears(y.data);
-        setCourses(c.data);
-        setGroups(g.data);
-        setSemesters(s.data);
-        if (y.data[0]) setYearId(y.data[0].id);
-      } catch (e) {
-        setError(errMsg(e));
-      }
-    })();
-  }, []);
-
-  const scopeReady = yearId > 0 && courseId > 0 && groupId > 0 && semesterId > 0;
-  const scope = { academicYearId: yearId, courseId, groupId, semesterId };
+  const scopeReady = isAcademicScopeReady(selection);
+  const scope = {
+    academicYearId: selection.academicYearId!,
+    courseId: selection.courseId!,
+    groupId: selection.groupId!,
+    semesterId: selection.semesterId!,
+  };
 
   const load = async (refresh = false) => {
     if (!scopeReady) return;
@@ -196,115 +166,107 @@ const AllocationContextPage = () => {
   if (!canView) {
     return (
       <Box sx={{ p: 2 }}>
-        <Alert severity="warning">Section.View permission required.</Alert>
+        <PermissionDeniedAlert permissionKey={AcademicPermissionAccess.allocation.operationsView} />
       </Box>
     );
   }
 
   return (
-    <Box sx={{ p: 2, maxWidth: 1200, mx: "auto" }}>
-      <Button component={RouterLink} to="/setup/sections" startIcon={<ArrowBackIcon />} sx={{ mb: 1 }}>
-        Sections
-      </Button>
-      <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.5 }}>
-        Allocation Context Explorer
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Read-only AI29.1B.7 platform. No student allocation is performed here.
-      </Typography>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 1.5 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
-
-      <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: "wrap", mb: 2 }}>
-        <TextField select size="small" label="Academic Year" value={yearId || ""} onChange={(e) => setYearId(Number(e.target.value))} sx={{ minWidth: 180 }}>
-          {years.map((y) => (
-            <MenuItem key={y.id} value={y.id}>
-              {y.name}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          select
-          size="small"
-          label="Course"
-          value={courseId || ""}
-          onChange={(e) => {
-            setCourseId(Number(e.target.value));
-            setGroupId(0);
-            setSemesterId(0);
-          }}
-          sx={{ minWidth: 160 }}
+    <AcademicOperationalPageShell
+      title="Allocation Context Explorer"
+      ariaLabel="Allocation context explorer"
+      breadcrumb={<AcademicContextBreadcrumb />}
+      subtitle="Read-only AI29.1B.7 platform. No student allocation is performed here."
+      headerActions={
+        <Button component={RouterLink} to="/setup/sections" startIcon={<ArrowBackIcon />} size="small" sx={academicTouchButtonSx}>
+          Sections
+        </Button>
+      }
+      error={error}
+      onClearError={() => setError(null)}
+      message={message}
+      onClearMessage={() => setMessage(null)}
+      toolbar={
+        <AcademicScopeToolbar
+          helpTitle="Allocation scope"
+          helpBody="Load context for the selected Academic Year → Course → Group → Semester. Engine actions use existing allocation platform APIs."
+          actions={
+            <>
+              <Button variant="contained" size="small" disabled={!scopeReady || loading} onClick={() => void load(false)} sx={academicTouchButtonSx}>
+                Load Context
+              </Button>
+              <Button variant="outlined" size="small" disabled={!scopeReady || loading} onClick={() => void load(true)} sx={academicTouchButtonSx}>
+                Refresh
+              </Button>
+              <Button variant="outlined" size="small" disabled={!scopeReady || loading} onClick={() => void snapshot()} sx={academicTouchButtonSx}>
+                Snapshot
+              </Button>
+              <PermissionAwareButton
+                allowed={canRun}
+                permissionKey={AcademicPermissionAccess.allocation.run}
+                variant="contained"
+                color="secondary"
+                size="small"
+                disabled={!scopeReady || loading}
+                disabledTooltip="Select a complete academic scope first."
+                onClick={() => void runEngine()}
+                sx={academicTouchButtonSx}
+              >
+                Run Engine
+              </PermissionAwareButton>
+              <PermissionAwareButton
+                allowed={canCompare}
+                permissionKey={AcademicPermissionAccess.allocationScenario.compare}
+                variant="outlined"
+                size="small"
+                disabled={!runResult || loading}
+                disabledTooltip="Run allocation first."
+                onClick={() => void compare()}
+                sx={academicTouchButtonSx}
+              >
+                Compare
+              </PermissionAwareButton>
+              <PermissionAwareButton
+                allowed={canApprove}
+                permissionKey={AcademicPermissionAccess.allocation.approve}
+                variant="outlined"
+                size="small"
+                disabled={!runResult || loading}
+                disabledTooltip="Run allocation first."
+                onClick={() => void approve()}
+                sx={academicTouchButtonSx}
+              >
+                Approve → Draft
+              </PermissionAwareButton>
+            </>
+          }
         >
-          {courses.map((c) => (
-            <MenuItem key={c.id} value={c.id}>
-              {c.name}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          select
-          size="small"
-          label="Group"
-          value={groupId || ""}
-          onChange={(e) => {
-            setGroupId(Number(e.target.value));
-            setSemesterId(0);
-          }}
-          sx={{ minWidth: 140 }}
-        >
-          {filteredGroups.map((g) => (
-            <MenuItem key={g.id} value={g.id}>
-              {g.name}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField select size="small" label="Semester" value={semesterId || ""} onChange={(e) => setSemesterId(Number(e.target.value))} sx={{ minWidth: 140 }}>
-          {filteredSemesters.map((s) => (
-            <MenuItem key={s.id} value={s.id}>
-              {s.name}
-            </MenuItem>
-          ))}
-        </TextField>
-        <Button variant="contained" disabled={!scopeReady || loading} onClick={() => void load(false)}>
-          Load Context
-        </Button>
-        <Button variant="outlined" disabled={!scopeReady || loading} onClick={() => void load(true)}>
-          Refresh
-        </Button>
-        <Button variant="outlined" disabled={!scopeReady || loading} onClick={() => void snapshot()}>
-          Create Snapshot
-        </Button>
-        <Button variant="contained" color="secondary" disabled={!scopeReady || loading || !canRun} onClick={() => void runEngine()}>
-          Run Allocation Engine
-        </Button>
-        <Button variant="outlined" disabled={!runResult || loading} onClick={() => void compare()}>
-          Compare
-        </Button>
-        <Button variant="outlined" disabled={!runResult || loading || !canApprove} onClick={() => void approve()}>
-          Approve → Draft
-        </Button>
-      </Stack>
-
-      {message && (
-        <Alert severity="success" sx={{ mb: 1.5 }} onClose={() => setMessage(null)}>
-          {message}
-        </Alert>
-      )}
-      {loading && <CircularProgress size={28} />}
+          <AcademicScopeSelector fields={["academicYear", "program", "course", "group", "semester"]} showCascadeHint />
+        </AcademicScopeToolbar>
+      }
+    >
+      {loading && !context ? (
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", py: 3, justifyContent: "center" }}>
+          <CircularProgress size={28} aria-label="Loading allocation context" />
+          <Typography variant="body2" color="text.secondary">
+            Loading allocation context…
+          </Typography>
+        </Stack>
+      ) : null}
 
       {context && (
-        <Stack spacing={2}>
-          <Alert severity="info">
-            Context {context.contextId} · schema {context.schemaVersion} · checksum {context.checksum?.slice(0, 12)}… · health{" "}
-            {context.overallHealth} · readiness {context.overallReadiness} · timetable {context.timetableStatus}
+        <Stack spacing={1.5}>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+            <AcademicStatusChip label={`Health: ${context.overallHealth}`} status={context.overallHealth} />
+            <AcademicStatusChip label={`Readiness: ${context.overallReadiness}`} status={context.overallReadiness} />
+            <AcademicStatusChip label={`Timetable: ${context.timetableStatus}`} status={context.timetableStatus} variant="outlined" />
+            {arch ? <AcademicStatusChip label={`Architecture: ${arch}`} status={arch} /> : null}
+          </Stack>
+          <Alert severity="info" variant="outlined" sx={{ py: 0.5 }}>
+            Context {context.contextId} · schema {context.schemaVersion} · checksum {context.checksum?.slice(0, 12)}…
           </Alert>
-          {arch && <Alert severity={arch === "Passed" ? "success" : "error"}>Architecture: {arch}</Alert>}
 
-          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
             Hierarchy
           </Typography>
           <Typography variant="body2">
@@ -312,27 +274,33 @@ const AllocationContextPage = () => {
             {context.hierarchy.groupName} / {context.hierarchy.semesterName}
           </Typography>
 
-          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            Sections & Capacity
-          </Typography>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Section</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Lifecycle</TableCell>
-                <TableCell>Health</TableCell>
-                <TableCell>Readiness</TableCell>
-                <TableCell>Capacity</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {context.sections.map((s) => {
-                const cap = context.capacities.find((c) => c.sectionId === s.sectionId);
-                return (
-                  <TableRow key={s.sectionId}>
-                    <TableCell>
-                      {s.sectionCode} — {s.sectionName}
+          <AcademicDataPanel
+            title="Sections & capacity"
+            accent="academic"
+            empty={context.sections.length === 0}
+            emptyTitle="No sections in context"
+            emptyDescription="Create sections for this scope, then reload context."
+            helpTitle="Capacity"
+            helpBody="Capacity and lifecycle come from the allocation platform context contract."
+          >
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Section</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Lifecycle</TableCell>
+                  <TableCell>Health</TableCell>
+                  <TableCell>Readiness</TableCell>
+                  <TableCell>Capacity</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {context.sections.map((s) => {
+                  const cap = context.capacities.find((c) => c.sectionId === s.sectionId);
+                  return (
+                    <TableRow key={s.sectionId} hover>
+                      <TableCell>
+                        {s.sectionCode} — {s.sectionName}
                     </TableCell>
                     <TableCell>{s.sectionType}</TableCell>
                     <TableCell>{s.lifecycle}</TableCell>
@@ -346,6 +314,7 @@ const AllocationContextPage = () => {
               })}
             </TableBody>
           </Table>
+          </AcademicDataPanel>
 
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
             Students ({context.students.length}) · Faculty ({context.facultyAssignments.length}) · Subjects (
@@ -462,7 +431,7 @@ const AllocationContextPage = () => {
           )}
         </Stack>
       )}
-    </Box>
+    </AcademicOperationalPageShell>
   );
 };
 

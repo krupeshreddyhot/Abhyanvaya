@@ -1,0 +1,41 @@
+{
+  "ok": true,
+  "academicYear": { "id": 1, "name": "Academic Year 2026-227" },
+  "programCommerce": { "id": 1, "name": "Commerce" },
+  "programOther": null,
+  "courseBCom": { "id": 1, "name": "B.Com" },
+  "groupCA": { "id": 2, "name": "Computer Applications" },
+  "groupFinance": { "id": 1, "name": "Finance" },
+  "semesterIII": { "id": 3, "name": "Semester III" },
+  "semesterIV": { "id": 9, "name": "Semester IV" },
+  "sections": {
+    "ca": [
+      { "code": "CA-A" },
+      { "code": "CA-B" },
+      { "code": "SCCA01" }
+    ],
+    "finance": [
+      { "code": "FIN-A" },
+      { "code": "SC001" },
+      { "code": "SC002" }
+    ],
+    "semIV": [
+      { "code": "CA-IV-A" }
+    ]
+  },
+  "emptyScope": {
+    "academicYearId": 1,
+    "courseId": 1,
+    "groupId": 2,
+    "semesterId": 1,
+    "semesterName": "Semester I",
+    "groupName": "Computer Applications"
+  },
+  "facultyNoTimetable": null,
+  "notes": [
+    "Programs API returned a single Program (id=1) — Test G NOT EXECUTED — DATA UNAVAILABLE",
+    "Semester IV created for B.Com/CA with Section CA-IV-A for Test F",
+    "Empty scope: CA + Semester I has zero Sections for Test H",
+    "Faculty no-timetable persona credentials not available — Test I NOT EXECUTED unless faculty login provided"
+  ]
+}

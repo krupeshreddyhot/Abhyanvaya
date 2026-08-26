@@ -1,0 +1,31 @@
+{
+  "date": "2026-08-11T08:34:22.861Z",
+  "facultyA": {
+    "label": "FACULTY-A",
+    "username": "teststaff1",
+    "loginOk": false,
+    "status": 401
+  },
+  "facultyB": {
+    "label": "FACULTY-B",
+    "username": "knraj",
+    "loginOk": true,
+    "role": null,
+    "userId": null,
+    "staffId": null,
+    "hasAttendanceSignal": false,
+    "permissionCount": 0,
+    "timetableHits": []
+  },
+  "admin": {
+    "loginOk": true,
+    "role": null
+  },
+  "sectionGroups": {
+    "sectionGroupCount": 0,
+    "combinedCandidates": []
+  },
+  "notes": [
+    "FACULTY-A login failed"
+  ]
+}

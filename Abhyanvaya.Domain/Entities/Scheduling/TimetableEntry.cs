@@ -13,6 +13,15 @@ public class TimetableEntry : BaseEntity
     public TimeSlot? TimeSlot { get; set; }
     public int SubjectAllocationId { get; set; }
     public SubjectAllocation? SubjectAllocation { get; set; }
+
+    /// <summary>
+    /// AI-SCHED-TG.4 — Explicit optional link to the operational TeachingGroup.
+    /// Authoritative resolve key when set; never inferred from SubjectAllocation/Section.
+    /// Nullable during incremental migration — null remains compatible with legacy TimetableSection.
+    /// </summary>
+    public int? TeachingGroupId { get; set; }
+    public TeachingGroup? TeachingGroup { get; set; }
+
     public int StaffId { get; set; }
     public Staff? Staff { get; set; }
     public int RoomId { get; set; }

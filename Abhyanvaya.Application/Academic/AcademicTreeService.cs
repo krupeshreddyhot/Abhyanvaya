@@ -63,8 +63,10 @@ public sealed class AcademicTreeService : IAcademicTreeService
             var groupChildren = courseGroups.Select(g =>
             {
                 var groupNodeId = NodeId("Group", g.Id);
+                // P1-4 Prompt 3L / 3I1 — operational Semesters are Group-specific only.
+                // NULL-group (legacy historical) rows are excluded from active academic-tree resolution.
                 var semNodes = semesters
-                    .Where(s => s.CourseId == course.Id && (s.GroupId == null || s.GroupId == g.Id))
+                    .Where(s => s.CourseId == course.Id && s.GroupId == g.Id && !s.IsHistoricalArchive)
                     .OrderBy(s => s.DisplayOrder).ThenBy(s => s.Name)
                     .Select(sem =>
                     {
@@ -107,7 +109,8 @@ public sealed class AcademicTreeService : IAcademicTreeService
                             level + 2,
                             true,
                             "Active",
-                            leaf);
+                            leaf,
+                            nodeId: semNodeId);
                     }).ToList();
 
                 return WithChildren(
@@ -305,10 +308,11 @@ public sealed class AcademicTreeService : IAcademicTreeService
         string status,
         IReadOnlyList<AcademicHierarchyNode> children,
         string? icon = null,
-        string? themeColor = null)
+        string? themeColor = null,
+        string? nodeId = null)
         => new()
         {
-            NodeId = NodeId(type, id),
+            NodeId = nodeId ?? NodeId(type, id),
             ParentNodeId = parent,
             EntityId = id,
             EntityType = type,

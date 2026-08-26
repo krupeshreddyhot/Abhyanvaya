@@ -15,6 +15,10 @@ public sealed class StudentGroupingStrategy : IStudentGroupingStrategy
             AllocationGroupingModes.StudentNumber or AllocationGroupingModes.StudentNumberRange
                 => students.OrderBy(s => s.StudentNumber ?? "", StringComparer.OrdinalIgnoreCase)
                     .ThenBy(s => s.StudentId),
+            AllocationGroupingModes.LastThreeDigits
+                => students.OrderBy(s => LastThreeKey(s.StudentNumber), StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(s => s.StudentNumber ?? "", StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(s => s.StudentId),
             AllocationGroupingModes.Merit
                 => students.OrderBy(s => s.StudentNumber ?? "", StringComparer.OrdinalIgnoreCase)
                     .ThenBy(s => s.StudentId), // merit field not in context projection — deterministic proxy
@@ -45,4 +49,12 @@ public sealed class StudentGroupingStrategy : IStudentGroupingStrategy
 
     private static int HashBucket(int studentId, int buckets)
         => Math.Abs(studentId) % Math.Max(1, buckets);
+
+    /// <summary>Last three characters of student number (padded if shorter) — alphanumeric-safe.</summary>
+    private static string LastThreeKey(string? studentNumber)
+    {
+        var n = (studentNumber ?? "").Trim();
+        if (n.Length == 0) return "";
+        return n.Length <= 3 ? n : n[^3..];
+    }
 }

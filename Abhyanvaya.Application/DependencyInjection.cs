@@ -6,6 +6,7 @@ using Abhyanvaya.Application.Common.Interfaces;
 using Abhyanvaya.Application.Dashboards;
 using Abhyanvaya.Application.Faculty;
 using Abhyanvaya.Application.Scheduling;
+using Abhyanvaya.Application.Scheduling.Capacity;
 using Abhyanvaya.Application.Scheduling.Configuration;
 using Abhyanvaya.Application.Scheduling.Conflicts;
 using Abhyanvaya.Application.Scheduling.Optimization;
@@ -60,6 +61,7 @@ public static class DependencyInjection
         services.AddScoped<IAllocationConstraintEngine, AllocationConstraintEngine>();
         services.AddScoped<IAllocationRecommendationProvider, ContextAllocationRecommendationProvider>();
         services.AddScoped<IAllocationPipelineStrategy, ValidationAllocationStrategy>();
+        services.AddScoped<IAllocationPipelineStrategy, RollNumberBandsAllocationStrategy>();
         services.AddScoped<IAllocationPipelineStrategy, CapacityAllocationStrategy>();
         services.AddScoped<IAllocationPipelineStrategy, PolicyAllocationStrategy>();
         services.AddScoped<IAllocationPipelineStrategy, GenderAllocationStrategy>();
@@ -123,6 +125,28 @@ public static class DependencyInjection
         services.AddScoped<IAcademicCatalogService, AcademicCatalogService>();
         services.AddScoped<IAcademicHierarchyService, AcademicHierarchyService>();
         services.AddScoped<IAcademicStructureService, AcademicStructureService>();
+        services.AddScoped<ILegacySemesterMigrationAuditService, LegacySemesterMigrationAuditService>();
+        services.AddScoped<ILegacySemesterMigrationDecisionPlanService, LegacySemesterMigrationDecisionPlanService>();
+        services.AddScoped<ISemesterIiiSplitStudentRemapMigrationService, SemesterIiiSplitStudentRemapMigrationService>();
+        services.AddScoped<ISemesterPostMigrationIntegrityAuditService, SemesterPostMigrationIntegrityAuditService>();
+        services.AddScoped<ILegacySemesterDownstreamRemediationService, LegacySemesterDownstreamRemediationService>();
+        services.AddScoped<ILegacySemesterFinalizationAuditService, LegacySemesterFinalizationAuditService>();
+        services.AddScoped<ILegacySemesterFinalizationExecutionService, LegacySemesterFinalizationExecutionService>();
+        services.AddScoped<ILegacySemesterWildcardRetirementService, LegacySemesterWildcardRetirementService>();
+        services.AddScoped<ISemesterSchemaHardeningReadinessService, SemesterSchemaHardeningReadinessService>();
+        services.AddScoped<ILegacySemesterFinalDispositionReadinessService, LegacySemesterFinalDispositionReadinessService>();
+        services.AddScoped<ILegacySemesterHistoricalDispositionService, LegacySemesterHistoricalDispositionService>();
+        services.AddScoped<IHistoricalSemesterDispositionAuditService, HistoricalSemesterDispositionAuditService>();
+        services.AddScoped<IHistoricalSemesterDispositionExecutionService, HistoricalSemesterDispositionExecutionService>();
+        services.AddScoped<IPreProductionTransactionalResetService, PreProductionTransactionalResetService>();
+        services.AddScoped<ITeachingGroupSemesterRemediationService, TeachingGroupSemesterRemediationService>();
+        services.AddScoped<ITeachingGroupRemediationReadinessService, TeachingGroupRemediationReadinessService>();
+        services.AddScoped<ISectionSemesterRemediationService, SectionSemesterRemediationService>();
+        services.AddScoped<IFinanceSectionSemesterRemediationService, FinanceSectionSemesterRemediationService>();
+        services.AddScoped<ISectionSemesterRemediationAuditService, SectionSemesterRemediationAuditService>();
+        services.AddScoped<ISubjectCatalogSemesterRemediationService, SubjectCatalogSemesterRemediationService>();
+        services.AddScoped<IPrompt3HPostSectionIntegrityAuditService, Prompt3HPostSectionIntegrityAuditService>();
+        services.AddScoped<ICourseMasterWriteService, CourseMasterWriteService>();
         services.AddScoped<IAttendanceSessionQueryService, AttendanceSessionQueryService>();
         services.AddScoped<IAttendanceRecognitionReviewService, AttendanceRecognitionReviewService>();
         services.AddScoped<IAttendanceSessionSummaryService, AttendanceSessionSummaryService>();
@@ -155,6 +179,23 @@ public static class DependencyInjection
         services.AddScoped<ISchedulingConfigurationReadinessService, SchedulingConfigurationReadinessService>();
         services.AddScoped<ISchedulingSetupValidator, SchedulingSetupValidator>();
         services.AddScoped<ITimetableService, TimetableService>();
+        services.AddScoped<ITeachingGroupApplicationService, TeachingGroupApplicationService>();
+        services.AddScoped<ICompatibleTeachingGroupQueryService, CompatibleTeachingGroupQueryService>();
+        services.AddScoped<ITeachingGroupManagementApplicationService, TeachingGroupManagementApplicationService>();
+        services.AddScoped<ITeachingGroupMembershipResolver, TeachingGroupMembershipResolver>();
+        services.AddScoped<ITeachingGroupMembershipApplicationService, TeachingGroupMembershipApplicationService>();
+        services.AddScoped<ITeachingGroupSectionApplicationService, TeachingGroupSectionApplicationService>();
+        services.AddScoped<ITimetableSectionProjector, TimetableSectionProjector>();
+        // AI-SCHED-TG.4A Prompt 7 — explicit disposable conversion only (not a hosted/startup job).
+        services.AddScoped<ILegacyTimetableTeachingGroupConversionService, LegacyTimetableTeachingGroupConversionService>();
+        // AI-SCHED-CAP Prompt 3 — shared PlacementSize (room-fit); TG capacity remains separate.
+        services.AddSingleton<IPlacementSizeResolver, PlacementSizeResolver>();
+        // AI-SCHED-CAP Prompt 3A — shared room-capacity (margin-aware) for ConflictEngine + SoftValidation.
+        services.AddSingleton<IRoomCapacityEvaluator, RoomCapacityEvaluator>();
+        // AI-SCHED-CAP Prompt 4 — presentation/classification for actionable soft feedback.
+        services.AddSingleton<ISchedulingConflictPresentationComposer, SchedulingConflictPresentationComposer>();
+        // AI-SCHED-CAP Prompt 6/7 — publish readiness (read-only evaluate + PublishAsync gate consumer).
+        services.AddScoped<ITimetablePublishReadinessService, TimetablePublishReadinessService>();
         services.AddScoped<ITimetableExportService, TimetableExportService>();
         services.AddScoped<IScheduleVersionService, ScheduleVersionService>();
         services.AddScoped<ITimetableApprovalService, TimetableApprovalService>();

@@ -11,5 +11,7 @@ namespace Abhyanvaya.Application.DTOs.Course
         public int Id { get; set; }
         public string Code { get; set; } = null!;
         public string Name { get; set; } = null!;
+        public int DepartmentId { get; set; }
+        public int? ProgramId { get; set; }
     }
 }

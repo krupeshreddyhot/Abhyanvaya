@@ -21,7 +21,12 @@ public interface IAcademicStructureService
     Task ArchiveProgramAsync(int id, CancellationToken cancellationToken = default);
     Task DeleteProgramAsync(int id, CancellationToken cancellationToken = default);
 
-    Task AssignCourseToProgramAsync(AssignCourseProgramRequest request, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ProgramDepartmentOptionDto>> GetProgramDepartmentOptionsAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<CourseProgramAssignmentOutcome> AssignCourseToProgramAsync(
+        AssignCourseProgramRequest request,
+        CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<Course>> GetCoursesAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Group>> GetGroupsAsync(CancellationToken cancellationToken = default);

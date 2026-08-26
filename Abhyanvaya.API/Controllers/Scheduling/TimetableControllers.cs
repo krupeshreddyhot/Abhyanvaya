@@ -6,6 +6,7 @@ using Abhyanvaya.Domain.Exceptions;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PublishNotReadyException = Abhyanvaya.Application.Exceptions.PublishNotReadyException;
 
 namespace Abhyanvaya.API.Controllers.Scheduling;
 
@@ -19,19 +20,28 @@ public sealed class TimetablesController : ControllerBase
     private readonly ITimetableLifecycleService _lifecycleService;
     private readonly ITimetableSoftValidationService _softValidationService;
     private readonly ITimetableChangeHistoryService _historyService;
+    private readonly ITeachingGroupApplicationService _teachingGroupService;
+    private readonly ICompatibleTeachingGroupQueryService _compatibleTeachingGroupQuery;
+    private readonly ITimetablePublishReadinessService _publishReadinessService;
 
     public TimetablesController(
         ITimetableService service,
         ITimetableExportService exportService,
         ITimetableLifecycleService lifecycleService,
         ITimetableSoftValidationService softValidationService,
-        ITimetableChangeHistoryService historyService)
+        ITimetableChangeHistoryService historyService,
+        ITeachingGroupApplicationService teachingGroupService,
+        ICompatibleTeachingGroupQueryService compatibleTeachingGroupQuery,
+        ITimetablePublishReadinessService publishReadinessService)
     {
         _service = service;
         _exportService = exportService;
         _lifecycleService = lifecycleService;
         _softValidationService = softValidationService;
         _historyService = historyService;
+        _teachingGroupService = teachingGroupService;
+        _compatibleTeachingGroupQuery = compatibleTeachingGroupQuery;
+        _publishReadinessService = publishReadinessService;
     }
 
     [HttpGet]
@@ -163,6 +173,44 @@ public sealed class TimetablesController : ControllerBase
         catch (KeyNotFoundException) { return NotFound(); }
     }
 
+    /// <summary>AI-SCHED-TG.4 — Explicit TeachingGroup assignment (no SubjectAllocation inference).</summary>
+    [HttpPut("entries/{entryId:int}/teaching-group")]
+    [Authorize(Policy = AuthorizationPolicies.CanManageSchedulingTimetable)]
+    public async Task<ActionResult<TimetableEntryDto>> AssignTeachingGroup(
+        int entryId,
+        [FromBody] AssignTeachingGroupToTimetableEntryRequest request,
+        CancellationToken ct)
+    {
+        try { return Ok(await _teachingGroupService.AssignToTimetableEntryAsync(entryId, request.TeachingGroupId, ct)); }
+        catch (DomainException ex) { return BadRequest(ex.Message); }
+        catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    /// <summary>AI-SCHED-TG.4 — Explicit clear of TeachingGroupId (must not happen via unrelated entry updates).</summary>
+    [HttpDelete("entries/{entryId:int}/teaching-group")]
+    [Authorize(Policy = AuthorizationPolicies.CanManageSchedulingTimetable)]
+    public async Task<ActionResult<TimetableEntryDto>> ClearTeachingGroup(int entryId, CancellationToken ct)
+    {
+        try { return Ok(await _teachingGroupService.ClearFromTimetableEntryAsync(entryId, ct)); }
+        catch (DomainException ex) { return BadRequest(ex.Message); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    /// <summary>
+    /// AI-SCHED-TG.6 Prompt 4 / Prompt 2A — Server-authoritative compatible Teaching Groups for an entry.
+    /// Read-only; returns 200 [] when none; never creates/assigns/clears Teaching Groups.
+    /// </summary>
+    [HttpGet("entries/{entryId:int}/compatible-teaching-groups")]
+    [Authorize(Policy = AuthorizationPolicies.CanViewSchedulingTimetable)]
+    public async Task<ActionResult<IReadOnlyList<CompatibleTeachingGroupOptionDto>>> GetCompatibleTeachingGroups(
+        int entryId,
+        CancellationToken ct)
+    {
+        try { return Ok(await _compatibleTeachingGroupQuery.GetCompatibleTeachingGroupsForTimetableEntryAsync(entryId, ct)); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
     [HttpDelete("entries/{entryId:int}")]
     [Authorize(Policy = AuthorizationPolicies.CanManageSchedulingTimetable)]
     public async Task<IActionResult> DeleteEntry(int entryId, CancellationToken ct)
@@ -216,6 +264,7 @@ public sealed class TimetablesController : ControllerBase
     public async Task<ActionResult<TimetableDto>> Publish(int id, [FromBody] PublishTimetableRequest? r, CancellationToken ct)
     {
         try { return Ok(await _lifecycleService.PublishAsync(id, r, ct)); }
+        catch (PublishNotReadyException ex) { return BadRequest(ex.Readiness); }
         catch (DomainException ex) { return BadRequest(ex.Message); }
         catch (KeyNotFoundException) { return NotFound(); }
     }
@@ -258,6 +307,15 @@ public sealed class TimetablesController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<SoftWarningDto>>> SoftWarnings(int id, CancellationToken ct)
     {
         try { return Ok(await _softValidationService.ValidateAsync(id, ct)); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    /// <summary>AI-SCHED-CAP Prompt 6 — read-only publish readiness preflight (Prompt 7 enforces independently on publish).</summary>
+    [HttpGet("{id:int}/publish-readiness")]
+    [Authorize(Policy = AuthorizationPolicies.CanViewSchedulingTimetable)]
+    public async Task<ActionResult<TimetablePublishReadinessResultDto>> PublishReadiness(int id, CancellationToken ct)
+    {
+        try { return Ok(await _publishReadinessService.EvaluatePublishReadinessAsync(id, ct)); }
         catch (KeyNotFoundException) { return NotFound(); }
     }
 

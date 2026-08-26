@@ -1,0 +1,142 @@
+﻿{
+  "generatedUtc": "2026-08-09T12:32:00Z",
+  "verdict": "PASS",
+  "builds": {
+    "ui": { "command": "npm run build", "exitCode": 0, "result": "PASS" },
+    "api": { "command": "dotnet build Abhyanvaya.API/Abhyanvaya.API.csproj", "exitCode": 0, "result": "PASS", "errors": 0 }
+  },
+  "suites": {
+    "AI29": {
+      "filter": "FullyQualifiedName~AI29_SectionManagement",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "total": 8,
+      "exitCode": 0,
+      "durationSec": 24.4
+    },
+    "AI29.1A": {
+      "filter": "FullyQualifiedName~AI29_1A",
+      "passed": 53,
+      "failed": 0,
+      "skipped": 0,
+      "total": 53,
+      "exitCode": 0,
+      "durationSec": 11.3
+    },
+    "AI29.1B": {
+      "filter": "FullyQualifiedName~AI29_1B",
+      "passed": 41,
+      "failed": 0,
+      "skipped": 0,
+      "total": 41,
+      "exitCode": 0,
+      "durationSec": 8.7
+    },
+    "AI29.1C": {
+      "filter": "FullyQualifiedName~AI29_1C",
+      "passed": 36,
+      "failed": 0,
+      "skipped": 0,
+      "total": 36,
+      "exitCode": 0,
+      "durationSec": 9.2
+    },
+    "AI29.1D": {
+      "filter": "FullyQualifiedName~AI29_1D",
+      "passed": 213,
+      "failed": 0,
+      "skipped": 0,
+      "total": 213,
+      "exitCode": 0,
+      "durationSec": 9.0
+    },
+    "AI22_Attendance_Classroom": {
+      "filter": "FullyQualifiedName~ClassroomAttendance",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "total": 7,
+      "exitCode": 0,
+      "durationSec": 5.9
+    },
+    "AI22_Attendance_Recovery": {
+      "filter": "FullyQualifiedName~AI228",
+      "passed": 33,
+      "failed": 0,
+      "skipped": 0,
+      "total": 33,
+      "exitCode": 0,
+      "durationSec": 5.6
+    },
+    "AI22_Attendance_SessionResolver": {
+      "filter": "FullyQualifiedName~AttendanceSessionResolver",
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "total": 22,
+      "exitCode": 0,
+      "durationSec": 5.0
+    },
+    "AI22_Attendance_Combined": {
+      "filter": "sum(ClassroomAttendance + AI228 + AttendanceSessionResolver)",
+      "passed": 62,
+      "failed": 0,
+      "skipped": 0,
+      "total": 62,
+      "exitCode": 0
+    },
+    "AI30_Scheduling": {
+      "filter": "FullyQualifiedName~Scheduling",
+      "passed": 165,
+      "failed": 0,
+      "skipped": 0,
+      "total": 165,
+      "exitCode": 0,
+      "durationSec": 32.9
+    },
+    "AI31_Faculty": {
+      "filter": "FullyQualifiedName~AI31Faculty|FullyQualifiedName~AI315",
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "total": 22,
+      "exitCode": 0,
+      "durationSec": 4.8
+    },
+    "AI31_Dashboard": {
+      "filter": "FullyQualifiedName~AI31_6|FullyQualifiedName~AI31_7|FullyQualifiedName~AI31_8",
+      "passed": 47,
+      "failed": 0,
+      "skipped": 0,
+      "total": 47,
+      "exitCode": 0,
+      "durationSec": 4.9
+    }
+  },
+  "uiAttendanceVitest": {
+    "passed": 54,
+    "failed": 0,
+    "total": 54,
+    "files": [
+      "attendanceMarkingScope.test.ts",
+      "ai29_1d_prompt20_regression.test.ts",
+      "combinedSectionClass.test.ts",
+      "operationalTimetableContext.test.ts",
+      "attendanceSectionBehavior.test.ts"
+    ]
+  },
+  "totals": {
+    "csharpRegressionPassed": 647,
+    "csharpRegressionFailed": 0,
+    "uiVitestPassed": 54,
+    "uiVitestFailed": 0
+  },
+  "manualBrowser": {
+    "interactiveLiveSession": "NOT_EXECUTED",
+    "noTimetableWorkflowBroken": false,
+    "automatedParity": "PASS",
+    "operatorChecklistProvided": true
+  },
+  "architectureComplianceStatus": "FULLY_VERIFIED"
+}

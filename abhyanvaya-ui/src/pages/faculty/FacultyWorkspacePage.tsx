@@ -18,6 +18,14 @@ import {
   useTheme,
 } from "@mui/material";
 import * as signalR from "@microsoft/signalr";
+import {
+  AcademicContextBreadcrumb,
+  AcademicHelpHint,
+  academicChipSx,
+  academicPageShellSx,
+  academicPanelSx,
+  academicTouchButtonSx,
+} from "../../components/academic";
 import { useAuth } from "../../context/AuthContext";
 import {
   decideAutoResume,
@@ -246,15 +254,27 @@ const FacultyWorkspacePage = () => {
   );
 
   const classCard = (c: FacultyClassDto) => (
-    <Box key={`${c.timetableEntryId}-${c.startTime}-${c.status}`} sx={{p: 2, borderRadius: 2, bgcolor: c.status === "Current" ? "success.50" : "background.paper", border: "1px solid", borderColor: c.status === "Current" ? "success.light" : "divider"}}>
+    <Box
+      key={`${c.timetableEntryId}-${c.startTime}-${c.status}`}
+      sx={{
+        ...academicPanelSx(c.status === "Current" ? "attendance" : "context"),
+        bgcolor: c.status === "Current" ? "success.50" : "background.paper",
+        mb: 1,
+      }}
+    >
       <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", alignItems: "center" }}>
-        <Chip size="small" color={statusColor(c.status) as "success" | "default" | "info"} label={c.status} />
+        <Chip
+          size="small"
+          color={statusColor(c.status) as "success" | "default" | "info"}
+          label={c.status}
+          sx={academicChipSx}
+        />
         <Typography sx={{ fontWeight: 700 }}>{c.subjectName ?? `Subject #${c.subjectId}`}</Typography>
         <Typography color="text.secondary">
           {formatTime(c.startTime)}–{formatTime(c.endTime)}
         </Typography>
       </Stack>
-      <Typography variant="body2" sx={{mt: 0.5}}>
+      <Typography variant="body2" sx={{ mt: 0.5 }}>
         Room {c.roomName ?? "—"}
         {c.buildingName ? ` · ${c.buildingName}` : ""} · Students {c.studentCount ?? "—"} · Attendance{" "}
         {c.attendanceStatus}
@@ -288,24 +308,71 @@ const FacultyWorkspacePage = () => {
   );
 
   return (
-    <Stack spacing={2} component="main" aria-label="Faculty workspace" sx={{pb: isPhone ? 10 : 2, pt: "env(safe-area-inset-top)", px: { xs: 0.5, sm: 0 }, ...(highContrast ? { bgcolor: "#000", color: "#fff", "& .MuiTypography-root": { color: "#fff" }, "& .MuiAlert-root": { border: "1px solid #fff" }, } : {}), ...(prefs?.dashboardLayout === "compact" ? { gap: 1 } : {}), ...(isTablet ? { maxWidth: 980, mx: "auto" } : {})}}>
+    <Stack
+      spacing={1.25}
+      component="main"
+      aria-label="Faculty workspace"
+      sx={{
+        ...academicPageShellSx,
+        pb: isPhone ? 10 : 2,
+        pt: "env(safe-area-inset-top)",
+        ...(highContrast
+          ? {
+              bgcolor: "#000",
+              color: "#fff",
+              "& .MuiTypography-root": { color: "#fff" },
+              "& .MuiAlert-root": { border: "1px solid #fff" },
+            }
+          : {}),
+        ...(prefs?.dashboardLayout === "compact" ? { gap: 1 } : {}),
+        ...(isTablet ? { maxWidth: 980 } : {}),
+      }}
+    >
       <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", alignItems: "center" }}>
-        <Typography variant={isPhone ? "h5" : "h4"} sx={{flexGrow: 1}}>
+        <Typography variant={isPhone ? "h5" : "h4"} sx={{ flexGrow: 1, fontWeight: 800 }}>
           Faculty Workspace
         </Typography>
-        <Chip size="small" label={online ? "Online" : "Offline"} color={online ? "success" : "warning"} />
+        <AcademicHelpHint
+          title="Faculty operations"
+          body="Mobile and tablet prioritize today’s classes, attendance actions, and recovery. Desktop adds insights and preferences."
+        />
+        <Chip
+          size="small"
+          label={online ? "Online" : "Offline"}
+          color={online ? "success" : "warning"}
+          sx={academicChipSx}
+        />
         {lastUpdated && (
           <Typography variant="caption" color="text.secondary">
             Updated {lastUpdated}
           </Typography>
         )}
-        <Button variant="outlined" sx={touchSx} component={RouterLink} to="/faculty/recovery">
+        <Button variant="outlined" size="small" sx={{ ...touchSx, ...academicTouchButtonSx }} component={RouterLink} to="/faculty/recovery">
           Recovery center
         </Button>
-        <Button variant="outlined" sx={touchSx} onClick={() => void load()} disabled={!online}>
+        <Button variant="outlined" size="small" sx={{ ...touchSx, ...academicTouchButtonSx }} onClick={() => void load()} disabled={!online}>
           Refresh
         </Button>
       </Stack>
+      <AcademicContextBreadcrumb
+        context={
+          current?.currentClass
+            ? {
+                courseId: current.currentClass.courseId,
+                groupId: current.currentClass.groupId,
+                semesterId: current.currentClass.semesterId,
+                subjectId: current.currentClass.subjectId,
+              }
+            : today?.currentClass
+              ? {
+                  courseId: today.currentClass.courseId,
+                  groupId: today.currentClass.groupId,
+                  semesterId: today.currentClass.semesterId,
+                  subjectId: today.currentClass.subjectId,
+                }
+              : null
+        }
+      />
 
       {offlineBanner}
       {recoverySummary && (
@@ -440,8 +507,8 @@ const FacultyWorkspacePage = () => {
         <Stack spacing={2}>
           <Alert severity={today.hasTimetable ? "success" : "info"}>
             {today.hasTimetable
-              ? `Timetable mode — ${today.message}`
-              : `Legacy mode — Course → Group → Semester → Subject → Period. ${today.message}`}
+              ? `Timetable-derived context — ${today.message}`
+              : `Manually selected context — Course → Group → Semester → Subject → Period. Timetable is not required. ${today.message}`}
           </Alert>
 
           <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
